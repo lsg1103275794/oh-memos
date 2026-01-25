@@ -9,12 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **📄 CLAUDE.md Project Context** (NEW)
+  - Created `CLAUDE.md` for project-specific Claude Code context
+  - Includes: Memory system behaviors, memory types, configuration, key files
+  - Claude reads this at conversation start for better context awareness
+  - Added documentation links in README
+
+- **🪝 Claude Code Hooks System** (NEW)
+  - Created `.claude/hooks/` directory with 4 hook scripts:
+    - `memos_user_prompt.sh` - Confirms memory system active on user input
+    - `memos_block_sensitive.sh` - Warns when editing .env/credentials
+    - `memos_log_commands.sh` - Logs bash commands to history file
+    - `memos_notify_milestone.sh` - Suggests saving milestones for important files
+  - Added `.claude/settings.json` with hooks configuration
+  - Added `.claude/hooks/README.md` with usage documentation
+
+- **🎬 Cross-Project Memory Demo** (README.md)
+  - Added "Scenario 3: Cross-Project Memory Retrieval" with real demo
+  - Shows AI searching MemOS memories from different project (DDSP-SVC)
+  - Screenshots archived at `docs/ScreenShot/`
+
+- **📊 Optimization Plan v2.0** (`.memos/优化方案.md`)
+  - Updated with verification results
+  - Architecture evolution diagram (v0.1 → v0.4)
+  - Success metrics and next steps
+
 - **🔒 Privacy-First Architecture Section** (README.md)
   - Added visual architecture diagram showing data flow
   - Highlights that original text stays local (Ollama embedding)
   - Only numerical vectors uploaded to Qdrant Cloud
   - Comparison table: "What Stays Local" vs "What Goes to Cloud"
   - Added corresponding Chinese version in 中文文档 section
+
+- **🧠 Neo4j Knowledge Graph Memory Mode** (v0.4.0 preview)
+  - Upgraded from `general_text` to `tree_text` memory backend
+  - Added Neo4j Community Edition support for graph storage
+  - Memory nodes now include: key, memory, background, tags, confidence
+  - Dual storage: WorkingMemory + LongTermMemory
+  - LLM-powered memory extraction (auto tags, key extraction)
+  - Visual graph exploration via Neo4j Browser
+  - Configuration: `dev_cube/config.json` with `tree_text` backend
+
+### Fixed
+
+- **🔧 Neo4jCommunityGraphDB Compatibility**
+  - Added missing `status` and `user_name_flag` parameters to `get_by_metadata()`
+  - Fixed search API 500 error when using tree_text mode with Neo4j Community Edition
+
+### Changed
+
+- **📝 README.md Major Update**
+  - Added "Two Memory Modes" comparison table
+  - Updated architecture diagram showing Neo4j + Qdrant dual storage
+  - Added "Knowledge Graph Memory Mode" section with setup guide
+  - Added "Enhance with CLAUDE.md" section
+  - Updated Requirements table with Neo4j
+  - Added Neo4j badge and related link
+  - Updated Chinese documentation section
+
+- **📝 Enhanced .env Documentation**
+  - Added detailed comments explaining LLM usage in tree_text mode
+  - LLM is used for: memory extraction (key, tags, background), confidence scoring, memory categorization
+  - Updated `docker/.env.example` with tree_text mode documentation
 
 ## [0.3.2] - 2026-01-26
 

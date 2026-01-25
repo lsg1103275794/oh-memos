@@ -636,6 +636,7 @@ curl -X POST http://localhost:18000/mem_cubes \
 
 - [MemOS Deployment Guide](DEPLOY_EN.md) - 完整部署指南
 - [Project Memory Skill](../project-memory/README.md) - Skill 使用说明
+- [CLAUDE.md](../CLAUDE.md) - 项目上下文配置
 - [Changelog](CHANGELOG.md) - 更新日志
 
 ---
@@ -643,9 +644,225 @@ curl -X POST http://localhost:18000/mem_cubes \
 ## 🔮 Future Enhancements | 未来增强
 
 - [ ] 自动检测项目切换，切换 cube
-- [ ] Hooks 集成，在特定事件时自动触发
+- [x] ~~Hooks 集成，在特定事件时自动触发~~ ✅ 已完成
+- [x] ~~CLAUDE.md 项目上下文~~ ✅ 已完成
 - [ ] 记忆相关性评分优化
 - [ ] 多 cube 跨项目搜索
+- [ ] 记忆过期/归档机制
+- [ ] 多用户协作支持
+
+---
+
+## 📄 CLAUDE.md Integration | CLAUDE.md 集成
+
+> **v0.4.0** - 项目级上下文增强
+
+在项目根目录创建 `CLAUDE.md`，Claude Code 会在对话开始时自动读取。
+
+Create `CLAUDE.md` in project root. Claude Code reads it at conversation start.
+
+### 示例 | Example
+
+```markdown
+# My Project Guide
+
+## Memory System
+- Cube ID: `my_project_cube`
+- Memory Mode: `tree_text`
+
+## Auto Behaviors
+- Search ERROR_PATTERN on errors
+- Save MILESTONE after completing features
+
+## Key Files
+- `src/config.py` - Main configuration
+```
+
+### 好处 | Benefits
+
+| 好处 | Benefit |
+|------|---------|
+| 项目特定上下文 | Project-specific context |
+| 一致的记忆行为 | Consistent memory behaviors |
+| 跨会话持久 | Persists across sessions |
+
+👉 查看示例: [CLAUDE.md](../CLAUDE.md)
+
+---
+
+## 🪝 Hooks Integration | Hooks 集成
+
+> **v0.4.0** - 事件驱动的记忆触发
+
+Claude Code Hooks 可以在特定事件时自动执行脚本。
+
+Claude Code Hooks can automatically execute scripts on specific events.
+
+### 可用 Hooks | Available Hooks
+
+| Script | Event | Purpose |
+|--------|-------|---------|
+| `memos_user_prompt.sh` | UserPromptSubmit | 确认记忆系统活跃 |
+| `memos_block_sensitive.sh` | PreToolUse | 敏感文件编辑警告 |
+| `memos_log_commands.sh` | PostToolUse | 记录 bash 命令 |
+| `memos_notify_milestone.sh` | PostToolUse | 里程碑保存提醒 |
+
+### 配置 | Configuration
+
+在 `.claude/settings.json` 中配置:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/memos_user_prompt.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/memos_block_sensitive.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Hook 工作原理 | How Hooks Work
+
+```
+用户操作 / User Action
+         ↓
+Claude Code 检测事件 / Detect Event
+         ↓
+匹配 Hook 配置 / Match Hook Config
+         ↓
+执行脚本 (stdin: JSON) / Execute Script
+         ↓
+返回结果 / Return Result
+    ├── continue: true → 继续
+    └── continue: false → 阻止
+```
+
+👉 详细文档: [.claude/hooks/README.md](../.claude/hooks/README.md)
+
+---
+
+## 🧠 Advanced: Neo4j Knowledge Graph Mode | 高级: Neo4j 知识图谱模式
+
+> **v0.4.0 Preview** - 从扁平记忆升级为知识图谱记忆
+
+### 对比 | Comparison
+
+| 特性 | general_text | tree_text |
+|------|--------------|-----------|
+| 存储 | Qdrant 向量 | Neo4j 图 + Qdrant 向量 |
+| 结构 | 原始文本 | LLM 提炼 (key, tags, background) |
+| 记忆层级 | 单层 | WorkingMemory + LongTermMemory |
+| 置信度 | 无 | confidence scoring |
+| 关系 | 无 | CAUSE/CONDITION/CONFLICT/RELATE |
+| 可视化 | 无 | Neo4j Browser 图谱 |
+
+### 架构 | Architecture
+
+```
+保存记忆流程 (tree_text mode):
+
+用户输入: "[MILESTONE] 完成登录功能"
+         ↓
+     ┌───────────────────────────────────────┐
+     │           LLM 记忆提炼                  │
+     │   (使用 .env 中的 OPENAI_API_KEY)       │
+     │                                       │
+     │   提取: key, tags, background          │
+     │   评估: confidence                     │
+     │   分类: WorkingMemory/LongTermMemory   │
+     └───────────────────────────────────────┘
+         ↓
+    ┌────┴────┐
+    ↓         ↓
+┌───────┐  ┌───────┐
+│ Neo4j │  │Qdrant │
+│ (图)  │  │(向量) │
+└───────┘  └───────┘
+```
+
+### 配置要求 | Requirements
+
+1. **Neo4j Community Edition** (免费)
+   ```bash
+   # Docker
+   docker run -d -p 7474:7474 -p 7687:7687 neo4j:community
+
+   # 或下载: https://neo4j.com/download-center/
+   ```
+
+2. **配置 .env**
+   ```env
+   MOS_TEXT_MEM_TYPE=tree_text
+   MOS_ENABLE_REORGANIZE=true
+
+   NEO4J_BACKEND=neo4j-community
+   NEO4J_URI=bolt://localhost:7687
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=your_password
+   NEO4J_DB_NAME=neo4j
+
+   # LLM 用于记忆提炼 (重要!)
+   OPENAI_API_KEY=sk-xxx
+   OPENAI_API_BASE=https://api.openai.com/v1
+   ```
+
+3. **配置 cube config.json** (首次需要)
+   ```json
+   {
+     "text_mem": {
+       "backend": "tree_text",
+       "config": {
+         "graph_db": {
+           "backend": "neo4j-community",
+           "config": {
+             "uri": "bolt://localhost:7687",
+             "user": "neo4j",
+             "password": "your_password",
+             "db_name": "neo4j",
+             "use_multi_db": false,
+             "user_name": "dev_user",
+             "vec_config": { ... }
+           }
+         }
+       }
+     }
+   }
+   ```
+
+### 可视化查询 | Visualization
+
+在 Neo4j Browser (http://localhost:7474) 中：
+
+```cypher
+-- 查看所有记忆节点
+MATCH (n:Memory) RETURN n LIMIT 50
+
+-- 按标签统计
+MATCH (n:Memory) UNWIND n.tags AS tag
+RETURN tag, count(*) ORDER BY count(*) DESC
+
+-- 按类型分布
+MATCH (n:Memory)
+RETURN n.memory_type as type, count(*) as count
+```
 
 ---
 
