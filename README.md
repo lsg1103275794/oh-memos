@@ -423,6 +423,7 @@ Tags: bugfix, auth, session, config
 
 | Document | Description | Language |
 |----------|-------------|----------|
+| [**Changelog**](docs/CHANGELOG.md) | Project updates and fixes | English |
 | [**Deployment Guide**](memos-deploy/docs/DEPLOY_EN.md) | Full setup: environment, database, embedding, LLM | English |
 | [**部署指南**](memos-deploy/docs/DEPLOY_CN.md) | 完整部署：环境、数据库、嵌入模型、LLM | 中文 |
 | [**Skill README**](project-memory/README.md) | Claude Code skill usage | English |

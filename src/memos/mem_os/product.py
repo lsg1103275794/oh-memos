@@ -16,6 +16,11 @@ from memos.configs.mem_os import MOSConfig
 from memos.context.context import ContextThread
 from memos.log import get_logger
 from memos.mem_cube.general import GeneralMemCube
+from memos.mem_cube.utils import (
+    is_valid_huggingface_repo,
+    looks_like_local_path,
+    normalize_path,
+)
 from memos.mem_os.core import MOSCore
 from memos.mem_os.utils.format_utils import (
     clean_json_response,
@@ -888,19 +893,61 @@ class MOSProduct(MOSCore):
 
             # Create MemCube from path
             time_start = time.time()
+
+            # Try to find the path with cross-platform normalization
+            normalized_path = normalize_path(mem_cube_name_or_path)
+            actual_path = None
+
+            # Check original path first, then normalized
             if os.path.exists(mem_cube_name_or_path):
+                actual_path = mem_cube_name_or_path
+            elif normalized_path and os.path.exists(normalized_path):
+                actual_path = normalized_path
+                logger.info(f"Using normalized path: {actual_path}")
+
+            if actual_path:
+                # Local path exists - use it
                 mem_cube = GeneralMemCube.init_from_dir(
-                    mem_cube_name_or_path, memory_types, default_config
+                    actual_path, memory_types, default_config
                 )
                 logger.info(
                     f"time register_mem_cube: init_from_dir time is: {time.time() - time_start}"
                 )
-            else:
-                logger.warning(
-                    f"MemCube {mem_cube_name_or_path} does not exist, try to init from remote repo."
+            elif is_valid_huggingface_repo(mem_cube_name_or_path):
+                # Valid HuggingFace repo format - try to clone
+                logger.info(
+                    f"MemCube {mem_cube_name_or_path} is not a local path, "
+                    f"attempting to init from HuggingFace repository."
                 )
                 mem_cube = GeneralMemCube.init_from_remote_repo(
                     mem_cube_name_or_path, memory_types=memory_types, default_config=default_config
+                )
+            elif looks_like_local_path(mem_cube_name_or_path):
+                # Looks like a local path but doesn't exist
+                # Check if it's a WSL path that can't be accessed from Windows
+                is_wsl_path = mem_cube_name_or_path.startswith('/home/') or (
+                    mem_cube_name_or_path.startswith('/') and not mem_cube_name_or_path.startswith('/mnt/')
+                )
+                if is_wsl_path:
+                    raise FileNotFoundError(
+                        f"Local path '{mem_cube_name_or_path}' does not exist or cannot be accessed. "
+                        f"This appears to be a WSL path. If MemOS is running on Windows, use a Windows path instead:\n"
+                        f"  - Use '/mnt/g/...' format (maps to G: drive)\n"
+                        f"  - Or use a Windows path like 'G:/test/project'\n"
+                        f"  - Or create the cube in a Windows-accessible location"
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"Local path '{mem_cube_name_or_path}' does not exist. "
+                        f"Please create the cube directory first or provide a valid path."
+                    )
+            else:
+                # Simple name - treat as new local cube to be created
+                raise ValueError(
+                    f"Cannot register cube '{mem_cube_name_or_path}': "
+                    f"Path does not exist and is not a valid HuggingFace repository "
+                    f"(expected format: 'username/repo-name'). "
+                    f"To create a new local cube, first create a cube directory with config."
                 )
 
         # Register the MemCube

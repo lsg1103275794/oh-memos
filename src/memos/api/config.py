@@ -529,8 +529,9 @@ class APIConfig:
                     "collection_name": "neo4j_vec_db",
                     "vector_dimension": int(os.getenv("EMBEDDING_DIMENSION", 1024)),
                     "distance_metric": "cosine",
-                    "host": os.getenv("QDRANT_HOST", "localhost"),
-                    "port": int(os.getenv("QDRANT_PORT", "6333")),
+                    # Only set host/port if QDRANT_URL is not provided (prioritize cloud)
+                    "host": None if os.getenv("QDRANT_URL") else os.getenv("QDRANT_HOST", "localhost"),
+                    "port": None if os.getenv("QDRANT_URL") else int(os.getenv("QDRANT_PORT", "6333")),
                     "path": os.getenv("QDRANT_PATH"),
                     "url": os.getenv("QDRANT_URL"),
                     "api_key": os.getenv("QDRANT_API_KEY"),
