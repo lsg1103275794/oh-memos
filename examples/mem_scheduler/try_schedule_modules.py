@@ -1,0 +1,173 @@
+import sys
+
+from pathlib import Path
+
+from tqdm import tqdm
+
+from memos.api.routers.server_router import (
+    mem_scheduler,
+)
+from memos.log import get_logger
+from memos.mem_scheduler.analyzer.api_analyzer import DirectSearchMemoriesAnalyzer
+from memos.mem_scheduler.optimized_scheduler import OptimizedScheduler
+from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
+from memos.mem_scheduler.schemas.task_schemas import MEM_UPDATE_TASK_LABEL
+
+
+FILE_PATH = Path(__file__).absolute()
+BASE_DIR = FILE_PATH.parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))  # Enable execution from any working directory
+
+logger = get_logger(__name__)
+
+
+def init_task():
+    conversations = [
+        {
+            "role": "user",
+            "content": "I have two dogs - Max (golden retriever) and Bella (pug). We live in Seattle.",
+        },
+        {"role": "assistant", "content": "Great! Any special care for them?"},
+        {
+            "role": "user",
+            "content": "Max needs joint supplements. Actually, we're moving to Chicago next month.",
+        },
+        {
+            "role": "assistant",
+            "content": "Got it — Max is on joint supplements, and you’re relocating to Chicago soon. That’s a big move! Have you looked into how the change in climate or vet access might affect his needs?",
+        },
+        {
+            "role": "user",
+            "content": "Correction: Bella is 6, not 5. And she's allergic to chicken.",
+        },
+        {
+            "role": "assistant",
+            "content": "Thanks for the update! So Bella is 6 years old and has a chicken allergy — good to know. You’ll want to double-check her food and treats, especially during the move. Has she had any reactions recently?",
+        },
+        {
+            "role": "user",
+            "content": "My partner's cat Whiskers visits weekends. Bella chases her sometimes.",
+        },
+        {
+            "role": "assistant",
+            "content": "Ah, the classic dog-and-cat dynamic! Since Bella chases Whiskers, it might help to give them gradual supervised interactions or create safe zones for the cat—especially important as you settle into a new home in Chicago. Keeping Bella’s routine stable during the move could also reduce her urge to chase. How do they usually get along when Whiskers visits?",
+        },
+    ]
+
+    questions = [
+        # 1. Basic factual recall (simple)
+        {
+            "question": "What breed is Max?",
+            "category": "Pet",
+            "expected": "golden retriever",
+            "difficulty": "easy",
+        },
+        # 2. Temporal context (medium)
+        {
+            "question": "Where will I live next month?",
+            "category": "Location",
+            "expected": "Chicago",
+            "difficulty": "medium",
+        },
+        # 3. Information correction (hard)
+        {
+            "question": "How old is Bella really?",
+            "category": "Pet",
+            "expected": "6",
+            "difficulty": "hard",
+            "hint": "User corrected the age later",
+        },
+        # 4. Relationship inference (harder)
+        {
+            "question": "Why might Whiskers be nervous around my pets?",
+            "category": "Behavior",
+            "expected": "Bella chases her sometimes",
+            "difficulty": "harder",
+        },
+        # 5. Combined medical info (hardest)
+        {
+            "question": "Which pets have health considerations?",
+            "category": "Health",
+            "expected": "Max needs joint supplements, Bella is allergic to chicken",
+            "difficulty": "hardest",
+            "requires": ["combining multiple facts", "ignoring outdated info"],
+        },
+    ]
+    return conversations, questions
+
+
+class ScheduleModulesRunner(DirectSearchMemoriesAnalyzer):
+    def __init__(self):
+        super().__init__()
+
+    def start_conversation(self, user_id="test_user", mem_cube_id="test_cube", session_id=None):
+        self.current_user_id = user_id
+        self.current_mem_cube_id = mem_cube_id
+        self.current_session_id = (
+            session_id or f"session_{hash(user_id + mem_cube_id)}_{len(self.conversation_history)}"
+        )
+        self.conversation_history = []
+
+        logger.info(f"Started conversation session: {self.current_session_id}")
+        print(f"🚀 Started new conversation session: {self.current_session_id}")
+        print(f"   User ID: {self.current_user_id}")
+        print(f"   Mem Cube ID: {self.current_mem_cube_id}")
+
+    def add_msgs(
+        self,
+        messages: list[dict],
+        extract_mode: str = "fine",
+        async_mode: str = "sync",
+    ):
+        # Create add request
+        add_req = self.create_test_add_request(
+            user_id=self.current_user_id,
+            mem_cube_id=self.current_mem_cube_id,
+            messages=messages,
+            session_id=self.current_session_id,
+            extract_mode=extract_mode,
+            async_mode=async_mode,
+        )
+
+        # Add to memory
+        result = self.add_memories(add_req)
+        print(f"   ✅ Added to memory successfully: \n{result}")
+
+        return result
+
+
+if __name__ == "__main__":
+    # set up data
+    conversations, questions = init_task()
+
+    trying_modules = ScheduleModulesRunner()
+
+    trying_modules.start_conversation(
+        user_id="try_scheduler_modules",
+        mem_cube_id="try_scheduler_modules",
+    )
+
+    trying_modules.add_msgs(
+        messages=conversations,
+    )
+
+    mem_scheduler: OptimizedScheduler = mem_scheduler
+    # Force retrieval to trigger every turn for the example to be deterministic
+    try:
+        mem_scheduler.monitor.query_trigger_interval = 0.0
+    except Exception:
+        logger.exception("Failed to set query_trigger_interval; continuing with defaults.")
+
+    for item_idx, item in enumerate(tqdm(questions, desc="processing queries")):
+        query = item["question"]
+        message = ScheduleMessageItem(
+            item_id=f"test_item_{item_idx}",
+            user_id=trying_modules.current_user_id,
+            mem_cube_id=trying_modules.current_mem_cube_id,
+            label=MEM_UPDATE_TASK_LABEL,
+            content=query,
+        )
+        # Run one session turn manually to get search candidates
+        mem_scheduler._memory_update_consumer(
+            messages=[message],
+        )
