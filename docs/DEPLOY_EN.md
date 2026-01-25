@@ -1,214 +1,302 @@
 # MemOS Windows Portable Deployment Guide
 
-A Windows portable deployment solution for MemOS with local Python environment + Ollama embeddings + Qdrant cloud.
+This guide explains how to deploy MemOS memory service on Windows.
 
-## Features
+---
 
-- Portable Python environment, no system installation required
-- Local embedding model via Ollama to reduce API costs
-- OpenAI-compatible API support
-- One-click startup scripts
+## Table of Contents
 
-## Quick Start
+- [Requirements](#requirements)
+- [Quick Deployment](#quick-deployment)
+- [Database Configuration](#database-configuration)
+  - [Qdrant Cloud (Recommended)](#qdrant-cloud-recommended)
+  - [Local Qdrant](#local-qdrant)
+- [Embedding Model Configuration](#embedding-model-configuration)
+- [LLM API Configuration](#llm-api-configuration)
+- [Complete Configuration Example](#complete-configuration-example)
+- [Troubleshooting](#troubleshooting)
 
-### One-Click Start
+---
+
+## Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| OS | Windows 10 | Windows 10/11 |
+| RAM | 4GB | 8GB+ |
+| Disk Space | 2GB | 5GB+ |
+| Python | 3.10+ | 3.11+ (auto-installed by script) |
+
+---
+
+## Quick Deployment
+
+### Step 1: Install Python Environment
 
 ```cmd
-Double-click run.bat
+Double-click setup_env.bat
 ```
 
-### First-Time Installation
+The script will automatically:
+1. Download Miniconda (~80MB)
+2. Install to `project_directory\conda_venv\`
+3. Display full installation paths
+
+After completion, you'll see:
+```
+========================================
+   Setup Complete!
+========================================
+
+   Python executable:
+   G:\test\MemOS\conda_venv\python.exe
+
+   Pip executable:
+   G:\test\MemOS\conda_venv\Scripts\pip.exe
+
+   Environment directory:
+   G:\test\MemOS\conda_venv
+```
+
+### Step 2: Install Dependencies and Start
 
 ```cmd
 Double-click install_run.bat
 ```
 
-### Service URL
+First run installs all dependencies. Use `run.bat` for subsequent quick starts.
 
-- API: http://localhost:18000
-- Docs: http://localhost:18000/docs
+### Step 3: Verify Deployment
 
-## Configuration
+Visit http://localhost:18000/docs to see the API documentation.
 
-### Directory Structure
+---
 
-```
-MemOS/
-├── run.bat                 # Startup script
-├── install_run.bat         # Install + start
-├── conda_venv/             # Portable Python (prepare yourself)
-│   ├── python.exe
-│   └── Scripts/
-├── .env                    # Configuration file
-├── src/
-│   └── memos/
-└── data/
-    └── memos_cubes/        # Memory data
-```
+## Database Configuration
 
-### .env Configuration Example
+MemOS uses Qdrant as the vector database for memory storage. Two deployment options:
+
+### Qdrant Cloud (Recommended)
+
+**Advantages**:
+- Generous free tier (1GB storage)
+- No local resources needed
+- Persistent data across restarts
+- Multi-device access support
+
+**Configuration Steps**:
+
+1. **Register Qdrant Cloud Account**
+
+   Visit https://cloud.qdrant.io/ (GitHub/Google login supported)
+
+2. **Create Free Cluster**
+
+   - Click "Create Cluster"
+   - Select "Free" tier
+   - Choose nearest region (e.g., `aws-us-east-1`)
+   - Note the cluster URL: `https://xxx-xxx.aws.qdrant.io:6333`
+
+3. **Get API Key**
+
+   - Go to cluster details
+   - Click "API Keys" → "Create API Key"
+   - Copy the generated key
+
+4. **Configure .env File**
+
+   ```env
+   # Qdrant Cloud Configuration
+   QDRANT_MODE=cloud
+   QDRANT_URL=https://your-cluster-url.aws.qdrant.io:6333
+   QDRANT_API_KEY=your-api-key-here
+   ```
+
+### Local Qdrant
+
+**Advantages**:
+- Fully offline operation
+- Local data storage
+
+**Configuration Steps**:
+
+1. **Start with Docker**
+
+   ```bash
+   docker run -p 6333:6333 -v $(pwd)/qdrant_data:/qdrant/storage qdrant/qdrant
+   ```
+
+2. **Configure .env File**
+
+   ```env
+   # Local Qdrant Configuration
+   QDRANT_MODE=local
+   QDRANT_URL=http://localhost:6333
+   # No API Key needed for local mode
+   ```
+
+---
+
+## Embedding Model Configuration
+
+MemOS requires an embedding model to convert text to vectors. Ollama local models are recommended.
+
+### Install Ollama
+
+1. Download and install Ollama: https://ollama.ai/download
+
+2. Pull embedding model:
+   ```bash
+   ollama pull nomic-embed-text
+   ```
+
+3. Configure .env:
+   ```env
+   # Ollama Embedding Configuration
+   EMBEDDING_PROVIDER=ollama
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+   ```
+
+### Other Embedding Model Options
+
+| Model | Configuration | Notes |
+|-------|---------------|-------|
+| nomic-embed-text | `OLLAMA_EMBEDDING_MODEL=nomic-embed-text` | Recommended, balanced |
+| nomic-embed-text-v2-moe | `OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe` | Newer version |
+| OpenAI | `EMBEDDING_PROVIDER=openai` | Requires API Key |
+
+---
+
+## LLM API Configuration
+
+MemOS context enhancement requires an LLM API. Supports OpenAI-compatible format.
+
+### Using OpenAI
 
 ```env
-# ========== LLM Configuration ==========
-# OpenAI-compatible API
 OPENAI_API_KEY=sk-your-api-key
-OPENAI_API_BASE=https://your-api-endpoint/v1
-MOS_CHAT_MODEL=your-model-name
-MOS_CHAT_MODEL_PROVIDER=openai
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+```
 
-# ========== Embedding Model ==========
-# Use Ollama local embedding (recommended)
-MOS_EMBEDDER_BACKEND=ollama
-MOS_EMBEDDER_MODEL=nomic-embed-text-v2-moe:latest
-OLLAMA_API_BASE=http://localhost:11434
-EMBEDDING_DIMENSION=768
+### Using Other Compatible APIs
 
-# ========== Vector Database ==========
-# Qdrant Cloud
-QDRANT_URL=https://your-cluster.cloud.qdrant.io
+```env
+# Example: DeepSeek
+OPENAI_API_KEY=your-deepseek-key
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+OPENAI_MODEL=deepseek-chat
+
+# Example: Local Ollama
+OPENAI_API_KEY=ollama
+OPENAI_BASE_URL=http://localhost:11434/v1
+OPENAI_MODEL=llama3
+```
+
+---
+
+## Complete Configuration Example
+
+Full `.env` file example:
+
+```env
+# ========================================
+# MemOS Configuration
+# ========================================
+
+# --- Server ---
+HOST=0.0.0.0
+PORT=18000
+
+# --- Qdrant Vector Database ---
+# Using Qdrant Cloud (Recommended)
+QDRANT_MODE=cloud
+QDRANT_URL=https://your-cluster.aws.qdrant.io:6333
 QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION_NAME=memories
 
-# ========== Optional ==========
-# Redis task queue
-MEMSCHEDULER_USE_REDIS_QUEUE=false
+# --- Embedding Model ---
+# Using Ollama Local Embedding
+EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 
-# Neo4j graph database
-# NEO4J_URI=bolt://localhost:7687
-# NEO4J_USER=neo4j
-# NEO4J_PASSWORD=your-password
+# --- LLM API (OpenAI Compatible) ---
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
 
-# Memory reader
-MEM_READER_BACKEND=openai
+# --- Memory Storage ---
+MEMOS_CUBES_DIR=./data/memos_cubes
+
+# --- User ---
+DEFAULT_USER=dev_user
 ```
 
-## Startup Script
-
-### run.bat
-
-```batch
-@echo off
-cd /d "%~dp0"
-
-set PYTHON_EXE=%~dp0conda_venv\python.exe
-set PATH=%~dp0conda_venv;%~dp0conda_venv\Scripts;%~dp0conda_venv\Library\bin;%PATH%
-
-echo ========================================
-echo    MemOS Windows Launcher
-echo ========================================
-echo.
-
-echo [1/4] Checking Python...
-if not exist "%PYTHON_EXE%" (
-    echo [ERROR] Python not found: %PYTHON_EXE%
-    pause
-    exit /b 1
-)
-"%PYTHON_EXE%" --version
-
-echo.
-echo [2/4] Checking config...
-if not exist .env (
-    if exist .env.windows.example (
-        copy .env.windows.example .env >nul
-        echo [INFO] Created .env from template
-    )
-)
-
-echo.
-echo [3/4] Syncing config to src...
-copy /y .env src\.env >nul
-
-echo.
-echo [4/4] Starting service...
-echo ========================================
-echo    Server: http://localhost:18000
-echo    API Docs: http://localhost:18000/docs
-echo    Press Ctrl+C to stop
-echo ========================================
-echo.
-
-cd /d "%~dp0src"
-"%PYTHON_EXE%" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
-
-pause
-```
-
-## API Usage
-
-### Chat
-
-```bash
-curl -X POST http://localhost:18000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "dev_user", "query": "Hello"}'
-```
-
-### Add Memory
-
-```bash
-curl -X POST http://localhost:18000/memories \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "dev_user",
-    "mem_cube_id": "my_project",
-    "memory_content": "Important project information"
-  }'
-```
-
-### Search Memories
-
-```bash
-curl -X POST http://localhost:18000/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "dev_user",
-    "query": "search keywords",
-    "install_cube_ids": ["my_project"]
-  }'
-```
-
-## Dependencies
-
-### Ollama (Embedding Model)
-
-```bash
-# Download: https://ollama.ai
-# Pull model
-ollama pull nomic-embed-text-v2-moe:latest
-```
-
-### Qdrant (Vector Database)
-
-Recommended: [Qdrant Cloud](https://cloud.qdrant.io) free tier.
-
-Local deployment:
-```bash
-docker run -p 6333:6333 qdrant/qdrant
-```
-
-### Neo4j (Optional, Graph Database)
-
-Download [Neo4j Community](https://neo4j.com/download/):
-```cmd
-neo4j-community\bin\neo4j console
-```
+---
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Python not found | Ensure `conda_venv/` directory exists |
-| Port in use | Change port number in `run.bat` |
-| .env not working | Script auto-copies to `src/`, check root `.env` |
-| Dependency install fails | Use official PyPI: `-i https://pypi.org/simple` |
+### Q: "Python not found" on startup
 
-## License
+**A**: Run `setup_env.bat` first to install the Python environment.
 
-This deployment guide is based on [MemOS](https://github.com/MemTensor/MemOS), licensed under the Apache License 2.0.
+### Q: Qdrant connection failed
 
-## Links
+**A**: Check the following:
+1. Verify `QDRANT_URL` format in `.env` is correct
+2. Ensure `QDRANT_API_KEY` has no extra spaces
+3. If using Cloud, confirm cluster status is "Running"
+
+### Q: Embedding model error
+
+**A**: Confirm Ollama is running:
+```bash
+ollama list  # View installed models
+ollama serve  # Start service if not running
+```
+
+### Q: Port 18000 is occupied
+
+**A**: Change `PORT` in `.env` to another port, or close the program using port 18000.
+
+### Q: Where is memory data stored?
+
+**A**:
+- Vector data: Stored in Qdrant (Cloud or local)
+- Metadata: Stored in `./data/memos_cubes/` directory
+
+---
+
+## Service Management
+
+### Start Service
+```cmd
+run.bat
+```
+
+### View API Documentation
+```
+http://localhost:18000/docs
+```
+
+### Test API
+```bash
+# Save memory
+curl -X POST http://localhost:18000/memories \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Test memory", "user_id": "dev_user"}'
+
+# Search memories
+curl -X POST http://localhost:18000/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test", "user_id": "dev_user"}'
+```
+
+---
+
+## Related Links
 
 - [MemOS Official Repository](https://github.com/MemTensor/MemOS)
-- [Qdrant Documentation](https://qdrant.tech/documentation/)
-- [Ollama](https://ollama.ai)
+- [Qdrant Cloud](https://cloud.qdrant.io/)
+- [Ollama](https://ollama.ai/)
