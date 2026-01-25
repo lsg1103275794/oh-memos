@@ -147,13 +147,13 @@ pause
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
-      "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
+      "command": "C:/path/to/MemOS/conda_venv/python.exe",
+      "args": ["C:/path/to/MemOS/mcp-server/memos_mcp_server.py"],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
       }
     }
   }

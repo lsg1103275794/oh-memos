@@ -89,8 +89,8 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         Claude Code + Integrations                       │
-│                                                                          │
+│                         Claude Code + Integrations                      │
+│                                                                         │
 │  ┌─────────────────────────────┐   ┌─────────────────────────────────┐  │
 │  │   project-memory skill      │   │      MCP Server (memos)         │  │
 │  │      (Passive Mode)         │   │      (Proactive Mode)           │  │
@@ -106,17 +106,17 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         MemOS Backend                                    │
-│                    http://localhost:18000                                │
-│                                                                          │
-│   ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐   │
-│   │ 🗄️ Memory      │  │ 🔎 Vector      │  │ 🤖 LLM Context         │   │
-│   │ Storage        │  │ Search         │  │ Enhancement            │   │
-│   │                │  │                │  │                        │   │
-│   │ Qdrant Cloud   │  │ Semantic       │  │ OpenAI Compatible      │   │
-│   │ or Local       │  │ Similarity     │  │ API                    │   │
-│   └────────────────┘  └────────────────┘  └────────────────────────┘   │
-│                                                                          │
+│                              MemOS Backend                              │
+│                         http://localhost:18000                          │
+│                                                                         │
+│   ┌────────────────┐      ┌────────────────┐      ┌──────────────────┐  │
+│   │   🗄️ Memory    │      │   🔎 Vector    │      │  🤖 LLM Context  │  │
+│   │    Storage     │      │     Search     │      │   Enhancement    │  │
+│   │                │      │                │      │                  │  │
+│   │  Qdrant Cloud  │      │    Semantic    │      │      OpenAI      │  │
+│   │    or Local    │      │   Similarity   │      │  Compatible API  │  │
+│   └────────────────┘      └────────────────┘      └──────────────────┘  │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -294,17 +294,17 @@ After installation, Claude Code works **automatically** - no extra steps needed!
    ```json
    {
      "projects": {
-       "/mnt/g/test/MemOS": {
+       "/mnt/c/path/to/MemOS": {
          "mcpServers": {
            "memos": {
              "type": "stdio",
              "command": "bash",
-             "args": ["/mnt/g/test/MemOS/mcp-server/run_mcp.sh"],
+             "args": ["/mnt/c/path/to/MemOS/mcp-server/run_mcp.sh"],
              "env": {
                "MEMOS_URL": "http://localhost:18000",
                "MEMOS_USER": "dev_user",
                "MEMOS_DEFAULT_CUBE": "dev_cube",
-               "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+               "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
              }
            }
          }
@@ -319,13 +319,13 @@ After installation, Claude Code works **automatically** - no extra steps needed!
      "mcpServers": {
        "memos": {
          "type": "stdio",
-         "command": "G:/test/MemOS/conda_venv/python.exe",
-         "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
+         "command": "C:/path/to/MemOS/conda_venv/python.exe",
+         "args": ["C:/path/to/MemOS/mcp-server/memos_mcp_server.py"],
          "env": {
            "MEMOS_URL": "http://localhost:18000",
            "MEMOS_USER": "dev_user",
            "MEMOS_DEFAULT_CUBE": "dev_cube",
-           "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+           "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
          }
        }
      }

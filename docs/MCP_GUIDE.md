@@ -259,22 +259,22 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
 
 ### Windows 用户 - 全局配置示例
 
-假设你的 MemOS 安装在 `G:\test\MemOS`：
+假设你的 MemOS 安装在 `C:\path\to\MemOS`：
 
 ```json
 {
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "C:/path/to/MemOS/conda_venv/python.exe",
       "args": [
-        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
+        "C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
       ],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
       }
     }
   }
@@ -307,7 +307,7 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
 
 ### WSL 用户 - 全局配置示例
 
-假设 MemOS 在 Windows 中位置为 `G:\test\MemOS`（对应 WSL 中的 `/mnt/g/test/MemOS`）：
+假设 MemOS 在 Windows 中位置为 `C:\path\to\MemOS`（对应 WSL 中的 `/mnt/c/path/to/MemOS`）：
 
 ```json
 {
@@ -316,13 +316,13 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
       "type": "stdio",
       "command": "bash",
       "args": [
-        "/mnt/g/test/MemOS/mcp-server/run_mcp.sh"
+        "/mnt/c/path/to/MemOS/mcp-server/run_mcp.sh"
       ],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
       }
     }
   }
@@ -337,8 +337,8 @@ export MEMOS_URL="${MEMOS_URL:-http://localhost:18000}"
 export MEMOS_USER="${MEMOS_USER:-dev_user}"
 export MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:-dev_cube}"
 
-PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"
-SCRIPT="G:/test/MemOS/mcp-server/memos_mcp_server.py"
+PYTHON="/mnt/c/path/to/MemOS/conda_venv/python.exe"
+SCRIPT="C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
 
 exec "$PYTHON" "$SCRIPT" "$@"
 ```
