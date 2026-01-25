@@ -110,7 +110,7 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
 │                         http://localhost:18000                          │
 │                                                                         │
 │   ┌────────────────┐      ┌────────────────┐      ┌──────────────────┐  │
-│   │   🗄️ Memory    │      │   🔎 Vector    │      │  🤖 LLM Context  │  │
+│   │   🗄️ Memory    │      │   🔎 Vector    │      │  🤖 LLM Context │  │
 │   │    Storage     │      │     Search     │      │   Enhancement    │  │
 │   │                │      │                │      │                  │  │
 │   │  Qdrant Cloud  │      │    Semantic    │      │      OpenAI      │  │
@@ -392,25 +392,25 @@ After setup, Claude will **automatically**:
 🤖 AI: Retrieving project memories, generating report...
 
     ╔══════════════════════════════════════════════════════╗
-    ║              📊 Project Progress Report               ║
-    ║              my-awesome-project                       ║
+    ║              📊 Project Progress Report              ║
+    ║              my-awesome-project                      ║
     ╠══════════════════════════════════════════════════════╣
     ║                                                      ║
     ║  ✅ Completed Milestones (4)                         ║
-    ║  ├── User authentication system       2025-01-15    ║
-    ║  ├── Database schema design           2025-01-18    ║
-    ║  ├── RESTful API framework            2025-01-20    ║
-    ║  └── Unit test coverage 80%           2025-01-22    ║
+    ║  ├── User authentication system       2025-01-15     ║
+    ║  ├── Database schema design           2025-01-18     ║
+    ║  ├── RESTful API framework            2025-01-20     ║
+    ║  └── Unit test coverage 80%           2025-01-22     ║
     ║                                                      ║
     ║  🔧 Recent Fixes (2)                                 ║
-    ║  ├── JWT token expiry issue           2025-01-20    ║
-    ║  └── Session timeout config           2025-01-24    ║
+    ║  ├── JWT token expiry issue           2025-01-20     ║
+    ║  └── Session timeout config           2025-01-24     ║
     ║                                                      ║
     ║  ⚠️ Notes                                            ║
-    ║  └── Docker container needs > 2GB RAM (OOM issue)   ║
+    ║  └── Docker container needs > 2GB RAM (OOM issue)    ║
     ║                                                      ║
     ║  📝 Pending                                          ║
-    ║  └── Add API rate limiting (mentioned last time)    ║
+    ║  └── Add API rate limiting (mentioned last time)     ║
     ║                                                      ║
     ╚══════════════════════════════════════════════════════╝
 ```
