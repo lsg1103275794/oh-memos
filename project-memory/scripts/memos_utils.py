@@ -422,7 +422,7 @@ def create_cube_config(project: str, cube_path: Path = None) -> dict:
                 "embedder": {
                     "backend": os.environ.get("MOS_EMBEDDER_BACKEND", "ollama"),
                     "config": {
-                        "model_name_or_path": os.environ.get("MOS_EMBEDDER_MODEL", "nomic-embed-text"),
+                        "model_name_or_path": os.environ.get("MOS_EMBEDDER_MODEL", "nomic-embed-text-v2-moe:latest"),
                         "api_base": os.environ.get("OLLAMA_API_BASE", "http://localhost:11434")
                     }
                 }

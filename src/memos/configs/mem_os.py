@@ -1,6 +1,6 @@
 import uuid
 
-from typing import Any
+from typing import Any, Union
 
 from pydantic import Field, model_validator
 
@@ -75,9 +75,10 @@ class MOSConfig(BaseConfig):
 class MemOSConfigFactory(BaseConfig):
     """Factory class for creating Memos configurations."""
 
-    config: dict[str, Any] = Field(..., description="Configuration for the MemOS backend")
+    config: Union[dict[str, Any], MOSConfig] = Field(..., description="Configuration for the MemOS backend")
 
     @model_validator(mode="after")
     def create_config(self) -> "MemOSConfigFactory":
-        self.config = MOSConfig(**self.config)
+        if isinstance(self.config, dict):
+            self.config = MOSConfig(**self.config)
         return self

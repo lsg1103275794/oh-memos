@@ -13,13 +13,60 @@
 
 [🚀 Quick Start](#-quick-start) · [✨ Features](#-core-features) · [📖 Documentation](#-documentation) · [中文](#-中文文档)
 
+</div>
+
 ---
 
-<img src="https://img.shields.io/badge/-Solving%20The%20Pain%20Point-red?style=for-the-badge" alt="Pain Point"/>
+## 😫 Does This Sound Familiar?
+
+<table>
+<tr>
+<td width="33%" align="center">
+
+### 📝 Doc Overload
+
+AI scatters `NOTES.md`, `TODO.md`, `DECISIONS.md` everywhere...
+
+Your project becomes a documentation mess
+
+</td>
+<td width="33%" align="center">
+
+### 🧠 Memory Loss
+
+New conversation = Start from zero
+
+*"Why did we choose Redis again?"*
+*"How did we fix that bug?"*
+
+**AI: I don't know, this is a new session**
+
+</td>
+<td width="33%" align="center">
+
+### 🔁 Same Mistakes
+
+Fixed the same bug 3 times
+
+Fell into the same trap again
+
+**AI never learns from history**
+
+</td>
+</tr>
+</table>
+
+<div align="center">
+
+### ✨ Now, Try MemOSlocal
+
+<img src="https://img.shields.io/badge/-Before-red?style=for-the-badge" alt="Before"/>
 
 **"AI forgets everything about the project in every new conversation"**
 
-→ **"AI remembers every decision, every bug fix, every milestone"**
+<img src="https://img.shields.io/badge/-After-green?style=for-the-badge" alt="After"/>
+
+**"AI remembers every decision, every bug fix, every milestone"**
 
 </div>
 
@@ -33,6 +80,7 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
 |-----------|-------------|----------|
 | **📦 memos-deploy** | MemOS Portable Deployment | One-click memory backend service |
 | **🧠 project-memory** | Claude Code Skill | AI auto-save/search/track memories |
+| **🔌 mcp-server** | MCP Protocol Server | AI **proactively** uses memory tools |
 
 ```
                     ┌──────────────────────────────────────┐
@@ -41,23 +89,22 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         Claude Code + Skill                              │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    project-memory skill                          │   │
-│  │                                                                  │   │
-│  │   ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐   │   │
-│  │   │  🔍 AUTO     │   │  💾 AUTO     │   │  📊 SMART        │   │   │
-│  │   │  SEARCH      │   │  SAVE        │   │  TRACKING        │   │   │
-│  │   │              │   │              │   │                  │   │   │
-│  │   │ Before work  │   │ After task   │   │ Compare history  │   │   │
-│  │   │ Auto-retrieve│   │ Auto-save    │   │ Generate report  │   │   │
-│  │   └──────┬───────┘   └──────┬───────┘   └────────┬─────────┘   │   │
-│  │          │                  │                    │             │   │
-│  └──────────┼──────────────────┼────────────────────┼─────────────┘   │
-│             │                  │                    │                 │
-└─────────────┼──────────────────┼────────────────────┼─────────────────┘
-              │                  │                    │
-              ▼                  ▼                    ▼
+│                         Claude Code + Integrations                       │
+│                                                                          │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────┐  │
+│  │   project-memory skill      │   │      MCP Server (memos)         │  │
+│  │      (Passive Mode)         │   │      (Proactive Mode)           │  │
+│  │                             │   │                                 │  │
+│  │  User calls /project-memory │   │  AI auto-calls memos_search     │  │
+│  │  to save/search memories    │   │  when encountering errors,      │  │
+│  │                             │   │  making decisions, etc.         │  │
+│  └──────────────┬──────────────┘   └────────────────┬────────────────┘  │
+│                 │                                   │                   │
+│                 └───────────────┬───────────────────┘                   │
+│                                 │                                       │
+└─────────────────────────────────┼───────────────────────────────────────┘
+                                  │
+                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         MemOS Backend                                    │
 │                    http://localhost:18000                                │
@@ -217,6 +264,89 @@ After installation, Claude Code works **automatically** - no extra steps needed!
 
 ---
 
+## 🔌 MCP Server (Proactive Mode)
+
+> **New in v0.3.0**: AI can now **proactively** use memory functions!
+>
+> **v0.3.1**: Auto-registers cubes on first use - no manual setup needed!
+
+### What's the difference?
+
+| Mode | Trigger | Best For |
+|------|---------|----------|
+| **Skill (Passive)** | User types `/project-memory` | Explicit memory operations |
+| **MCP (Proactive)** | AI decides automatically | Error handling, decision tracking |
+
+### Setup MCP Server
+
+1. **Install dependencies**:
+   ```bash
+   # Option 1: Direct pip install
+   pip install mcp httpx pydantic
+
+   # Option 2: Using project optional dependencies
+   pip install MemoryOS[mcp-server]
+   ```
+
+2. **Add to Claude Code settings** (`~/.claude.json` under your project):
+
+   **For WSL environment** (recommended):
+   ```json
+   {
+     "projects": {
+       "/mnt/g/test/MemOS": {
+         "mcpServers": {
+           "memos": {
+             "type": "stdio",
+             "command": "bash",
+             "args": ["/mnt/g/test/MemOS/mcp-server/run_mcp.sh"],
+             "env": {
+               "MEMOS_URL": "http://localhost:18000",
+               "MEMOS_USER": "dev_user",
+               "MEMOS_DEFAULT_CUBE": "dev_cube"
+             }
+           }
+         }
+       }
+     }
+   }
+   ```
+
+   **For pure Windows**:
+   ```json
+   {
+     "mcpServers": {
+       "memos": {
+         "command": "G:/path/to/python.exe",
+         "args": ["G:/path/to/memos_mcp_server.py"],
+         "env": {
+           "MEMOS_URL": "http://localhost:18000",
+           "MEMOS_USER": "dev_user",
+           "MEMOS_DEFAULT_CUBE": "dev_cube"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Code**
+
+### Proactive Features
+
+After setup, Claude will **automatically**:
+
+| Scenario | Action |
+|----------|--------|
+| 🐛 Encounter an error | Search `ERROR_PATTERN` for solutions |
+| 💬 User says "之前/上次" | Search related history |
+| ✅ Solve a bug | Save as `ERROR_PATTERN` with solution |
+| 🏗️ Make a decision | Save as `DECISION` with rationale |
+| 🆕 First use of cube | Auto-register cube (no manual setup!) |
+
+👉 **[Full MCP Guide](docs/MCP_GUIDE.md)**
+
+---
+
 ## 🎬 Usage Demo
 
 ### Scenario 1: Fixing a Bug
@@ -297,7 +427,14 @@ MemOSlocal/
 │   ├── 🔧 install_run.bat             # Install dependencies + start
 │   └── 🔧 run.bat                     # Quick start (after setup)
 │
-├── 📂 project-memory/                  # 🌟 Claude Code Skill
+├── 📂 mcp-server/                      # 🔌 MCP Protocol Server (NEW!)
+│   ├── 🐍 memos_mcp_server.py         # Main MCP server
+│   ├── 🐍 install.py                  # Auto-configure Claude Code
+│   ├── 🐍 test_server.py              # Test server functionality
+│   ├── 📄 pyproject.toml              # Package configuration
+│   └── 📄 README.md                   # MCP server documentation
+│
+├── 📂 project-memory/                  # 🧠 Claude Code Skill
 │   ├── 📄 SKILL.md                    # AI behavior instructions
 │   ├── 📄 README.md                   # English Docs
 │   ├── 📄 README_CN.md                # Chinese Docs
@@ -322,6 +459,10 @@ MemOSlocal/
 │   │
 │   └── 📂 references/
 │       └── 📄 examples.md             # Memory format examples
+│
+├── 📂 docs/                            # 📖 Documentation
+│   ├── 📄 CHANGELOG.md                # Version history
+│   └── 📄 MCP_GUIDE.md                # MCP Server guide
 │
 ├── 📄 README.md                        # This file
 ├── 📄 .gitignore
@@ -424,6 +565,7 @@ Tags: bugfix, auth, session, config
 | Document | Description | Language |
 |----------|-------------|----------|
 | [**Changelog**](docs/CHANGELOG.md) | Project updates and fixes | English |
+| [**🔌 MCP Server Guide**](docs/MCP_GUIDE.md) | Proactive memory integration | EN/中文 |
 | [**Deployment Guide**](memos-deploy/docs/DEPLOY_EN.md) | Full setup: environment, database, embedding, LLM | English |
 | [**部署指南**](memos-deploy/docs/DEPLOY_CN.md) | 完整部署：环境、数据库、嵌入模型、LLM | 中文 |
 | [**Skill README**](project-memory/README.md) | Claude Code skill usage | English |
@@ -537,12 +679,21 @@ OPENAI_MODEL=gpt-4o-mini
 <details>
 <summary><b>点击展开中文说明</b></summary>
 
+### 😫 你是否也有这些烦恼？
+
+| 问题 | 症状 | MemOSlocal 解决方案 |
+|------|------|---------------------|
+| **📝 文档臃肿** | AI 到处写 NOTES.md、TODO.md，项目越来越乱 | 统一存储到向量数据库，项目保持整洁 |
+| **🧠 记忆断层** | 新对话就忘光，"之前为什么选 Redis？" | 语义搜索自动召回相关决策记忆 |
+| **🔁 重蹈覆辙** | 同样的 Bug 修了三遍，AI 记吃不记打 | ERROR_PATTERN 自动匹配，主动提醒解决方案 |
+
 ### 这是什么？
 
 MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 
 - **📦 memos-deploy**: MemOS 便携部署包，一键启动记忆后端
 - **🧠 project-memory**: Claude Code 技能，AI 自动记忆/搜索/追踪
+- **🔌 mcp-server**: MCP 协议服务器，AI **主动**调用记忆功能
 
 ### 核心特性
 
@@ -552,6 +703,7 @@ MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 | 🔍 上下文感知搜索 | 开始工作前自动检索相关历史 |
 | 📊 智能进度追踪 | 随时了解项目全貌 |
 | 🖥️ 全平台支持 | Windows / Linux / macOS |
+| 🔌 **MCP 主动模式** | AI 自动判断何时搜索/保存记忆 |
 
 ### 快速开始
 
@@ -565,21 +717,24 @@ MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 # 3. 快速启动 (之后)
 双击 run.bat
 
-# 4. 安装技能
-cp -r project-memory ~/.claude/skills/
+# 4. 配置 MCP (推荐)
+# 编辑 ~/.claude.json，添加 memos MCP 服务器配置
 
-# 5. 开始使用 - AI 自动工作！
+# 5. 开始使用 - AI 主动工作！
 ```
 
-### 命令行工具
+### MCP 工具 (推荐)
 
-```bash
-memos-init                    # 初始化项目
-memos-save "内容" -t TYPE     # 保存记忆
-memos-search "关键词"         # 搜索记忆
-```
+现在推荐使用 MCP 工具，AI 会自动调用：
 
-👉 [完整中文文档](project-memory/README_CN.md)
+| 工具 | 功能 | 触发场景 |
+|------|------|----------|
+| `memos_search` | 搜索记忆 | 遇到错误、用户说"之前" |
+| `memos_save` | 保存记忆 | 修复 Bug、做出决策 |
+| `memos_list` | 列出记忆 | 查看项目进度 |
+| `memos_suggest` | 搜索建议 | 不确定搜什么 |
+
+👉 [MCP 配置指南](docs/MCP_GUIDE.md) | [完整中文文档](project-memory/README_CN.md)
 
 </details>
 

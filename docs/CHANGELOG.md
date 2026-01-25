@@ -7,16 +7,195 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-01-26
+
+### Changed
+
+- **📝 Simplified SKILL.md** - Refactored from 769 lines to 237 lines
+  - Now focuses on **MCP tool usage** instead of script execution
+  - Removed detailed CLI script documentation (kept as "Legacy Scripts")
+  - Added quick reference table for MCP tools
+  - Added clear workflow diagram for MCP-based memory management
+  - Kept memory type format templates (ERROR_PATTERN, DECISION, etc.)
+
+- **📦 Archived Legacy Scripts** - Moved to `scripts/legacy/`
+  - `memos_init_project.py` → Replaced by MCP auto-registration
+  - `memos_save.py` → Replaced by `memos_save` MCP tool
+  - `memos_search.py` → Replaced by `memos_search` MCP tool
+  - Kept `memos_utils.py` in main scripts folder (utility functions)
+  - Added `legacy/README.md` explaining archive reason
+
+### Technical Details
+
+**Old Architecture (Script-based):**
+```
+User → /project-memory → SKILL.md → Execute Python scripts → API
+```
+
+**New Architecture (MCP-powered):**
+```
+User → /project-memory → SKILL.md → Guide to use MCP tools → MCP Server → API
+```
+
+**New Directory Structure:**
+```
+.claude/skills/project-memory/
+├── SKILL.md              # MCP usage guide (237 lines)
+└── scripts/
+    ├── memos_utils.py    # Utility functions (kept)
+    └── legacy/           # Archived scripts
+        ├── README.md
+        ├── memos_init_project.py
+        ├── memos_save.py
+        └── memos_search.py
+```
+
+**Benefits:**
+- Unified interface: MCP handles all memory operations
+- Auto-registration: No need to run init scripts
+- Simpler maintenance: One codebase (MCP Server) instead of two
+- Better UX: AI uses tools directly without shell execution
+
+---
+
+## [0.3.1] - 2026-01-26
+
 ### Added
 
+- **🔄 Auto-Register Cube** (`mcp-server/memos_mcp_server.py`)
+  - MCP tools now automatically register cubes on first use
+  - No more manual `curl` commands needed to create cubes
+  - Added `ensure_cube_registered()` unified function
+  - Added `_registered_cubes` cache to avoid repeated registration attempts
+
+- **New Environment Variable** `MEMOS_CUBES_DIR`
+  - Configurable cube storage directory
+  - Default: `G:/test/MemOS/data/memos_cubes`
+  - Used for auto-registration path
+
+### Changed
+
+- **Simplified `memos_save`** - Removed duplicate registration logic, now uses shared function
+- **Updated `run_mcp.sh`** - Added `MEMOS_CUBES_DIR` export
+
+---
+
+## [0.3.0] - 2026-01-26
+
+### Added
+
+- **🚀 MCP Server for Proactive Memory** (`mcp-server/`)
+  - New MCP (Model Context Protocol) Server enabling Claude Code to **proactively** use memory functions
+  - No longer need to wait for user to manually call `/project-memory` commands
+  - AI can now automatically search memories when encountering errors or making decisions
+
+- **MCP Tools** (`mcp-server/memos_mcp_server.py`)
+  - `memos_search` - Search project memories with intelligent triggers
+    - Auto-triggers when: encountering errors, user says "之前/上次", modifying code
+    - Searches: `ERROR_PATTERN`, `DECISION`, `GOTCHA`, `CODE_PATTERN`, `CONFIG`
+  - `memos_save` - Save memories with auto-type detection
+    - Auto-triggers when: solving bugs, making decisions, completing tasks
+    - Detects memory type from content keywords
+  - `memos_list` - List all memories in a project cube
+  - `memos_suggest` - Get smart search suggestions based on context
+
+- **MCP Configuration Guide** (`docs/MCP_GUIDE.md`)
+  - Complete setup instructions for Claude Code integration
+  - Tool reference with parameters and examples
+  - Troubleshooting guide
+  - Architecture diagram
+
+- **MCP Installation Tools** (`mcp-server/`)
+  - `install.py` - Auto-configure Claude Code settings.json
+  - `test_server.py` - Verify MCP server functionality
+  - `pyproject.toml` - Package configuration for pip install
+  - **`run_mcp.sh`** - WSL wrapper script for path translation
+
+### Changed
+
+- **Architecture**: Project now supports two integration modes
+  - **Skill Mode (Passive)**: User manually calls `/project-memory` commands
+  - **MCP Mode (Proactive)**: AI automatically uses memory tools when appropriate
+
+- **Documentation Structure**: Updated to include MCP documentation
+  - Added MCP Guide link to main README
+  - Updated Quick Navigation table
+
+### Fixed
+
+- **🐛 WSL MCP Startup Failure** - Critical fix for MCP server not starting in WSL environment
+  - **Problem**: Windows Python couldn't process WSL paths (`/mnt/g/...` → `G:\mnt\g\...`)
+  - **Solution**: Added `run_mcp.sh` wrapper script that:
+    - Uses WSL path to invoke Windows Python: `/mnt/g/.../python.exe`
+    - Passes Windows-format path to script: `G:/test/.../script.py`
+  - **Config Change**: Use `bash` as command with wrapper script as argument
+    ```json
+    "command": "bash",
+    "args": ["/mnt/g/test/MemOS/mcp-server/run_mcp.sh"]
+    ```
+
+### Technical Details
+
+**MCP Server Architecture:**
+```
+User Input → Claude Code → Context Analysis → MCP Tool Decision
+                                                    ↓
+                              ┌─────────────────────┴─────────────────────┐
+                              ↓                                           ↓
+                    memos_search (proactive)                    memos_save (proactive)
+                              ↓                                           ↓
+                         MemOS API (:18000)                          MemOS API
+                              ↓                                           ↓
+                    Embedding + Qdrant                          Embedding + Qdrant
+```
+
+**WSL Path Translation (run_mcp.sh):**
+```
+Claude Code (WSL bash)
+        ↓ runs
+    run_mcp.sh
+        ↓ invokes (WSL path)
+    /mnt/g/.../python.exe
+        ↓ with (Windows path)
+    G:/test/.../memos_mcp_server.py
+        ↓ connects
+    MemOS API (localhost:18000)
+```
+
+**Proactive Trigger Scenarios:**
+
+| Scenario | Tool Called | Search/Save Type |
+|----------|-------------|------------------|
+| Error encountered | `memos_search` | `ERROR_PATTERN {type}` |
+| User says "之前" | `memos_search` | Related history |
+| Code modification | `memos_search` | `GOTCHA`, `CODE_PATTERN` |
+| Bug solved | `memos_save` | `ERROR_PATTERN` |
+| Decision made | `memos_save` | `DECISION` |
+| Task completed | `memos_save` | `MILESTONE` |
+
+---
+
+## [0.2.0] - 2026-01-26
+
+### Added
+
+- **Environment variable priority for cube configs** (`src/memos/mem_cube/utils.py`, `general.py`)
+  - New `apply_env_overrides()` function that applies .env settings to cube configs
+  - Ensures .env takes priority over hardcoded config.json values
+  - Supports all key configurations:
+    - Qdrant: `QDRANT_URL`, `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_API_KEY`, `QDRANT_PATH`
+    - Embedder: `MOS_EMBEDDER_BACKEND`, `MOS_EMBEDDER_MODEL`, `OLLAMA_API_BASE`
+    - LLM: `MOS_CHAT_MODEL`, `OPENAI_API_KEY`, `OPENAI_API_BASE`, `MOS_CHAT_TEMPERATURE`
+  - Logs all overrides for debugging: `[ENV Override] Qdrant URL: xxx -> yyy`
+
 - **Cube ID resolution and caching** (`.claude/skills/project-memory/scripts/memos_utils.py`)
-  - `resolve_cube_id()` - Maps project names to full cube paths
+  - `resolve_cube_id()` - Maps project names to full cube paths automatically
   - `load_cube_cache()`, `save_cube_cache()`, `update_cube_cache()` - Persistent cache management
   - `get_registered_cubes()` - Query API for all registered cubes
   - Cache stored at `~/.memos_cube_cache.json`
 
 - **Comprehensive troubleshooting guide** (`.claude/skills/project-memory/SKILL.md`)
-  - Cube ID format issues
+  - Cube ID format issues and solutions
   - WSL path recognition problems
   - API connection errors
   - HuggingFace clone errors
@@ -42,18 +221,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error pattern documentation** (`docs/ERROR_PATTERN_2026-01-25_HuggingFace_Qdrant_WSL.md`)
   - Detailed bug analysis and solutions for future reference
 
-### Known Issues (To Fix)
-
-- **Cube ID format inconsistency**: After registration, `mem_cube_id` must be the full path used during registration (e.g., `G:/test/MemOS/data/memos_cubes/dev_cube`) rather than just the cube name (`dev_cube`)
-- **Workaround**: Use the full path when calling `/memories` endpoint
-
 ### Changed
+
+- **Unified configuration via .env** - All infrastructure configs now use environment variables
+  - Config priority: `.env` > `config.json` > code defaults
+  - Single source of truth for Qdrant, Embedder, LLM settings
 
 - **Improved project-memory skill scripts** (`.claude/skills/project-memory/scripts/`)
   - `memos_save.py`: Now auto-resolves cube names to full paths before API calls
   - `memos_search.py`: Now auto-resolves cube names to full paths before API calls
   - `memos_init_project.py`: Caches cube ID mapping after successful registration
   - All scripts now provide better error messages and hints
+  - Default embedder model updated to `nomic-embed-text-v2-moe:latest`
 
 - **Improved cube registration logic** (`core.py`, `product.py`)
   - No longer incorrectly treats local paths as HuggingFace repository names
@@ -75,6 +254,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously: `QDRANT_HOST=localhost` would override `QDRANT_URL` in some code paths
   - Now: If `QDRANT_URL` is set, `host` and `port` are automatically set to `None`
   - This ensures cloud database is used when configured
+
+- **Cube ID Format Issue**: Scripts now auto-resolve project names to full paths
+  - Previously: Had to manually use full paths like `G:/test/MemOS/data/memos_cubes/dev_cube`
+  - Now: Just use `dev_cube` and it auto-resolves
+
+- **Embedder Backend Validation**: Fixed env override applying wrong fields to Ollama backend
+  - Only applies `api_base` for Ollama
+  - Only applies `base_url`, `api_key`, `provider` for universal_api
+
+- **Pydantic Serialization Warning**: Fixed type annotation in `ParserConfigFactory`
+  - `config` field now correctly typed as `Union[dict, BaseParserConfig]`
+  - Eliminates `PydanticSerializationUnexpectedValue` warning
+
+- **Startup Warnings**: Suppressed harmless warnings during API startup
+  - PyTorch/TensorFlow not found (not needed when using Ollama)
+  - Pydantic serialization warnings for known edge cases
 
 ### Security
 

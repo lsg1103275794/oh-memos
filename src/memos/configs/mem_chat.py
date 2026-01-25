@@ -1,7 +1,7 @@
 import uuid
 
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -60,7 +60,7 @@ class MemChatConfigFactory(BaseConfig):
     """Factory class for creating MemChat configurations."""
 
     backend: str = Field(..., description="Backend for MemChat")
-    config: dict[str, Any] = Field(..., description="Configuration for the MemChat backend")
+    config: Union[dict[str, Any], BaseMemChatConfig] = Field(..., description="Configuration for the MemChat backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "simple": SimpleMemChatConfig,
@@ -77,5 +77,6 @@ class MemChatConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "MemChatConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self

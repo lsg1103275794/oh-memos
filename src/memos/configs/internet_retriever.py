@@ -1,6 +1,6 @@
 """Configuration classes for internet retrievers."""
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -73,7 +73,7 @@ class InternetRetrieverConfigFactory(BaseConfig):
     backend: str | None = Field(
         None, description="Backend for internet retriever (google, bing, etc.)"
     )
-    config: dict[str, Any] | None = Field(
+    config: Union[dict[str, Any], BaseInternetRetrieverConfig, None] = Field(
         None, description="Configuration for the internet retriever backend"
     )
 
@@ -94,7 +94,7 @@ class InternetRetrieverConfigFactory(BaseConfig):
 
     @model_validator(mode="after")
     def create_config(self) -> "InternetRetrieverConfigFactory":
-        if self.backend is not None:
+        if self.backend is not None and isinstance(self.config, dict):
             config_class = self.backend_to_class[self.backend]
             self.config = config_class(**self.config)
         return self

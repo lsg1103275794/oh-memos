@@ -97,6 +97,12 @@ pref-mem = [
     "datasketch (>=1.6.5,<2.0.0)",  # MinHash library
 ]
 
+# MCP Server for Claude Code integration
+mcp-server = [
+    "mcp (>=1.0.0,<2.0.0)",  # Model Context Protocol
+    "httpx (>=0.25.0,<1.0.0)",  # Async HTTP client
+]
+
 # All optional dependencies
 # Allow users to install with `pip install MemoryOS[all]`
 all = [
@@ -114,6 +120,8 @@ all = [
     "jieba (>=0.38.1,<0.42.1)",
     "rank-bm25 (>=0.2.2)",
     "cachetools (>=6.0.0)",
+    "mcp (>=1.0.0,<2.0.0)",
+    "httpx (>=0.25.0,<1.0.0)",
     # NOT exist in the above optional groups
     # Because they are either huge-size dependencies or infrequently used dependencies.
     # We kindof don't want users to install them.

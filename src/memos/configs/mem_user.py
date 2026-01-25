@@ -1,4 +1,4 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -46,7 +46,7 @@ class UserManagerConfigFactory(BaseModel):
     """Factory for user manager configurations."""
 
     backend: str = Field(default="sqlite", description="Backend for user manager")
-    config: dict[str, Any] = Field(
+    config: Union[dict[str, Any], BaseUserManagerConfig] = Field(
         default_factory=dict, description="Configuration for the user manager backend"
     )
 
@@ -66,5 +66,6 @@ class UserManagerConfigFactory(BaseModel):
     @model_validator(mode="after")
     def instantiate_config(self):
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self

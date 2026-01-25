@@ -1,4 +1,4 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -294,7 +294,7 @@ class MemoryConfigFactory(BaseConfig):
     """Factory class for creating memory configurations."""
 
     backend: str = Field("uninitialized", description="Backend for memory")
-    config: dict[str, Any] = Field({}, description="Configuration for the memory backend")
+    config: Union[dict[str, Any], BaseMemoryConfig] = Field({}, description="Configuration for the memory backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "naive_text": NaiveTextMemoryConfig,
@@ -320,5 +320,6 @@ class MemoryConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "MemoryConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self

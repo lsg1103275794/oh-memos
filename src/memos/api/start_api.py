@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 
 from typing import Any, Generic, TypeVar
 
@@ -15,6 +16,9 @@ from memos.configs.mem_os import MOSConfig
 from memos.mem_os.main import MOS
 from memos.mem_user.user_manager import UserManager, UserRole
 
+# Suppress harmless warnings
+warnings.filterwarnings("ignore", message=".*PyTorch.*TensorFlow.*Flax.*")
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

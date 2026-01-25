@@ -8,7 +8,7 @@ from memos.configs.utils import get_json_file_model_schema
 from memos.exceptions import ConfigurationError, MemCubeError
 from memos.log import get_logger
 from memos.mem_cube.base import BaseMemCube
-from memos.mem_cube.utils import download_repo, merge_config_with_default
+from memos.mem_cube.utils import download_repo, merge_config_with_default, apply_env_overrides
 from memos.memories.activation.base import BaseActMemory
 from memos.memories.factory import MemoryFactory
 from memos.memories.parametric.base import BaseParaMemory
@@ -157,6 +157,10 @@ class GeneralMemCube(BaseMemCube):
         if default_config is not None:
             config = merge_config_with_default(config, default_config)
             logger.info(f"Applied default config to cube {config.cube_id}")
+
+        # Apply environment variable overrides (priority: .env > config.json)
+        config = apply_env_overrides(config)
+
         mem_cube = GeneralMemCube(config)
         mem_cube.load(dir, memory_types)
         return mem_cube

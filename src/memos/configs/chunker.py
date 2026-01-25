@@ -1,4 +1,4 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -37,7 +37,7 @@ class ChunkerConfigFactory(BaseConfig):
     """Factory class for creating chunker configurations."""
 
     backend: str = Field(..., description="Backend for chunker")
-    config: dict[str, Any] = Field(..., description="Configuration for the chunker backend")
+    config: Union[dict[str, Any], BaseChunkerConfig] = Field(..., description="Configuration for the chunker backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "sentence": SentenceChunkerConfig,
@@ -55,5 +55,6 @@ class ChunkerConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "ChunkerConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self
