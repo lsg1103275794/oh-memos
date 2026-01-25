@@ -187,6 +187,83 @@ One codebase, runs everywhere:
 
 ---
 
+## 🔒 Privacy-First Architecture
+
+> **Why "local" in MemOSlocal?** Your sensitive data never leaves your machine.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🏠 YOUR MACHINE (Local)                                        │
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ Claude Code │───▶│  MCP Server │───▶│     MemOS API       │  │
+│  │             │    │             │    │   (localhost:18000) │  │
+│  └─────────────┘    └─────────────┘    └──────────┬──────────┘  │
+│                                                   │             │
+│  ┌─────────────────────────────────────┐          │             │
+│  │           🔐 Ollama                 │◀─────────┤             │
+│  │                                     │          │             │
+│  │  "Fix login bug in auth.py"         │  Embed   │             │
+│  │           ↓                         │          │             │
+│  │  [0.23, -0.87, 0.45, 0.12, ...]    │          │             │
+│  │                                     │          │             │
+│  │  ✅ Text stays local                │          │             │
+│  │  ✅ Only vectors go to cloud        │          │             │
+│  └─────────────────────────────────────┘          │             │
+│                                                   │             │
+└───────────────────────────────────────────────────┼─────────────┘
+                                                    │
+                        Only numerical vectors      │
+                        (no readable text)          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  ☁️  QDRANT CLOUD (europe-west3, GCP)                            │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Vector Database                                          │  │
+│  │                                                           │  │
+│  │  ID: abc123  →  [0.23, -0.87, 0.45, 0.12, ...]           │  │
+│  │  ID: def456  →  [0.91, 0.33, -0.28, 0.67, ...]           │  │
+│  │  ID: ghi789  →  [-0.15, 0.72, 0.88, -0.41, ...]          │  │
+│  │                                                           │  │
+│  │  ❌ Cannot reverse vectors to original text               │  │
+│  │  ✅ Cross-device sync                                     │  │
+│  │  ✅ Persistent storage                                    │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+<table>
+<tr>
+<td width="50%" align="center">
+
+### 🏠 What Stays Local
+
+- ✅ Original text content
+- ✅ Code snippets
+- ✅ API keys & secrets
+- ✅ Error messages
+- ✅ Embedding process (Ollama)
+
+</td>
+<td width="50%" align="center">
+
+### ☁️ What Goes to Cloud
+
+- ⭕ Numerical vectors only
+- ⭕ Memory IDs
+- ⭕ Timestamps
+- ❌ **No readable text**
+- ❌ **No source code**
+
+</td>
+</tr>
+</table>
+
+> **Bonus**: Use local Qdrant for 100% offline operation. See [Database Setup](#-database-setup-qdrant).
+
+---
+
 ## 🚀 Quick Start
 
 ### 1️⃣ Deploy MemOS Backend
@@ -705,6 +782,32 @@ MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 | 📊 智能进度追踪 | 随时了解项目全貌 |
 | 🖥️ 全平台支持 | Windows / Linux / macOS |
 | 🔌 **MCP 主动模式** | AI 自动判断何时搜索/保存记忆 |
+
+### 🔒 隐私优先架构
+
+> **为什么叫 "local"？** 你的敏感数据永远不会离开你的电脑。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🏠 你的电脑 (本地)                                              │
+│                                                                 │
+│    原始文本: "修复 auth.py 的登录 Bug"                           │
+│                    ↓                                            │
+│    Ollama 本地嵌入: [0.23, -0.87, 0.45, 0.12, ...]              │
+│                    ↓                                            │
+│    ✅ 文本留在本地  →  ☁️ 只有向量上传到云端                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| 🏠 本地保留 | ☁️ 上传云端 |
+|-------------|-------------|
+| ✅ 原始文本内容 | ⭕ 仅数值向量 |
+| ✅ 代码片段 | ⭕ 记忆 ID |
+| ✅ API 密钥等敏感信息 | ❌ **无可读文本** |
+| ✅ Embedding 计算过程 | ❌ **无源代码** |
+
+> 向量无法反向还原为原始文本，你的隐私得到保护！
 
 ### 快速开始
 

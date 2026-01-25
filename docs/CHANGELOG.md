@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **🔒 Privacy-First Architecture Section** (README.md)
+  - Added visual architecture diagram showing data flow
+  - Highlights that original text stays local (Ollama embedding)
+  - Only numerical vectors uploaded to Qdrant Cloud
+  - Comparison table: "What Stays Local" vs "What Goes to Cloud"
+  - Added corresponding Chinese version in 中文文档 section
+
 ## [0.3.2] - 2026-01-26
 
 ### Changed
