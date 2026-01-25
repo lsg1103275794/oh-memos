@@ -197,6 +197,7 @@ venv.bak/
 *.html
 
 # but do not ignore important files
+!.claude/
 !docs/openapi.json
 !README.md
 !WINDOWS_README.md
@@ -214,7 +215,6 @@ venv.bak/
 !requirements.txt
 
 # ignore specific files
-.claude/
 .trae/
 .memos/
 conda_venv/
