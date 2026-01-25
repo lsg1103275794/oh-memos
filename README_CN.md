@@ -134,6 +134,34 @@ cd /d "%~dp0src"
 pause
 ```
 
+## 🔌 MCP Server (主动模式)
+
+> **新特性**: AI 现在可以**主动**使用记忆功能，而无需等待指令。
+
+### 配置 Claude Code
+
+在 `~/.claude.json` 中添加以下配置（推荐全局配置）：
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "type": "stdio",
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      }
+    }
+  }
+}
+```
+
+> **注意**: 请将路径替换为你的实际安装路径。更多关于 WSL 或 Linux 的配置，请参考 [MCP 配置指南](docs/MCP_GUIDE.md)。
+
 ## API 使用
 
 ### 聊天

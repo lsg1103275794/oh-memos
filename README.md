@@ -303,7 +303,8 @@ After installation, Claude Code works **automatically** - no extra steps needed!
              "env": {
                "MEMOS_URL": "http://localhost:18000",
                "MEMOS_USER": "dev_user",
-               "MEMOS_DEFAULT_CUBE": "dev_cube"
+               "MEMOS_DEFAULT_CUBE": "dev_cube",
+               "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
              }
            }
          }
@@ -317,12 +318,14 @@ After installation, Claude Code works **automatically** - no extra steps needed!
    {
      "mcpServers": {
        "memos": {
-         "command": "G:/path/to/python.exe",
-         "args": ["G:/path/to/memos_mcp_server.py"],
+         "type": "stdio",
+         "command": "G:/test/MemOS/conda_venv/python.exe",
+         "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
          "env": {
            "MEMOS_URL": "http://localhost:18000",
            "MEMOS_USER": "dev_user",
-           "MEMOS_DEFAULT_CUBE": "dev_cube"
+           "MEMOS_DEFAULT_CUBE": "dev_cube",
+           "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
          }
        }
      }
