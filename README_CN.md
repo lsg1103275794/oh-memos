@@ -237,6 +237,19 @@ neo4j-community\bin\neo4j console
 - [Qdrant 文档](https://qdrant.tech/documentation/)
 - [Ollama](https://ollama.ai)
 
-## 鸣谢
+---
 
-特别感谢 [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS) 提供的原仓库支持。
+## 🔗 项目仓库
+
+- **主仓库**: [https://github.com/lsg1103275794/MemOSlocal](https://github.com/lsg1103275794/MemOSlocal)
+- **原项目**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
+
+---
+
+<div align="center">
+
+**MemOSlocal** • 为 AI 打造的隐私优先持久记忆系统
+
+Copyright © 2026 lsg1103275794. 采用 [MIT License](LICENSE) 开源协议。
+
+</div>

@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/MemOS-Apache%202.0-green.svg)](https://github.com/MemTensor/MemOS)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20|%20Linux%20|%20macOS-lightgrey.svg)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-orange.svg)]()
-
+[![Neo4j](https://img.shields.io/badge/Neo4j-Knowledge%20Graph-blue.svg)](https://neo4j.com)
 [🚀 Quick Start](#-quick-start) · [✨ Features](#-core-features) · [📖 Documentation](#-documentation) · [中文](#-中文文档)
 
 </div>
@@ -82,6 +82,13 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
 | **🧠 project-memory** | Claude Code Skill | AI auto-save/search/track memories |
 | **🔌 mcp-server** | MCP Protocol Server | AI **proactively** uses memory tools |
 
+### Two Memory Modes
+
+| Mode | Storage | Features | Best For |
+|------|---------|----------|----------|
+| **`general_text`** | Qdrant only | Vector similarity search | Simple projects, quick setup |
+| **`tree_text`** | Neo4j + Qdrant | Knowledge graph + LLM extraction | Large projects, rich context |
+
 ```
                     ┌──────────────────────────────────────┐
                     │           Your Project               │
@@ -108,6 +115,21 @@ MemOSlocal is a complete **AI Project Memory Solution** that includes:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              MemOS Backend                              │
 │                         http://localhost:18000                          │
+│                                                                         │
+│   ┌────────────────────────────────────────────────────────────────┐    │
+│   │                    Memory Mode Selection                        │    │
+│   │                                                                 │    │
+│   │    general_text (Flat)         tree_text (Knowledge Graph)     │    │
+│   │    ┌──────────────┐            ┌──────────────────────────┐    │    │
+│   │    │   Qdrant     │            │  Neo4j    +    Qdrant    │    │    │
+│   │    │   (Vector)   │            │  (Graph)       (Vector)  │    │    │
+│   │    └──────────────┘            └──────────────────────────┘    │    │
+│   │                                          │                     │    │
+│   │                                ┌─────────┴─────────┐           │    │
+│   │                                │    LLM Extraction  │           │    │
+│   │                                │  key, tags, conf.  │           │    │
+│   │                                └────────────────────┘           │    │
+│   └────────────────────────────────────────────────────────────────┘    │
 │                                                                         │
 │   ┌────────────────┐      ┌────────────────┐      ┌──────────────────┐  │
 │   │   🗄️ Memory    │      │   🔎 Vector    │      │  🤖 LLM Context │  │
@@ -184,6 +206,94 @@ One codebase, runs everywhere:
 </td>
 </tr>
 </table>
+
+---
+
+## 🧠 Knowledge Graph Memory Mode (v0.4.0 Preview)
+
+> **Upgrade from flat memory to intelligent knowledge graph!**
+
+### What's Different?
+
+| Feature | `general_text` (Flat) | `tree_text` (Knowledge Graph) |
+|---------|----------------------|------------------------------|
+| **Storage** | Qdrant vectors only | Neo4j graph + Qdrant vectors |
+| **Structure** | Raw text | LLM-extracted: key, tags, background |
+| **Memory Layers** | Single layer | WorkingMemory + LongTermMemory |
+| **Confidence** | None | Auto-scoring (0.0 - 1.0) |
+| **Relationships** | None | CAUSE / CONDITION / CONFLICT / RELATE |
+| **Visualization** | None | Neo4j Browser graph view |
+
+### How It Works
+
+```
+Memory Save Flow (tree_text mode):
+
+User Input: "[MILESTONE] Completed user authentication"
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│           LLM Memory Extraction         │
+│      (Uses OPENAI_API_KEY from .env)    │
+│                                         │
+│   Extract: key, tags, background        │
+│   Evaluate: confidence (0.0 - 1.0)      │
+│   Classify: WorkingMemory / LongTerm    │
+└─────────────────────────────────────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌───────┐  ┌───────┐
+│ Neo4j │  │Qdrant │
+│(Graph)│  │(Vector)│
+└───────┘  └───────┘
+```
+
+### Memory Node Structure
+
+```json
+{
+  "key": "user_auth_complete",
+  "memory": "Completed user authentication system with JWT",
+  "background": "Project needed secure login for API access",
+  "tags": ["auth", "jwt", "milestone", "security"],
+  "confidence": 0.85,
+  "memory_type": "MILESTONE",
+  "status": "LongTermMemory"
+}
+```
+
+### Quick Setup
+
+1. **Install Neo4j Community Edition** (free):
+   ```bash
+   # Docker
+   docker run -d -p 7474:7474 -p 7687:7687 neo4j:community
+
+   # Or download: https://neo4j.com/download-center/
+   ```
+
+2. **Update `.env`**:
+   ```env
+   MOS_TEXT_MEM_TYPE=tree_text
+   MOS_ENABLE_REORGANIZE=true
+
+   NEO4J_BACKEND=neo4j-community
+   NEO4J_URI=bolt://localhost:7687
+   NEO4J_USER=neo4j
+   NEO4J_PASSWORD=your_password
+   ```
+
+3. **Visualize in Neo4j Browser** (http://localhost:7474):
+   ```cypher
+   -- View all memory nodes
+   MATCH (n:Memory) RETURN n LIMIT 50
+
+   -- Filter by tags
+   MATCH (n:Memory) WHERE "auth" IN n.tags RETURN n
+   ```
+
+👉 **[Full Knowledge Graph Guide](docs/MCP_GUIDE.md#-advanced-neo4j-knowledge-graph-mode--高级-neo4j-知识图谱模式)**
 
 ---
 
@@ -425,6 +535,34 @@ After setup, Claude will **automatically**:
 
 👉 **[Full MCP Guide](docs/MCP_GUIDE.md)**
 
+### 🚀 Enhance with CLAUDE.md (Recommended)
+
+Add a `CLAUDE.md` file to your project root for **project-specific context**:
+
+```markdown
+# My Project Guide
+
+## Memory System
+- Cube ID: `my_project_cube`
+- Memory Mode: `tree_text`
+
+## Auto Behaviors
+- Search ERROR_PATTERN on errors
+- Save MILESTONE after completing features
+- Save DECISION for architecture choices
+
+## Key Files
+- `src/config.py` - Main configuration
+- `src/auth/` - Authentication module
+```
+
+**Benefits**:
+- Claude reads this at conversation start
+- Project-specific memory triggers
+- Consistent behavior across sessions
+
+**Example**: See [CLAUDE.md](CLAUDE.md) in this project.
+
 ---
 
 ## 🎬 Usage Demo
@@ -492,12 +630,62 @@ After setup, Claude will **automatically**:
     ╚══════════════════════════════════════════════════════╝
 ```
 
+### Scenario 3: Cross-Project Memory Retrieval 🔥
+
+> **Real demo from our development!** AI seamlessly retrieves memories across different projects.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  📁 Project A: DDSP-SVC-6.0 (discussing skill implementation)           │
+│                                                                         │
+│  👤 You: "Neo4j 知识图谱是怎么配置的？"                                   │
+│          (How to configure Neo4j knowledge graph?)                      │
+│                                                                         │
+│  🤖 AI: [Automatically detects need for memory search]                  │
+│                                                                         │
+│      ┌─────────────────────────────────────────────────────────────┐   │
+│      │  memos_search (MCP)                                          │   │
+│      │  query: "Neo4j 知识图谱 配置 graph"                           │   │
+│      │                                                              │   │
+│      │  🔍 Searching across ALL projects...                         │   │
+│      │                                                              │   │
+│      │  ✅ Found in: dev_cube (MemOS project!)                      │   │
+│      │  📅 January 25, 2026 at 10:59 PM                             │   │
+│      │  📝 "Updated README.md to showcase Neo4j Knowledge Graph"    │   │
+│      └─────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  🤖 AI: Found relevant memory! Here's the Neo4j configuration:          │
+│                                                                         │
+│      tree_text mode requires:                                           │
+│      - Neo4j Community Edition (bolt://localhost:7687)                  │
+│      - MOS_TEXT_MEM_TYPE=tree_text in .env                             │
+│      - Cube config with graph_db backend...                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+💡 Key Points:
+   • Working in Project A, asking about Project B's config
+   • AI automatically searches memory (no manual command!)
+   • Cross-project knowledge retrieval works seamlessly
+   • Zero context switching needed
+```
+
+<div align="center">
+
+**🧠 One Memory System, All Your Projects**
+
+*Screenshots: [docs/ScreenShot/](docs/ScreenShot/)*
+
+</div>
+
 ---
 
 ## 📁 Project Structure
 
 ```
 MemOSlocal/
+│
+├── 📄 CLAUDE.md                        # 🆕 Project context for Claude Code
 │
 ├── 📂 memos-deploy/                    # MemOS Portable Deployment
 │   ├── 📂 docs/
@@ -620,13 +808,14 @@ Tags: bugfix, auth, session, config
 
 ## 📋 Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **Python** | 3.10+ | 3.11+ |
-| **MemOS** | - | localhost:18000 |
-| **Ollama** | - | nomic-embed-text |
-| **Qdrant** | - | Cloud free tier |
-| **Memory** | 4GB | 8GB+ |
+| Component | Minimum | Recommended | Notes |
+|-----------|---------|-------------|-------|
+| **Python** | 3.10+ | 3.11+ | Required |
+| **MemOS** | - | localhost:18000 | Required |
+| **Ollama** | - | nomic-embed-text | Required for embedding |
+| **Qdrant** | - | Cloud free tier | Required for vectors |
+| **Neo4j** | - | Community Edition | Optional: for `tree_text` mode |
+| **Memory** | 4GB | 8GB+ | - |
 
 ---
 
@@ -636,6 +825,7 @@ Tags: bugfix, auth, session, config
 
 | Document | Description | Language |
 |----------|-------------|----------|
+| [**CLAUDE.md**](CLAUDE.md) | Project context for Claude Code | English |
 | [**Changelog**](docs/CHANGELOG.md) | Project updates and fixes | English |
 | [**🔌 MCP Server Guide**](docs/MCP_GUIDE.md) | Proactive memory integration | EN/中文 |
 | [**Deployment Guide**](memos-deploy/docs/DEPLOY_EN.md) | Full setup: environment, database, embedding, LLM | English |
@@ -646,9 +836,20 @@ Tags: bugfix, auth, session, config
 
 ---
 
-## Acknowledgements
+## 🔗 Repository
 
-Special thanks to [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS) for the original project and inspiration.
+- **Main Repo**: [https://github.com/lsg1103275794/MemOSlocal](https://github.com/lsg1103275794/MemOSlocal)
+- **Original Project**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
+
+---
+
+<div align="center">
+
+**MemOSlocal** • Privacy-First Persistent Memory for AI
+
+Copyright © 2026 lsg1103275794. Licensed under the [MIT License](LICENSE).
+
+</div>
 
 ### Key Topics
 
@@ -733,6 +934,12 @@ OPENAI_MODEL=gpt-4o-mini
 <br/>Vector Database
 </td>
 <td align="center">
+<a href="https://neo4j.com">
+<img src="https://img.shields.io/badge/Neo4j-Graph%20DB-blue?style=for-the-badge" alt="Neo4j"/>
+</a>
+<br/>Knowledge Graph
+</td>
+<td align="center">
 <a href="https://ollama.ai">
 <img src="https://img.shields.io/badge/Ollama-Local%20LLM-green?style=for-the-badge" alt="Ollama"/>
 </a>
@@ -782,6 +989,24 @@ MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 | 📊 智能进度追踪 | 随时了解项目全貌 |
 | 🖥️ 全平台支持 | Windows / Linux / macOS |
 | 🔌 **MCP 主动模式** | AI 自动判断何时搜索/保存记忆 |
+| 🧠 **知识图谱模式** | Neo4j + LLM 提炼，智能记忆管理 |
+
+### 🧠 知识图谱记忆模式 (v0.4.0 预览)
+
+| 特性 | `general_text` (扁平) | `tree_text` (知识图谱) |
+|------|----------------------|------------------------|
+| **存储** | 仅 Qdrant 向量 | Neo4j 图 + Qdrant 向量 |
+| **结构** | 原始文本 | LLM 提炼: key, tags, background |
+| **记忆层级** | 单层 | WorkingMemory + LongTermMemory |
+| **置信度** | 无 | 自动评分 (0.0 - 1.0) |
+| **可视化** | 无 | Neo4j Browser 图谱查看 |
+
+```env
+# 启用知识图谱模式
+MOS_TEXT_MEM_TYPE=tree_text
+MOS_ENABLE_REORGANIZE=true
+NEO4J_URI=bolt://localhost:7687
+```
 
 ### 🔒 隐私优先架构
 
@@ -837,6 +1062,23 @@ MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
 | `memos_save` | 保存记忆 | 修复 Bug、做出决策 |
 | `memos_list` | 列出记忆 | 查看项目进度 |
 | `memos_suggest` | 搜索建议 | 不确定搜什么 |
+
+### 🚀 使用 CLAUDE.md 增强 (推荐)
+
+在项目根目录创建 `CLAUDE.md` 提供项目上下文：
+
+```markdown
+# 我的项目指南
+
+## 记忆配置
+- Cube ID: `my_project_cube`
+- 记忆模式: `tree_text`
+
+## 关键文件
+- `src/config.py` - 主配置
+```
+
+**好处**: Claude 会在对话开始时读取，提供项目特定上下文。
 
 👉 [MCP 配置指南](docs/MCP_GUIDE.md) | [完整中文文档](project-memory/README_CN.md)
 
