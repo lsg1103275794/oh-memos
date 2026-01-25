@@ -1,286 +1,362 @@
-# Project Memory Skill
+# Project Memory Skill (Enhanced)
 
-A proactive project memory management skill for Claude Code, powered by [MemOS](https://github.com/MemTech/MemOS).
+<div align="center">
 
-## Overview
+**Intelligent Project Memory for Claude Code**
 
-This skill enables AI to automatically remember and recall project-specific information across conversations. It integrates with MemOS API to provide persistent, searchable memory storage.
+*让 AI 真正理解你的项目历史*
 
-## Features
+[![MemOS](https://img.shields.io/badge/Powered%20by-MemOS-blue)](https://github.com/MemTensor/MemOS)
+[![Claude Code](https://img.shields.io/badge/For-Claude%20Code-orange)](https://claude.ai)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-- **Automatic Memory Creation**: AI proactively saves important milestones, bug fixes, decisions, and gotchas
-- **Context-Aware Search**: Searches relevant memories before starting work on a project
-- **Progress Tracking**: Compares current state with historical records
-- **Project Isolation**: Each project has its own memory cube
-- **Cross-Platform**: Supports Linux, macOS, and Windows
+</div>
 
-## Directory Structure
+---
+
+## What's New in Enhanced Version
+
+| Feature | Description |
+|---------|-------------|
+| 🧠 **Smart Triggers** | Auto-detect when to search/save based on language patterns |
+| 🔴 **Error Pattern Learning** | Remember error signatures and solutions for instant fixes |
+| 📦 **Code Pattern Library** | Save reusable code templates, suggest when similar code detected |
+| 🔗 **Decision Chain Tracking** | Track how decisions evolve over time with linked history |
+| ⚠️ **Proactive Reminders** | Warn before repeating past mistakes |
+| 🕸️ **Knowledge Graph** | Link related memories for better context |
+
+---
+
+## How It Works
 
 ```
-project-memory/
-├── SKILL.md                           # AI skill instructions
-├── README.md                          # English documentation
-├── README_CN.md                       # Chinese documentation
-├── references/
-│   └── examples.md                    # Memory content examples
-└── scripts/
-    ├── memos_init_project.py          # Core Python scripts
-    ├── memos_save.py
-    ├── memos_search.py
-    ├── linux/                         # Linux/macOS
-    │   ├── install.sh                 # Installation script
-    │   ├── memos-init.sh
-    │   ├── memos-save.sh
-    │   └── memos-search.sh
-    └── windows/                       # Windows
-        ├── install.cmd                # CMD installation script
-        ├── install.ps1                # PowerShell installation script
-        ├── memos-init.cmd
-        ├── memos-save.cmd
-        └── memos-search.cmd
+┌─────────────────────────────────────────────────────────────────┐
+│                    INTELLIGENT MEMORY WORKFLOW                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  USER ACTION          SMART TRIGGER           AI RESPONSE        │
+│  ───────────          ─────────────           ────────────       │
+│                                                                  │
+│  "之前怎么做的"  ───>  Language detect   ───>  Search history    │
+│  "last time..."                                                  │
+│                                                                  │
+│  Writing code    ───>  Pattern match    ───>  Suggest template  │
+│                                               "Use CODE_PATTERN?" │
+│                                                                  │
+│  Error occurs    ───>  Signature match  ───>  Show solution     │
+│                                               from ERROR_PATTERN │
+│                                                                  │
+│  Risky change    ───>  GOTCHA match     ───>  Proactive warning │
+│                                               "Last time this..." │
+│                                                                  │
+│  Task complete   ───>  Auto evaluate    ───>  Prompt to save    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+---
 
-- [MemOS](https://github.com/MemTech/MemOS) server running at `http://localhost:18000`
-- Python 3.8+
-- (Optional) Environment variables for custom configuration
+## Memory Types
+
+### Standard Types
+
+| Type | Icon | Use Case |
+|------|------|----------|
+| `[MILESTONE]` | ✅ | Significant achievement |
+| `[BUGFIX]` | 🐛 | Problem solved with solution |
+| `[FEATURE]` | ✨ | New functionality added |
+| `[DECISION]` | 🏗️ | Architecture/design choice |
+| `[GOTCHA]` | ⚠️ | Non-obvious issue or workaround |
+| `[CONFIG]` | ⚙️ | Environment/configuration change |
+| `[PROGRESS]` | 📊 | Status update or checkpoint |
+
+### Enhanced Types (New)
+
+| Type | Icon | Use Case |
+|------|------|----------|
+| `[ERROR_PATTERN]` | 🔴 | Reusable error signature + solution |
+| `[CODE_PATTERN]` | 📦 | Reusable code template |
+| `[DECISION_CHAIN]` | 🔗 | Decision evolution timeline |
+| `[KNOWLEDGE]` | 📚 | General project knowledge |
+
+---
+
+## Smart Triggers
+
+### Language Pattern Detection
+
+| When You Say | AI Automatically |
+|--------------|------------------|
+| "之前", "上次", "previously", "last time" | Searches history |
+| "还记得", "remember", "recall" | Searches specific memory |
+| "为什么", "why did we", "原因" | Searches decisions |
+| "error", "错误", "how to fix" | Searches ERROR_PATTERN |
+| "类似", "similar" | Searches CODE_PATTERN |
+| "进度", "status", "progress" | Searches milestones |
+
+### Code Context Detection
+
+| When You Do | AI Automatically |
+|-------------|------------------|
+| Open file for editing | Search memories about that file |
+| Error message appears | Search matching ERROR_PATTERN |
+| Create new file | Search similar file patterns |
+| Modify config | Search CONFIG history |
+| Write repetitive code | Suggest existing CODE_PATTERN |
+
+---
+
+## Error Pattern Learning
+
+When you solve an error, AI saves it structured for future instant recognition:
+
+```markdown
+[ERROR_PATTERN] Project: my-api | Date: 2025-01-25
+
+## Error Signature
+- Type: ModuleNotFoundError
+- Message: No module named 'uvicorn'
+- Context: Windows portable environment
+
+## Root Cause
+PATH not set for conda_venv/Scripts
+
+## Solution
+1. Check Python path: `where python`
+2. Set PATH: `set PATH=%CD%\conda_venv;%CD%\conda_venv\Scripts;%PATH%`
+
+## Prevention
+Always use run.bat which sets PATH correctly
+
+Tags: error, ModuleNotFoundError, PATH, windows
+```
+
+**Next time same error occurs** → AI instantly shows the solution!
+
+---
+
+## Code Pattern Library
+
+Save reusable patterns for consistency:
+
+```markdown
+[CODE_PATTERN] Project: my-api | Pattern: Async Retry Decorator
+
+## Purpose
+Generic retry with exponential backoff for async functions
+
+## Template
+```python
+def async_retry(retries=3, delay=1.0, backoff=2.0):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # ... retry logic
+        return wrapper
+    return decorator
+```
+
+## Used In
+- src/services/api.py:25
+- src/db/connection.py:42
+```
+
+**When AI detects similar code** → Suggests: "Use existing pattern?"
+
+---
+
+## Decision Chain Tracking
+
+Track how decisions evolve:
+
+```markdown
+[DECISION_CHAIN] Project: my-api | Topic: Authentication
+
+## Evolution Timeline
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 01-10 | Session-based | Simple, familiar |
+| 01-15 | JWT only | Stateless, scalable |
+| 01-25 | JWT + Refresh | Balance security & UX |
+
+## Current Decision
+JWT with Refresh Token
+
+## Why Changed
+Session didn't scale; pure JWT had security concerns
+```
+
+**When working on auth** → AI shows decision history & rationale
+
+---
+
+## Proactive Reminders
+
+AI warns you before repeating mistakes:
+
+```
+⚠️ Heads up: Last time we modified redis.conf, we encountered
+   connection timeout issues. Remember to restart the Redis
+   container after config changes.
+
+   Related: [GOTCHA-REDIS-001]
+```
+
+### Reminder Triggers
+
+| Priority | Type | When |
+|----------|------|------|
+| 🔴 High | Gotcha/Error Prevention | Before risky action |
+| 🟡 Medium | Code Pattern Suggestion | When writing similar code |
+| 🟢 Low | Progress Checkpoint | After 3+ tasks completed |
+
+---
 
 ## Quick Start
 
 ### Installation
 
-| Platform | Command |
-|----------|---------|
-| Linux/macOS | `bash ~/.claude/skills/project-memory/scripts/linux/install.sh` |
-| Windows CMD | `%USERPROFILE%\.claude\skills\project-memory\scripts\windows\install.cmd` |
-| Windows PowerShell | `& "$env:USERPROFILE\.claude\skills\project-memory\scripts\windows\install.ps1"` |
-
-### Commands After Installation
-
-| Command | Description |
-|---------|-------------|
-| `memos-init` | Initialize project memory cube |
-| `memos-save "content" -t TYPE` | Save a memory |
-| `memos-search "query"` | Search memories |
-
-## Installation Details
-
-The skill is located in Claude Code's skills directory:
-
-```
-~/.claude/skills/project-memory/
-```
-
-### Linux / macOS
-
 ```bash
-# Run the installer
-bash ~/.claude/skills/project-memory/scripts/linux/install.sh
+# Copy skill to Claude Code skills directory
+cp -r project-memory ~/.claude/skills/
 
-# Or manually add to PATH in ~/.bashrc or ~/.zshrc:
-export PATH="$HOME/.local/bin:$PATH"
+# Run installer for CLI commands
+bash ~/.claude/skills/project-memory/scripts/linux/install.sh
 ```
 
-After installation:
+### CLI Commands
+
 ```bash
 memos-init                           # Initialize project
-memos-save "content" -t MILESTONE    # Save memory
+memos-save "content" -t TYPE         # Save memory
 memos-search "query"                 # Search memories
 ```
 
-### Windows (CMD)
-
-```cmd
-REM Run the installer
-%USERPROFILE%\.claude\skills\project-memory\scripts\windows\install.cmd
-```
-
-### Windows (PowerShell)
-
-```powershell
-# Run the installer (may need: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned)
-& "$env:USERPROFILE\.claude\skills\project-memory\scripts\windows\install.ps1"
-```
-
-After installation, restart your terminal.
-
-## Usage
-
-### Automatic (Recommended)
-
-The AI will automatically use this skill when:
-
-1. **Starting project work** - Searches for existing memories
-2. **Completing tasks** - Saves milestones and progress
-3. **Fixing bugs** - Records problems and solutions
-4. **Making decisions** - Documents rationale
-
-### Manual Commands
-
-Initialize a new project memory cube:
-```bash
-memos-init
-# or
-python3 ~/.claude/skills/project-memory/scripts/memos_init_project.py
-```
-
-Save a memory:
-```bash
-memos-save "Your memory content here" -t MILESTONE --tags feature release
-# or
-python3 ~/.claude/skills/project-memory/scripts/memos_save.py "content" -t MILESTONE
-```
-
-Search memories:
-```bash
-memos-search "search query"
-# or
-python3 ~/.claude/skills/project-memory/scripts/memos_search.py "query"
-```
-
-## Memory Types
-
-| Type | Description | Use Case |
-|------|-------------|----------|
-| `MILESTONE` | Significant achievement | Feature complete, release ready |
-| `BUGFIX` | Problem and solution | Bug resolved with root cause |
-| `FEATURE` | New functionality | Feature implementation details |
-| `DECISION` | Design choice | Architecture decisions with rationale |
-| `GOTCHA` | Non-obvious issue | Tricky problems for future reference |
-| `CONFIG` | Configuration change | Environment/settings modifications |
-| `PROGRESS` | Status update | Work-in-progress checkpoint |
-
-## Memory Format
-
-```
-[TYPE] Project: project-name | Date: YYYY-MM-DD
-
-## Summary
-Brief description
-
-## Context
-Why this was needed
-
-## Details
-Specific changes, code snippets, file paths
-
-## Outcome
-Results and next steps
-
-Tags: tag1, tag2, tag3
-```
-
-## Scripts Reference
-
-### memos_init_project.py
-
-Initializes a new project memory cube with proper configuration.
+### Memory Type Options
 
 ```bash
-memos-init [-p PROJECT] [-u USER]
+memos-save "Fixed login bug" -t BUGFIX
+memos-save "Chose PostgreSQL" -t DECISION
+memos-save "Auth system complete" -t MILESTONE
+memos-save "Docker needs 2GB RAM" -t GOTCHA
+memos-save "Retry decorator pattern" -t CODE_PATTERN
+memos-save "Connection error fix" -t ERROR_PATTERN
 ```
 
-Options:
-- `-p, --project`: Project name (auto-detected from git)
-- `-u, --user`: User ID (default: dev_user)
+---
 
-### memos_save.py
+## Directory Structure
 
-Saves a formatted memory to MemOS.
-
-```bash
-memos-save CONTENT [-t TYPE] [-p PROJECT] [--tags TAG...]
+```
+project-memory/
+├── SKILL.md                    # AI behavior instructions (Enhanced)
+├── README.md                   # This file
+├── README_CN.md                # Chinese documentation
+├── LICENSE
+├── references/
+│   └── examples.md             # Memory format examples (Enhanced)
+└── scripts/
+    ├── memos_init_project.py   # Initialize project cube
+    ├── memos_save.py           # Save memory
+    ├── memos_search.py         # Search memories
+    ├── linux/
+    │   ├── install.sh
+    │   ├── memos-init.sh
+    │   ├── memos-save.sh
+    │   └── memos-search.sh
+    └── windows/
+        ├── install.cmd
+        ├── install.ps1
+        ├── memos-init.cmd
+        ├── memos-save.cmd
+        └── memos-search.cmd
 ```
 
-Options:
-- `-t, --type`: Memory type (MILESTONE, BUGFIX, FEATURE, etc.)
-- `-p, --project`: Project name
-- `--tags`: Additional tags for searchability
-
-### memos_search.py
-
-Searches memories with formatted output.
-
-```bash
-memos-search QUERY [-p PROJECT] [--all] [--json]
-```
-
-Options:
-- `-p, --project`: Search in specific project
-- `--all`: Search all projects
-- `--json`: Output raw JSON
+---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMOS_URL` | `http://localhost:18000` | MemOS API base URL |
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
 | `MEMOS_USER` | `dev_user` | Default user ID |
-| `MEMOS_CUBES_DIR` | `~/.memos_cubes` | Directory for cube configs |
+| `MEMOS_CUBES_DIR` | `~/.memos_cubes` | Memory storage |
 
-## API Endpoints Used
+---
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/mem_cubes` | POST | Register memory cube |
-| `/memories` | POST | Save memory |
-| `/memories` | GET | Get all memories |
-| `/search` | POST | Search memories |
+## Prerequisites
 
-## Example Workflow
+- [MemOS](https://github.com/MemTensor/MemOS) running at `localhost:18000`
+- Python 3.10+
+- Claude Code CLI
 
-1. **Start working on a project**
-   ```
-   AI: Searching for existing memories about "my-project"...
-   Found 3 memories: authentication system complete, rate limiting implemented...
-   ```
+---
 
-2. **Complete a feature**
-   ```
-   AI: Saving milestone - "User dashboard implemented with real-time updates"
-   Memory saved successfully.
-   ```
+## Example Scenarios
 
-3. **Debug an issue**
-   ```
-   AI: Searching for similar issues...
-   Found related memory: "Race condition in connection pool - solved with mutex"
-   ```
+### Scenario 1: Error Recognition
 
-4. **Resume work later**
-   ```
-   AI: Retrieving project context...
-   Last progress: "Database migration 50% complete"
-   Next steps: Complete orders table schema
-   ```
+```
+👤 You: I'm getting "ConnectionRefusedError" when starting the app
 
-## AI Autonomous Behavior
+🤖 AI: [Searching ERROR_PATTERN...]
 
-Based on SKILL.md configuration, AI will **proactively** use this skill:
+    Found matching error pattern!
 
-### Auto-Search Triggers
-- Before starting work on project code
-- When debugging to find similar historical issues
-- When user asks about project progress or history
+    📌 ERROR_PATTERN: ConnectionRefusedError - Redis Startup
 
-### Auto-Save Triggers
-- After completing important features
-- After solving complex bugs
-- When making architectural decisions
-- When discovering gotchas
-- After modifying important configurations
+    Root Cause: Redis container not ready when app starts
 
-### Progress Comparison
-When user asks "what have we done?" or "project status?", AI will:
-1. Search all MILESTONE and PROGRESS type memories
-2. Compare with current git status
-3. Synthesize completed and pending work
+    Solution:
+    1. Add healthcheck to Redis in docker-compose.yml
+    2. Use `depends_on: condition: service_healthy`
 
-## Related Projects
+    [GOTCHA-REDIS-001]
+```
 
-- [MemOS](https://github.com/MemTech/MemOS) - The memory operating system backend
-- [Claude Code](https://claude.ai/claude-code) - Anthropic's CLI for Claude
+### Scenario 2: Code Reuse
+
+```
+👤 You: I need to add retry logic to this API call
+
+🤖 AI: I noticed you have an existing pattern for this!
+
+    📦 CODE_PATTERN: Async Retry Decorator
+
+    Already used in:
+    - src/services/api.py:25
+    - src/db/connection.py:42
+
+    Would you like to use this pattern for consistency?
+```
+
+### Scenario 3: Decision Context
+
+```
+👤 You: Why are we using JWT instead of sessions?
+
+🤖 AI: [Searching DECISION_CHAIN...]
+
+    🔗 DECISION_CHAIN: Authentication Method
+
+    Evolution:
+    • 01-10: Session-based → Simple but doesn't scale
+    • 01-15: JWT only → Stateless but security concerns
+    • 01-25: JWT + Refresh → Current (balanced approach)
+
+    Current rationale: Need to support multiple clients
+    (web, mobile, CLI) with different security needs
+```
+
+---
+
+## Related Links
+
+- [MemOS](https://github.com/MemTensor/MemOS) - Memory backend
+- [Claude Code](https://claude.ai) - Anthropic CLI
+- [Full Examples](references/examples.md) - Memory format templates
+
+---
 
 ## License
 

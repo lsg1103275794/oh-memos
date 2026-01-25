@@ -1,286 +1,364 @@
-# 项目记忆技能 (Project Memory Skill)
+# Project Memory 技能 (增强版)
 
-基于 [MemOS](https://github.com/MemTech/MemOS) 的 Claude Code 项目记忆管理技能，让 AI 能够主动记忆和回忆项目信息。
+<div align="center">
 
-## 概述
+**Claude Code 智能项目记忆**
 
-此技能使 AI 能够在对话之间自动记住和回忆项目特定信息。它与 MemOS API 集成，提供持久化、可搜索的记忆存储。
+*让 AI 真正理解你的项目历史*
 
-## 功能特点
+[![MemOS](https://img.shields.io/badge/Powered%20by-MemOS-blue)](https://github.com/MemTensor/MemOS)
+[![Claude Code](https://img.shields.io/badge/For-Claude%20Code-orange)](https://claude.ai)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-- **自动创建记忆**：AI 主动保存重要的里程碑、bug 修复、决策和踩坑记录
-- **上下文感知搜索**：在开始项目工作前搜索相关记忆
-- **进度追踪**：将当前状态与历史记录进行比较
-- **项目隔离**：每个项目有独立的记忆库
-- **跨平台支持**：支持 Linux、macOS 和 Windows
+</div>
 
-## 目录结构
+---
+
+## 增强版新特性
+
+| 特性 | 描述 |
+|------|------|
+| 🧠 **智能触发器** | 根据语言模式自动判断何时搜索/保存 |
+| 🔴 **错误模式学习** | 记住错误签名和解决方案，下次秒解 |
+| 📦 **代码模式库** | 保存可复用代码模板，检测相似代码时建议复用 |
+| 🔗 **决策链追踪** | 追踪决策演进历史，理解"为什么" |
+| ⚠️ **主动提醒** | 在你重蹈覆辙之前预警 |
+| 🕸️ **知识图谱** | 关联相关记忆，提供更好的上下文 |
+
+---
+
+## 工作原理
 
 ```
-project-memory/
-├── SKILL.md                           # AI 技能指令
-├── README.md                          # 英文文档
-├── README_CN.md                       # 中文文档
-├── references/
-│   └── examples.md                    # 记忆内容示例
-└── scripts/
-    ├── memos_init_project.py          # 核心 Python 脚本
-    ├── memos_save.py
-    ├── memos_search.py
-    ├── linux/                         # Linux/macOS
-    │   ├── install.sh                 # 安装脚本
-    │   ├── memos-init.sh
-    │   ├── memos-save.sh
-    │   └── memos-search.sh
-    └── windows/                       # Windows
-        ├── install.cmd                # CMD 安装脚本
-        ├── install.ps1                # PowerShell 安装脚本
-        ├── memos-init.cmd
-        ├── memos-save.cmd
-        └── memos-search.cmd
+┌─────────────────────────────────────────────────────────────────┐
+│                       智能记忆工作流                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  用户操作            智能触发              AI 响应               │
+│  ────────           ────────             ────────               │
+│                                                                  │
+│  "之前怎么做的"  ───>  语言检测      ───>  搜索历史记录          │
+│  "last time..."                                                  │
+│                                                                  │
+│  写代码         ───>  模式匹配      ───>  建议使用模板          │
+│                                          "要用 CODE_PATTERN 吗?" │
+│                                                                  │
+│  遇到错误       ───>  签名匹配      ───>  显示解决方案          │
+│                                          来自 ERROR_PATTERN     │
+│                                                                  │
+│  危险操作       ───>  GOTCHA 匹配   ───>  主动警告              │
+│                                          "上次这样做时..."       │
+│                                                                  │
+│  完成任务       ───>  自动评估      ───>  提示保存记忆          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## 前置要求
+---
 
-- [MemOS](https://github.com/MemTech/MemOS) 服务运行在 `http://localhost:18000`
-- Python 3.8+
-- （可选）自定义配置的环境变量
+## 记忆类型
+
+### 标准类型
+
+| 类型 | 图标 | 用途 |
+|------|------|------|
+| `[MILESTONE]` | ✅ | 重要里程碑 |
+| `[BUGFIX]` | 🐛 | Bug 修复及解决方案 |
+| `[FEATURE]` | ✨ | 新功能实现 |
+| `[DECISION]` | 🏗️ | 架构/设计决策 |
+| `[GOTCHA]` | ⚠️ | 坑点和注意事项 |
+| `[CONFIG]` | ⚙️ | 配置变更 |
+| `[PROGRESS]` | 📊 | 进度更新 |
+
+### 增强类型 (新增)
+
+| 类型 | 图标 | 用途 |
+|------|------|------|
+| `[ERROR_PATTERN]` | 🔴 | 可复用的错误签名 + 解决方案 |
+| `[CODE_PATTERN]` | 📦 | 可复用的代码模板 |
+| `[DECISION_CHAIN]` | 🔗 | 决策演进时间线 |
+| `[KNOWLEDGE]` | 📚 | 项目通用知识 |
+
+---
+
+## 智能触发器
+
+### 语言模式检测
+
+| 你说的话 | AI 自动执行 |
+|----------|------------|
+| "之前"、"上次"、"以前" | 搜索历史记录 |
+| "还记得"、"remember" | 搜索特定记忆 |
+| "为什么"、"原因" | 搜索决策记录 |
+| "错误"、"error"、"怎么解决" | 搜索 ERROR_PATTERN |
+| "类似"、"similar" | 搜索 CODE_PATTERN |
+| "进度"、"status" | 搜索里程碑 |
+
+### 代码上下文检测
+
+| 你在做的事 | AI 自动执行 |
+|-----------|------------|
+| 打开文件编辑 | 搜索该文件相关的记忆 |
+| 出现错误信息 | 搜索匹配的 ERROR_PATTERN |
+| 创建新文件 | 搜索类似的文件模式 |
+| 修改配置 | 搜索 CONFIG 历史 |
+| 写重复代码 | 建议使用已有的 CODE_PATTERN |
+
+---
+
+## 错误模式学习
+
+解决错误后，AI 会结构化保存以便下次秒识别：
+
+```markdown
+[ERROR_PATTERN] Project: my-api | Date: 2025-01-25
+
+## 错误签名
+- 类型: ModuleNotFoundError
+- 信息: No module named 'uvicorn'
+- 场景: Windows 便携环境
+
+## 根本原因
+PATH 没有设置 conda_venv/Scripts
+
+## 解决方案
+1. 检查 Python 路径: `where python`
+2. 设置 PATH: `set PATH=%CD%\conda_venv;%CD%\conda_venv\Scripts;%PATH%`
+
+## 预防措施
+始终使用 run.bat 启动，它会正确设置 PATH
+
+Tags: error, ModuleNotFoundError, PATH, windows
+```
+
+**下次遇到同样错误** → AI 立即显示解决方案！
+
+---
+
+## 代码模式库
+
+保存可复用的代码模式：
+
+```markdown
+[CODE_PATTERN] Project: my-api | Pattern: 异步重试装饰器
+
+## 用途
+通用的指数退避重试装饰器
+
+## 模板
+```python
+def async_retry(retries=3, delay=1.0, backoff=2.0):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # ... 重试逻辑
+        return wrapper
+    return decorator
+```
+
+## 使用位置
+- src/services/api.py:25
+- src/db/connection.py:42
+```
+
+**当 AI 检测到类似代码** → 建议："要使用现有模式吗？"
+
+---
+
+## 决策链追踪
+
+追踪决策如何演进：
+
+```markdown
+[DECISION_CHAIN] Project: my-api | Topic: 认证方式
+
+## 演进时间线
+| 日期 | 决策 | 理由 |
+|------|------|------|
+| 01-10 | Session | 简单熟悉 |
+| 01-15 | JWT | 无状态可扩展 |
+| 01-25 | JWT + Refresh | 平衡安全和体验 |
+
+## 当前决策
+JWT + Refresh Token
+
+## 为何改变
+Session 不好扩展；纯 JWT 有安全顾虑
+```
+
+**当你在认证相关代码工作时** → AI 展示决策历史和理由
+
+---
+
+## 主动提醒
+
+AI 在你重蹈覆辙之前警告：
+
+```
+⚠️ 注意：上次修改 redis.conf 时遇到了连接超时问题。
+   记得在配置更改后重启 Redis 容器。
+
+   相关记忆: [GOTCHA-REDIS-001]
+```
+
+### 提醒触发优先级
+
+| 优先级 | 类型 | 触发时机 |
+|--------|------|----------|
+| 🔴 高 | 坑点/错误预防 | 危险操作之前 |
+| 🟡 中 | 代码模式建议 | 写类似代码时 |
+| 🟢 低 | 进度检查点 | 完成 3+ 任务后 |
+
+---
 
 ## 快速开始
 
 ### 安装
 
-| 平台 | 命令 |
-|------|------|
-| Linux/macOS | `bash ~/.claude/skills/project-memory/scripts/linux/install.sh` |
-| Windows CMD | `%USERPROFILE%\.claude\skills\project-memory\scripts\windows\install.cmd` |
-| Windows PowerShell | `& "$env:USERPROFILE\.claude\skills\project-memory\scripts\windows\install.ps1"` |
-
-### 安装后可用命令
-
-| 命令 | 描述 |
-|------|------|
-| `memos-init` | 初始化项目记忆库 |
-| `memos-save "内容" -t 类型` | 保存记忆 |
-| `memos-search "关键词"` | 搜索记忆 |
-
-## 详细安装说明
-
-技能位于 Claude Code 的技能目录：
-
-```
-~/.claude/skills/project-memory/
-```
-
-### Linux / macOS
-
 ```bash
-# 运行安装脚本
+# 复制 skill 到 Claude Code 技能目录
+cp -r project-memory ~/.claude/skills/
+
+# 运行安装脚本获取 CLI 命令
 bash ~/.claude/skills/project-memory/scripts/linux/install.sh
 
-# 或手动添加到 ~/.bashrc 或 ~/.zshrc:
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-安装后可使用：
-```bash
-memos-init                           # 初始化项目
-memos-save "内容" -t MILESTONE       # 保存记忆
-memos-search "关键词"                # 搜索记忆
-```
-
-### Windows (CMD 命令提示符)
-
-```cmd
-REM 运行安装脚本
+# Windows
 %USERPROFILE%\.claude\skills\project-memory\scripts\windows\install.cmd
 ```
 
-### Windows (PowerShell)
-
-```powershell
-# 运行安装脚本（可能需要先执行: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned）
-& "$env:USERPROFILE\.claude\skills\project-memory\scripts\windows\install.ps1"
-```
-
-安装后重启终端即可使用。
-
-## 使用方式
-
-### 自动模式（推荐）
-
-AI 会在以下情况自动使用此技能：
-
-1. **开始项目工作时** - 搜索现有记忆
-2. **完成任务时** - 保存里程碑和进度
-3. **修复 bug 时** - 记录问题和解决方案
-4. **做出决策时** - 记录决策理由
-
-### 手动命令
-
-初始化新项目记忆库：
-```bash
-memos-init
-# 或
-python3 ~/.claude/skills/project-memory/scripts/memos_init_project.py
-```
-
-保存记忆：
-```bash
-memos-save "你的记忆内容" -t MILESTONE --tags feature release
-# 或
-python3 ~/.claude/skills/project-memory/scripts/memos_save.py "内容" -t MILESTONE
-```
-
-搜索记忆：
-```bash
-memos-search "搜索关键词"
-# 或
-python3 ~/.claude/skills/project-memory/scripts/memos_search.py "关键词"
-```
-
-## 记忆类型
-
-| 类型 | 描述 | 使用场景 |
-|------|------|----------|
-| `MILESTONE` | 重要里程碑 | 功能完成、版本发布 |
-| `BUGFIX` | Bug 修复 | 问题原因和解决方案 |
-| `FEATURE` | 新功能 | 功能实现细节 |
-| `DECISION` | 设计决策 | 架构决策及理由 |
-| `GOTCHA` | 踩坑记录 | 非显而易见的问题 |
-| `CONFIG` | 配置变更 | 环境/设置修改 |
-| `PROGRESS` | 进度更新 | 工作进度检查点 |
-
-## 记忆格式
-
-```
-[类型] Project: 项目名称 | Date: YYYY-MM-DD
-
-## Summary
-简要描述
-
-## Context
-为什么需要这个
-
-## Details
-具体变更、代码片段、文件路径
-
-## Outcome
-结果和后续步骤
-
-Tags: 标签1, 标签2, 标签3
-```
-
-## 脚本参考
-
-### memos_init_project.py
-
-初始化新项目记忆库，创建正确的配置。
+### CLI 命令
 
 ```bash
-memos-init [-p 项目名] [-u 用户ID]
+memos-init                           # 初始化项目
+memos-save "内容" -t TYPE            # 保存记忆
+memos-search "关键词"                # 搜索记忆
 ```
 
-参数：
-- `-p, --project`：项目名称（从 git 自动检测）
-- `-u, --user`：用户 ID（默认：dev_user）
-
-### memos_save.py
-
-保存格式化的记忆到 MemOS。
+### 记忆类型选项
 
 ```bash
-memos-save 内容 [-t 类型] [-p 项目名] [--tags 标签...]
+memos-save "修复了登录 bug" -t BUGFIX
+memos-save "选择了 PostgreSQL" -t DECISION
+memos-save "认证系统完成" -t MILESTONE
+memos-save "Docker 需要 2GB 内存" -t GOTCHA
+memos-save "重试装饰器模式" -t CODE_PATTERN
+memos-save "连接错误解决方案" -t ERROR_PATTERN
 ```
 
-参数：
-- `-t, --type`：记忆类型（MILESTONE, BUGFIX, FEATURE 等）
-- `-p, --project`：项目名称
-- `--tags`：用于搜索的额外标签
+---
 
-### memos_search.py
+## 目录结构
 
-搜索记忆并格式化输出。
-
-```bash
-memos-search 查询词 [-p 项目名] [--all] [--json]
+```
+project-memory/
+├── SKILL.md                    # AI 行为指令 (增强版)
+├── README.md                   # 英文文档
+├── README_CN.md                # 本文件
+├── LICENSE
+├── references/
+│   └── examples.md             # 记忆格式示例 (增强版)
+└── scripts/
+    ├── memos_init_project.py   # 初始化项目
+    ├── memos_save.py           # 保存记忆
+    ├── memos_search.py         # 搜索记忆
+    ├── linux/
+    │   ├── install.sh
+    │   ├── memos-init.sh
+    │   ├── memos-save.sh
+    │   └── memos-search.sh
+    └── windows/
+        ├── install.cmd
+        ├── install.ps1
+        ├── memos-init.cmd
+        ├── memos-save.cmd
+        └── memos-search.cmd
 ```
 
-参数：
-- `-p, --project`：在特定项目中搜索
-- `--all`：搜索所有项目
-- `--json`：输出原始 JSON
+---
 
 ## 环境变量
 
-| 变量 | 默认值 | 描述 |
+| 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `MEMOS_URL` | `http://localhost:18000` | MemOS API 地址 |
 | `MEMOS_USER` | `dev_user` | 默认用户 ID |
-| `MEMOS_CUBES_DIR` | `~/.memos_cubes` | 记忆库配置目录 |
+| `MEMOS_CUBES_DIR` | `~/.memos_cubes` | 记忆存储目录 |
 
-## 使用的 API 端点
+---
 
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/mem_cubes` | POST | 注册记忆库 |
-| `/memories` | POST | 保存记忆 |
-| `/memories` | GET | 获取所有记忆 |
-| `/search` | POST | 搜索记忆 |
+## 前置要求
 
-## 工作流程示例
+- [MemOS](https://github.com/MemTensor/MemOS) 运行在 `localhost:18000`
+- Python 3.10+
+- Claude Code CLI
 
-1. **开始项目工作**
-   ```
-   AI: 正在搜索 "my-project" 的现有记忆...
-   找到 3 条记忆：认证系统完成、限流已实现...
-   ```
+---
 
-2. **完成一个功能**
-   ```
-   AI: 保存里程碑 - "用户仪表板已实现，支持实时更新"
-   记忆保存成功。
-   ```
+## 使用场景示例
 
-3. **调试问题**
-   ```
-   AI: 搜索类似问题...
-   找到相关记忆："连接池竞态条件 - 使用互斥锁解决"
-   ```
+### 场景 1：错误识别
 
-4. **稍后恢复工作**
-   ```
-   AI: 获取项目上下文...
-   上次进度："数据库迁移完成 50%"
-   下一步：完成订单表结构
-   ```
+```
+👤 你：启动应用时出现 "ConnectionRefusedError"
 
-## AI 自主行为说明
+🤖 AI：[搜索 ERROR_PATTERN...]
 
-根据 SKILL.md 的配置，AI 会在以下场景**主动**使用此技能，无需用户提示：
+    找到匹配的错误模式！
 
-### 主动搜索场景
-- 开始处理项目代码前
-- 调试问题时查找类似历史问题
-- 用户询问项目进度或历史
+    📌 ERROR_PATTERN: ConnectionRefusedError - Redis 启动
 
-### 主动保存场景
-- 完成重要功能后
-- 解决复杂 bug 后
-- 做出架构决策时
-- 发现踩坑点时
-- 修改重要配置后
+    根本原因：应用启动时 Redis 容器还没准备好
 
-### 进度比对
-当用户询问"我们做到哪了"、"项目进度"等问题时，AI 会：
-1. 搜索所有 MILESTONE 和 PROGRESS 类型记忆
-2. 对比当前 git 状态
-3. 综合分析已完成和待完成的工作
+    解决方案：
+    1. 在 docker-compose.yml 中给 Redis 添加 healthcheck
+    2. 使用 `depends_on: condition: service_healthy`
 
-## 相关项目
+    [GOTCHA-REDIS-001]
+```
 
-- [MemOS](https://github.com/MemTech/MemOS) - 记忆操作系统后端
-- [Claude Code](https://claude.ai/claude-code) - Anthropic 的 Claude CLI 工具
+### 场景 2：代码复用
+
+```
+👤 你：我需要给这个 API 调用添加重试逻辑
+
+🤖 AI：我注意到你有一个现成的模式！
+
+    📦 CODE_PATTERN: 异步重试装饰器
+
+    已在以下位置使用：
+    - src/services/api.py:25
+    - src/db/connection.py:42
+
+    要使用这个模式以保持一致性吗？
+```
+
+### 场景 3：决策上下文
+
+```
+👤 你：我们为什么用 JWT 而不是 session？
+
+🤖 AI：[搜索 DECISION_CHAIN...]
+
+    🔗 DECISION_CHAIN: 认证方式
+
+    演进历程：
+    • 01-10: Session → 简单但不好扩展
+    • 01-15: JWT → 无状态但有安全顾虑
+    • 01-25: JWT + Refresh → 当前方案（平衡）
+
+    当前理由：需要支持多端（web、mobile、CLI）
+    各有不同的安全需求
+```
+
+---
+
+## 相关链接
+
+- [MemOS](https://github.com/MemTensor/MemOS) - 记忆后端
+- [Claude Code](https://claude.ai) - Anthropic CLI
+- [完整示例](references/examples.md) - 记忆格式模板
+
+---
 
 ## 许可证
 
