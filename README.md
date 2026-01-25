@@ -502,12 +502,16 @@ python scripts/legacy/memos_search.py "keyword"
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
-| `MEMOS_USER` | `dev_user` | Default user ID |
-| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
-| `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage directory |
+| Variable | Default | Description | Path Example (Windows) |
+|----------|---------|-------------|------------------------|
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL | `http://localhost:18000` |
+| `MEMOS_USER` | `dev_user` | Default user ID | `dev_user` |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube | `dev_cube` |
+| `MEMOS_CUBES_DIR` | `./data/memos_cubes` | Cube storage directory | `G:/test/MemOS/data/memos_cubes` |
+| `PYTHON_EXE` | - | Python executable path | `G:/test/MemOS/conda_venv/python.exe` |
+| `CONDA_VENV` | - | Environment directory | `G:/test/MemOS/conda_venv` |
+
+> **Note**: For Windows paths in `.env` or settings, use forward slashes `/` or double backslashes `\\` to avoid escape character issues.
 
 ### Memory Format
 
@@ -559,6 +563,12 @@ Tags: bugfix, auth, session, config
 | [**Skill README**](project-memory/README.md) | Claude Code skill usage | English |
 | [**技能说明**](project-memory/README_CN.md) | Claude Code 技能使用说明 | 中文 |
 | [**Memory Examples**](project-memory/references/examples.md) | Memory format templates | English |
+
+---
+
+## Acknowledgements
+
+Special thanks to [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS) for the original project and inspiration.
 
 ### Key Topics
 

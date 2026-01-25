@@ -208,3 +208,7 @@ neo4j-community\bin\neo4j console
 - [MemOS 官方仓库](https://github.com/MemTensor/MemOS)
 - [Qdrant 文档](https://qdrant.tech/documentation/)
 - [Ollama](https://ollama.ai)
+
+## 鸣谢
+
+特别感谢 [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS) 提供的原仓库支持。
