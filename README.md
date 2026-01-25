@@ -427,87 +427,74 @@ MemOSlocal/
 │   ├── 🔧 install_run.bat             # Install dependencies + start
 │   └── 🔧 run.bat                     # Quick start (after setup)
 │
-├── 📂 mcp-server/                      # 🔌 MCP Protocol Server (NEW!)
-│   ├── 🐍 memos_mcp_server.py         # Main MCP server
+├── 📂 mcp-server/                      # 🔌 MCP Protocol Server (Recommended!)
+│   ├── 🐍 memos_mcp_server.py         # Main MCP server (4 tools)
+│   ├── 🔧 run_mcp.sh                  # WSL wrapper script
 │   ├── 🐍 install.py                  # Auto-configure Claude Code
 │   ├── 🐍 test_server.py              # Test server functionality
 │   ├── 📄 pyproject.toml              # Package configuration
 │   └── 📄 README.md                   # MCP server documentation
 │
 ├── 📂 project-memory/                  # 🧠 Claude Code Skill
-│   ├── 📄 SKILL.md                    # AI behavior instructions
+│   ├── 📄 SKILL.md                    # MCP usage guide (v0.3.2+)
 │   ├── 📄 README.md                   # English Docs
 │   ├── 📄 README_CN.md                # Chinese Docs
 │   │
-│   ├── 📂 scripts/                    # Core Scripts
-│   │   ├── 🐍 memos_save.py           # Save memory
-│   │   ├── 🐍 memos_search.py         # Search memory
-│   │   ├── 🐍 memos_init_project.py   # Initialize project
-│   │   │
-│   │   ├── 📂 linux/                  # Linux/macOS
-│   │   │   ├── install.sh
-│   │   │   ├── memos-init.sh
-│   │   │   ├── memos-save.sh
-│   │   │   └── memos-search.sh
-│   │   │
-│   │   └── 📂 windows/                # Windows
-│   │       ├── install.cmd
-│   │       ├── install.ps1
-│   │       ├── memos-init.cmd
-│   │       ├── memos-save.cmd
-│   │       └── memos-search.cmd
-│   │
-│   └── 📂 references/
-│       └── 📄 examples.md             # Memory format examples
+│   └── 📂 scripts/
+│       ├── 🐍 memos_utils.py          # Utility functions
+│       └── 📂 legacy/                 # Archived (use MCP instead)
+│           ├── 📄 README.md
+│           ├── 🐍 memos_save.py
+│           ├── 🐍 memos_search.py
+│           └── 🐍 memos_init_project.py
 │
 ├── 📂 docs/                            # 📖 Documentation
 │   ├── 📄 CHANGELOG.md                # Version history
-│   └── 📄 MCP_GUIDE.md                # MCP Server guide
+│   └── 📄 MCP_GUIDE.md                # MCP Server guide (EN/中文)
 │
 ├── 📄 README.md                        # This file
-├── 📄 .gitignore
+├── 📄 pyproject.toml                   # Python package config
 └── 📄 LICENSE
 ```
 
 ---
 
-## 🛠️ CLI Tools
+## 🛠️ Tools (MCP Recommended)
 
-After installation, use these commands anywhere:
+### MCP Tools (Recommended ✅)
 
-### Initialize Project
+With MCP configured, AI uses these tools **automatically**:
 
-```bash
-memos-init                    # Auto-detect git project name
-memos-init -p my-project      # Specify project name
+| Tool | Function | Auto-Trigger |
+|------|----------|--------------|
+| `memos_search` | Search memories | Error encountered, user says "之前/previously" |
+| `memos_save` | Save memories | Bug fixed, decision made, task completed |
+| `memos_list` | List all memories | Check project status |
+| `memos_suggest` | Get search hints | Unsure what to search |
+
+```
+No manual commands needed - AI handles everything!
 ```
 
-### Save Memory
+### Legacy CLI Tools (Optional)
+
+> **Note**: These scripts are archived in `scripts/legacy/`. Use MCP instead.
+
+<details>
+<summary>Click to see legacy CLI commands</summary>
 
 ```bash
-# Basic usage
-memos-save "memory content" -t TYPE
+# Initialize (now auto-handled by MCP)
+python scripts/legacy/memos_init_project.py -p my-project
 
-# Full example
-memos-save "Implemented user avatar upload with S3 storage, supports cropping and compression" \
-  -t FEATURE \
-  -p my-project \
-  --tags s3 upload avatar
+# Save (use memos_save MCP tool instead)
+python scripts/legacy/memos_save.py "content" -t MILESTONE
 
-# Memory Types
-# MILESTONE - Milestone     BUGFIX   - Bug fix
-# FEATURE   - New feature   DECISION - Decision
-# GOTCHA    - Pitfall       CONFIG   - Config change
-# PROGRESS  - Progress update
+# Search (use memos_search MCP tool instead)
+python scripts/legacy/memos_search.py "keyword"
 ```
 
-### Search Memory
-
-```bash
-memos-search "keyword"              # Current project
-memos-search "keyword" --all        # All projects
-memos-search "keyword" --json       # JSON output
-```
+</details>
 
 ---
 
@@ -519,12 +506,13 @@ memos-search "keyword" --json       # JSON output
 |----------|---------|-------------|
 | `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
 | `MEMOS_USER` | `dev_user` | Default user ID |
-| `MEMOS_CUBES_DIR` | `~/.memos_cubes` | Memory storage directory |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
+| `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage directory |
 
 ### Memory Format
 
 ```markdown
-[BUGFIX] Project: my-project | Date: 2025-01-25
+[BUGFIX] Project: my-project | Date: 2026-01-26
 
 ## Summary
 Fixed user login session timeout issue
