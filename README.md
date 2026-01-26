@@ -90,56 +90,55 @@ MemOSLocal-SM is a complete **AI Project Memory Solution** that includes:
 | **`tree_text`** | Neo4j + Qdrant | Knowledge graph + LLM extraction | Large projects, rich context |
 
 ```
-                    ┌──────────────────────────────────────┐
-                    │           Your Project               │
-                    └──────────────────────────────────────┘
+                      ┌────────────────────────────────────┐
+                      │           Your Project             │
+                      └─────────────────┬──────────────────┘
+                                        │
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                        Claude Code + Integrations                         │
+│                                                                           │
+│   ┌───────────────────────────────┐   ┌───────────────────────────────┐   │
+│   │    project-memory skill       │   │     MCP Server (memos)        │   │
+│   │       (Passive Mode)          │   │     (Proactive Mode)          │   │
+│   │                               │   │                               │   │
+│   │  User calls /project-memory   │   │  AI auto-calls memos_search   │   │
+│   │  to save/search memories      │   │  when encountering errors,    │   │
+│   │                               │   │  making decisions, etc.       │   │
+│   └───────────────┬───────────────┘   └───────────────┬───────────────┘   │
+│                   │                                   │                   │
+│                   └─────────────────┬─────────────────┘                   │
+│                                     │                                     │
+└─────────────────────────────────────┼─────────────────────────────────────┘
                                       │
                                       ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Claude Code + Integrations                      │
-│                                                                         │
-│  ┌─────────────────────────────┐   ┌─────────────────────────────────┐  │
-│  │   project-memory skill      │   │      MCP Server (memos)         │  │
-│  │      (Passive Mode)         │   │      (Proactive Mode)           │  │
-│  │                             │   │                                 │  │
-│  │  User calls /project-memory │   │  AI auto-calls memos_search     │  │
-│  │  to save/search memories    │   │  when encountering errors,      │  │
-│  │                             │   │  making decisions, etc.         │  │
-│  └──────────────┬──────────────┘   └────────────────┬────────────────┘  │
-│                 │                                   │                   │
-│                 └───────────────┬───────────────────┘                   │
-│                                 │                                       │
-└─────────────────────────────────┼───────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              MemOS Backend                              │
-│                         http://localhost:18000                          │
-│                                                                         │
-│   ┌────────────────────────────────────────────────────────────────┐    │
-│   │                    Memory Mode Selection                        │    │
-│   │                                                                 │    │
-│   │    general_text (Flat)         tree_text (Knowledge Graph)     │    │
-│   │    ┌──────────────┐            ┌──────────────────────────┐    │    │
-│   │    │   Qdrant     │            │  Neo4j    +    Qdrant    │    │    │
-│   │    │   (Vector)   │            │  (Graph)       (Vector)  │    │    │
-│   │    └──────────────┘            └──────────────────────────┘    │    │
-│   │                                          │                     │    │
-│   │                                ┌─────────┴─────────┐           │    │
-│   │                                │    LLM Extraction  │           │    │
-│   │                                │  key, tags, conf.  │           │    │
-│   │                                └────────────────────┘           │    │
-│   └────────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-│   ┌────────────────┐      ┌────────────────┐      ┌──────────────────┐  │
-│   │   🗄️ Memory    │      │   🔎 Vector    │      │  🤖 LLM Context │  │
-│   │    Storage     │      │     Search     │      │   Enhancement    │  │
-│   │                │      │                │      │                  │  │
-│   │  Qdrant Cloud  │      │    Semantic    │      │      OpenAI      │  │
-│   │    or Local    │      │   Similarity   │      │  Compatible API  │  │
-│   └────────────────┘      └────────────────┘      └──────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                             MemOS Backend                                 │
+│                        http://localhost:18000                             │
+│                                                                           │
+│   ┌───────────────────────────────────────────────────────────────────┐   │
+│   │                     Memory Mode Selection                         │   │
+│   │                                                                   │   │
+│   │   general_text (Flat)           tree_text (Knowledge Graph)       │   │
+│   │   ┌───────────────┐             ┌─────────────────────────────┐   │   │
+│   │   │    Qdrant     │             │   Neo4j     +     Qdrant    │   │   │
+│   │   │   (Vector)    │             │  (Graph)         (Vector)   │   │   │
+│   │   └───────────────┘             └────────────┬────────────────┘   │   │
+│   │                                              │                    │   │
+│   │                                   ┌──────────┴──────────┐         │   │
+│   │                                   │   LLM Extraction    │         │   │
+│   │                                   │  key, tags, conf.   │         │   │
+│   │                                   └─────────────────────┘         │   │
+│   └───────────────────────────────────────────────────────────────────┘   │
+│                                                                           │
+│   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────┐   │
+│   │  Memory Storage │    │  Vector Search  │    │  LLM Enhancement    │   │
+│   │                 │    │                 │    │                     │   │
+│   │  Qdrant Cloud   │    │    Semantic     │    │       OpenAI        │   │
+│   │   or Local      │    │   Similarity    │    │   Compatible API    │   │
+│   └─────────────────┘    └─────────────────┘    └─────────────────────┘   │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -229,24 +228,24 @@ One codebase, runs everywhere:
 ```
 Memory Save Flow (tree_text mode):
 
-User Input: "[MILESTONE] Completed user authentication"
-         │
-         ▼
-┌─────────────────────────────────────────┐
-│           LLM Memory Extraction         │
-│      (Uses OPENAI_API_KEY from .env)    │
-│                                         │
-│   Extract: key, tags, background        │
-│   Evaluate: confidence (0.0 - 1.0)      │
-│   Classify: WorkingMemory / LongTerm    │
-└─────────────────────────────────────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌───────┐  ┌───────┐
-│ Neo4j │  │Qdrant │
-│(Graph)│  │(Vector)│
-└───────┘  └───────┘
+     User Input: "[MILESTONE] Completed user authentication"
+                                   │
+                                   ▼
+             ┌─────────────────────────────────────────┐
+             │           LLM Memory Extraction         │
+             │      (Uses OPENAI_API_KEY from .env)    │
+             │                                         │
+             │   Extract: key, tags, background        │
+             │   Evaluate: confidence (0.0 - 1.0)      │
+             │   Classify: WorkingMemory / LongTerm    │
+             └─────────────────────────────────────────┘
+                                   │
+                          ┌───────┴───────┐
+                          ▼               ▼
+                    ┌──────────┐    ┌──────────┐
+                    │  Neo4j   │    │  Qdrant  │
+                    │ (Graph)  │    │ (Vector) │
+                    └──────────┘    └──────────┘
 ```
 
 ### Memory Node Structure
@@ -302,45 +301,46 @@ User Input: "[MILESTONE] Completed user authentication"
 > **Why "local" in MemOSLocal-SM?** Your sensitive data never leaves your machine.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  🏠 YOUR MACHINE (Local)                                        │
-│                                                                 │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
-│  │ Claude Code │───▶│  MCP Server │───▶│     MemOS API       │  │
-│  │             │    │             │    │   (localhost:18000) │  │
-│  └─────────────┘    └─────────────┘    └──────────┬──────────┘  │
-│                                                   │             │
-│  ┌─────────────────────────────────────┐          │             │
-│  │           🔐 Ollama                 │◀─────────┤             │
-│  │                                     │          │             │
-│  │  "Fix login bug in auth.py"         │  Embed   │             │
-│  │           ↓                         │          │             │
-│  │  [0.23, -0.87, 0.45, 0.12, ...]    │          │             │
-│  │                                     │          │             │
-│  │  ✅ Text stays local                │          │             │
-│  │  ✅ Only vectors go to cloud        │          │             │
-│  └─────────────────────────────────────┘          │             │
-│                                                   │             │
-└───────────────────────────────────────────────────┼─────────────┘
-                                                    │
-                        Only numerical vectors      │
-                        (no readable text)          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ☁️  QDRANT CLOUD (europe-west3, GCP)                            │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Vector Database                                          │  │
-│  │                                                           │  │
-│  │  ID: abc123  →  [0.23, -0.87, 0.45, 0.12, ...]           │  │
-│  │  ID: def456  →  [0.91, 0.33, -0.28, 0.67, ...]           │  │
-│  │  ID: ghi789  →  [-0.15, 0.72, 0.88, -0.41, ...]          │  │
-│  │                                                           │  │
-│  │  ❌ Cannot reverse vectors to original text               │  │
-│  │  ✅ Cross-device sync                                     │  │
-│  │  ✅ Persistent storage                                    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│  [LOCAL] YOUR MACHINE                                                 │
+│                                                                       │
+│  ┌─────────────┐    ┌─────────────┐    ┌───────────────────────────┐  │
+│  │ Claude Code │───>│  MCP Server │───>│       MemOS API           │  │
+│  │             │    │             │    │   (localhost:18000)       │  │
+│  └─────────────┘    └─────────────┘    └─────────────┬─────────────┘  │
+│                                                      │                │
+│  ┌───────────────────────────────────────────┐       │                │
+│  │  [Ollama] Local Embedding                 │<──────┤                │
+│  │                                           │       │                │
+│  │  "Fix login bug in auth.py"               │ Embed │                │
+│  │              |                            │       │                │
+│  │              v                            │       │                │
+│  │  [0.23, -0.87, 0.45, 0.12, ...]           │       │                │
+│  │                                           │       │                │
+│  │  * Text stays local                       │       │                │
+│  │  * Only vectors go to cloud               │       │                │
+│  └───────────────────────────────────────────┘       │                │
+│                                                      │                │
+└──────────────────────────────────────────────────────┼────────────────┘
+                                                       │
+                           Only numerical vectors      │
+                           (no readable text)          v
+┌───────────────────────────────────────────────────────────────────────┐
+│  [CLOUD] QDRANT CLOUD (europe-west3, GCP)                             │
+│                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │  Vector Database                                                │  │
+│  │                                                                 │  │
+│  │  ID: abc123  ->  [0.23, -0.87, 0.45, 0.12, ...]                 │  │
+│  │  ID: def456  ->  [0.91, 0.33, -0.28, 0.67, ...]                 │  │
+│  │  ID: ghi789  ->  [-0.15, 0.72, 0.88, -0.41, ...]                │  │
+│  │                                                                 │  │
+│  │  X Cannot reverse vectors to original text                      │  │
+│  │  * Cross-device sync                                            │  │
+│  │  * Persistent storage                                           │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 <table>
@@ -636,25 +636,24 @@ Add a `CLAUDE.md` file to your project root for **project-specific context**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  📁 Project A: DDSP-SVC-6.0 (discussing skill implementation)           │
+│  [Project A] DDSP-SVC-6.0 (discussing skill implementation)             │
 │                                                                         │
-│  👤 You: "Neo4j 知识图谱是怎么配置的？"                                   │
-│          (How to configure Neo4j knowledge graph?)                      │
+│  You: "How to configure Neo4j knowledge graph?"                         │
 │                                                                         │
-│  🤖 AI: [Automatically detects need for memory search]                  │
+│  AI: [Automatically detects need for memory search]                     │
 │                                                                         │
 │      ┌─────────────────────────────────────────────────────────────┐   │
 │      │  memos_search (MCP)                                          │   │
-│      │  query: "Neo4j 知识图谱 配置 graph"                           │   │
+│      │  query: "Neo4j knowledge graph config"                      │   │
 │      │                                                              │   │
-│      │  🔍 Searching across ALL projects...                         │   │
+│      │  [*] Searching across ALL projects...                       │   │
 │      │                                                              │   │
-│      │  ✅ Found in: dev_cube (MemOS project!)                      │   │
-│      │  📅 January 25, 2026 at 10:59 PM                             │   │
-│      │  📝 "Updated README.md to showcase Neo4j Knowledge Graph"    │   │
+│      │  [OK] Found in: dev_cube (MemOS project!)                   │   │
+│      │  [Date] January 25, 2026 at 10:59 PM                        │   │
+│      │  [Memo] "Updated README.md to showcase Neo4j Knowledge..."  │   │
 │      └─────────────────────────────────────────────────────────────┘   │
 │                                                                         │
-│  🤖 AI: Found relevant memory! Here's the Neo4j configuration:          │
+│  AI: Found relevant memory! Here's the Neo4j configuration:             │
 │                                                                         │
 │      tree_text mode requires:                                           │
 │      - Neo4j Community Edition (bolt://localhost:7687)                  │
@@ -663,10 +662,10 @@ Add a `CLAUDE.md` file to your project root for **project-specific context**:
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 
-💡 Key Points:
-   • Working in Project A, asking about Project B's config
-   • AI automatically searches memory (no manual command!)
-   • Cross-project knowledge retrieval works seamlessly
+Key Points:
+   - Working in Project A, asking about Project B's config
+   - AI automatically searches memory (no manual command!)
+   - Cross-project knowledge retrieval works seamlessly
    • Zero context switching needed
 ```
 
@@ -1013,16 +1012,18 @@ NEO4J_URI=bolt://localhost:7687
 > **为什么叫 "local"？** 你的敏感数据永远不会离开你的电脑。
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  🏠 你的电脑 (本地)                                              │
-│                                                                 │
-│    原始文本: "修复 auth.py 的登录 Bug"                           │
-│                    ↓                                            │
-│    Ollama 本地嵌入: [0.23, -0.87, 0.45, 0.12, ...]              │
-│                    ↓                                            │
-│    ✅ 文本留在本地  →  ☁️ 只有向量上传到云端                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|  [LOCAL] Your Machine                                             |
+|                                                                   |
+|    Original text: "Fix login bug in auth.py"                      |
+|                            |                                      |
+|                            v                                      |
+|    Ollama local embedding: [0.23, -0.87, 0.45, 0.12, ...]         |
+|                            |                                      |
+|                            v                                      |
+|    * Text stays local  ->  [CLOUD] Only vectors uploaded          |
+|                                                                   |
++-------------------------------------------------------------------+
 ```
 
 | 🏠 本地保留 | ☁️ 上传云端 |

@@ -512,34 +512,34 @@ MCP Server will **auto-register** cube on first use, no manual creation needed.
 ## 🔍 How It Works | 工作原理
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Claude Code + MCP                         │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  用户输入 ──────────────────────────────────────────────────│
-│      │                                                       │
-│      ▼                                                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Claude AI 分析上下文                      │   │
-│  │                                                       │   │
-│  │  检测到错误? ─────> 调用 memos_search(ERROR_PATTERN)  │   │
-│  │  完成任务?   ─────> 调用 memos_save(MILESTONE)        │   │
-│  │  需要历史?   ─────> 调用 memos_search(相关词)         │   │
-│  │                                                       │   │
-│  └────────────────────────┬─────────────────────────────┘   │
-│                           │                                  │
-│                           ▼                                  │
-│                    MCP Server (memos)                        │
-│                           │                                  │
-│                           ▼                                  │
-│                    MemOS API (:18000)                        │
-│                           │                                  │
-│               ┌───────────┴───────────┐                     │
-│               ▼                       ▼                     │
-│          Embedding              Vector DB                   │
-│          (Ollama)               (Qdrant)                    │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    Claude Code + MCP                        |
++-------------------------------------------------------------+
+|                                                             |
+|  User Input                                                 |
+|      |                                                      |
+|      v                                                      |
+|  +-------------------------------------------------------+  |
+|  |             Claude AI Analyzes Context                |  |
+|  |                                                       |  |
+|  |  Error detected? ----> memos_search(ERROR_PATTERN)    |  |
+|  |  Task completed? ----> memos_save(MILESTONE)          |  |
+|  |  Need history?   ----> memos_search(keywords)         |  |
+|  |                                                       |  |
+|  +--------------------------+----------------------------+  |
+|                             |                               |
+|                             v                               |
+|                      MCP Server (memos)                     |
+|                             |                               |
+|                             v                               |
+|                      MemOS API (:18000)                     |
+|                             |                               |
+|                  +----------+----------+                    |
+|                  v                     v                    |
+|             Embedding             Vector DB                 |
+|             (Ollama)              (Qdrant)                  |
+|                                                             |
++-------------------------------------------------------------+
 ```
 
 ---
@@ -742,17 +742,21 @@ Claude Code Hooks can automatically execute scripts on specific events.
 ### Hook 工作原理 | How Hooks Work
 
 ```
-用户操作 / User Action
-         ↓
-Claude Code 检测事件 / Detect Event
-         ↓
-匹配 Hook 配置 / Match Hook Config
-         ↓
-执行脚本 (stdin: JSON) / Execute Script
-         ↓
-返回结果 / Return Result
-    ├── continue: true → 继续
-    └── continue: false → 阻止
+User Action
+         |
+         v
+Claude Code Detect Event
+         |
+         v
+Match Hook Config
+         |
+         v
+Execute Script (stdin: JSON)
+         |
+         v
+Return Result
+    +-- continue: true  -> proceed
+    +-- continue: false -> block
 ```
 
 👉 详细文档: [.claude/hooks/README.md](../.claude/hooks/README.md)
@@ -777,25 +781,26 @@ Claude Code 检测事件 / Detect Event
 ### 架构 | Architecture
 
 ```
-保存记忆流程 (tree_text mode):
+Memory Save Flow (tree_text mode):
 
-用户输入: "[MILESTONE] 完成登录功能"
-         ↓
-     ┌───────────────────────────────────────┐
-     │           LLM 记忆提炼                  │
-     │   (使用 .env 中的 OPENAI_API_KEY)       │
-     │                                       │
-     │   提取: key, tags, background          │
-     │   评估: confidence                     │
-     │   分类: WorkingMemory/LongTermMemory   │
-     └───────────────────────────────────────┘
-         ↓
-    ┌────┴────┐
-    ↓         ↓
-┌───────┐  ┌───────┐
-│ Neo4j │  │Qdrant │
-│ (图)  │  │(向量) │
-└───────┘  └───────┘
+      User Input: "[MILESTONE] Completed login feature"
+                                |
+                                v
+          +------------------------------------------+
+          |           LLM Memory Extraction          |
+          |     (Uses OPENAI_API_KEY from .env)      |
+          |                                          |
+          |   Extract: key, tags, background         |
+          |   Evaluate: confidence                   |
+          |   Classify: WorkingMemory/LongTermMemory |
+          +------------------------------------------+
+                                |
+                       +--------+--------+
+                       v                 v
+                  +--------+        +--------+
+                  | Neo4j  |        | Qdrant |
+                  | (Graph)|        |(Vector)|
+                  +--------+        +--------+
 ```
 
 ### 配置要求 | Requirements

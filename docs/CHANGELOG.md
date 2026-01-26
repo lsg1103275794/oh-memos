@@ -203,27 +203,34 @@ User → /project-memory → SKILL.md → Guide to use MCP tools → MCP Server 
 
 **MCP Server Architecture:**
 ```
-User Input → Claude Code → Context Analysis → MCP Tool Decision
-                                                    ↓
-                              ┌─────────────────────┴─────────────────────┐
-                              ↓                                           ↓
-                    memos_search (proactive)                    memos_save (proactive)
-                              ↓                                           ↓
-                         MemOS API (:18000)                          MemOS API
-                              ↓                                           ↓
-                    Embedding + Qdrant                          Embedding + Qdrant
+User Input -> Claude Code -> Context Analysis -> MCP Tool Decision
+                                                       |
+                            +-------------+------------+
+                            |                          |
+                            v                          v
+                  memos_search (proactive)   memos_save (proactive)
+                            |                          |
+                            v                          v
+                       MemOS API (:18000)         MemOS API
+                            |                          |
+                            v                          v
+                  Embedding + Qdrant            Embedding + Qdrant
 ```
 
 **WSL Path Translation (run_mcp.sh):**
 ```
 Claude Code (WSL bash)
-        ↓ runs
+        | runs
+        v
     run_mcp.sh
-        ↓ invokes (WSL path)
+        | invokes (WSL path)
+        v
     /mnt/g/.../python.exe
-        ↓ with (Windows path)
+        | with (Windows path)
+        v
     G:/test/.../memos_mcp_server.py
-        ↓ connects
+        | connects
+        v
     MemOS API (localhost:18000)
 ```
 
