@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated SKILL.md with trigger rules for dependency queries
   - Triggers: "依赖关系", "root cause", "为什么失败", "冲突", "关联"
 
+- **📝 MCP Configuration Examples** (README.md)
+  - Added `alwaysAllow` array examples for automatic tool invocation
+  - Includes all 5 MCP tools: `memos_search`, `memos_save`, `memos_list`, `memos_suggest`, `memos_get_graph`
+  - Added examples for both WSL and pure Windows environments
+  - Added Chinese MCP configuration section with full example
+
 - **📄 CLAUDE.md Project Context** (NEW)
   - Created `CLAUDE.md` for project-specific Claude Code context
   - Includes: Memory system behaviors, memory types, configuration, key files

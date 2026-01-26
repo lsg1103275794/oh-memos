@@ -514,7 +514,7 @@ After installation, Claude Code works **automatically** - no extra steps needed!
    pip install MemoryOS[mcp-server]
    ```
 
-2. **Add to Claude Code settings** (`~/.claude.json` under your project):
+2. **Add to Claude Code settings** (`~/.claude.json` global or project-level):
 
    **For WSL environment** (recommended):
    ```json
@@ -531,7 +531,14 @@ After installation, Claude Code works **automatically** - no extra steps needed!
                "MEMOS_USER": "dev_user",
                "MEMOS_DEFAULT_CUBE": "dev_cube",
                "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
-             }
+             },
+             "alwaysAllow": [
+               "memos_search",
+               "memos_save",
+               "memos_list",
+               "memos_suggest",
+               "memos_get_graph"
+             ]
            }
          }
        }
@@ -539,7 +546,7 @@ After installation, Claude Code works **automatically** - no extra steps needed!
    }
    ```
 
-   **For pure Windows**:
+   **For pure Windows** (global `~/.claude.json`):
    ```json
    {
      "mcpServers": {
@@ -552,11 +559,20 @@ After installation, Claude Code works **automatically** - no extra steps needed!
            "MEMOS_USER": "dev_user",
            "MEMOS_DEFAULT_CUBE": "dev_cube",
            "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
-         }
+         },
+         "alwaysAllow": [
+           "memos_search",
+           "memos_save",
+           "memos_list",
+           "memos_suggest",
+           "memos_get_graph"
+         ]
        }
      }
    }
    ```
+
+   > **Note**: `alwaysAllow` enables AI to use these tools automatically without confirmation prompts. Remove tools from this list if you want manual approval.
 
 3. **Restart Claude Code**
 
@@ -571,6 +587,7 @@ After setup, Claude will **automatically**:
 | ✅ Solve a bug | Save as `ERROR_PATTERN` with solution |
 | 🏗️ Make a decision | Save as `DECISION` with rationale |
 | 🆕 First use of cube | Auto-register cube (no manual setup!) |
+| 🔗 User asks "why failed/dependencies" | Query knowledge graph relationships |
 
 👉 **[Full MCP Guide](docs/MCP_GUIDE.md)**
 
@@ -734,7 +751,7 @@ MemOSLocal-SM/
 │   └── 🔧 run.bat                     # Quick start (after setup)
 │
 ├── 📂 mcp-server/                      # 🔌 MCP Protocol Server (Recommended!)
-│   ├── 🐍 memos_mcp_server.py         # Main MCP server (4 tools)
+│   ├── 🐍 memos_mcp_server.py         # Main MCP server (5 tools)
 │   ├── 🔧 run_mcp.sh                  # WSL wrapper script
 │   ├── 🐍 install.py                  # Auto-configure Claude Code
 │   ├── 🐍 test_server.py              # Test server functionality
@@ -777,6 +794,7 @@ With MCP configured, AI uses these tools **automatically**:
 | `memos_save` | Save memories | Bug fixed, decision made, task completed |
 | `memos_list` | List all memories | Check project status |
 | `memos_suggest` | Get search hints | Unsure what to search |
+| `memos_get_graph` | Query dependency relationships | User asks "why failed", "dependencies", "root cause" |
 
 ```
 No manual commands needed - AI handles everything!
@@ -1126,6 +1144,37 @@ memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CON
 | `memos_save` | 保存记忆 | 修复 Bug、做出决策 |
 | `memos_list` | 列出记忆 | 查看项目进度 |
 | `memos_suggest` | 搜索建议 | 不确定搜什么 |
+| `memos_get_graph` | 查询依赖关系 | 用户问"为什么失败"、"依赖关系"、"根本原因" |
+
+### MCP 配置示例
+
+**Windows 全局配置** (`C:\Users\用户名\.claude.json`):
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "type": "stdio",
+      "command": "C:/path/to/MemOS/conda_venv/python.exe",
+      "args": ["C:/path/to/MemOS/mcp-server/memos_mcp_server.py"],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph"
+      ]
+    }
+  }
+}
+```
+
+> **提示**: `alwaysAllow` 允许 AI 自动使用这些工具，无需每次确认。
 
 ### 🚀 使用 CLAUDE.md 增强 (推荐)
 
