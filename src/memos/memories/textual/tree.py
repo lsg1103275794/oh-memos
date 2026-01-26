@@ -68,6 +68,7 @@ class TreeTextMemory(BaseTextMemory):
         else:
             self.reranker = RerankerFactory.from_config(config.reranker)
         self.is_reorganize = config.reorganize
+        logger.info(f"[TreeTextMemory] config.reorganize = {config.reorganize}, is_reorganize = {self.is_reorganize}")
         self.memory_manager: MemoryManager = MemoryManager(
             self.graph_store,
             self.embedder,

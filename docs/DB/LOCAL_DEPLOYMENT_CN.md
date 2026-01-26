@@ -6,11 +6,11 @@
 
 MemOS 需要以下数据库服务：
 
-| 服务 | 用途 | 是否必需 | 默认端口 |
-|------|------|----------|----------|
-| **Qdrant** | 向量搜索 | [必需] | 6333 (HTTP), 6334 (gRPC) |
-| **Neo4j** | 知识图谱 | [tree_text 模式] | 7474 (浏览器), 7687 (Bolt) |
-| **Redis** | 任务队列 | [可选] | 6379 |
+| 服务 | 用途 | 是否必需 | 默认端口 | 依赖 |
+|------|------|----------|----------|------|
+| **Qdrant** | 向量搜索 | [必需] | 6333, 6334 | 无 |
+| **Neo4j** | 知识图谱 | [tree_text 模式] | 7474, 7687 | Java 17+ |
+| **Redis** | 任务队列 | [可选] | 6379 | 无 |
 
 ## 快速启动
 
@@ -96,6 +96,29 @@ curl http://localhost:6333/collections
 ## 2. Neo4j (知识图谱数据库)
 
 > 仅在使用 `tree_text` 记忆模式时需要（知识图谱功能）。
+
+### 前置条件：Java 运行时
+
+Neo4j 需要 Java 17+ 运行时环境：
+
+1. 下载 [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) 或 [OpenJDK](https://adoptium.net/)
+2. 解压到你喜欢的位置 (如 `D:\User\jdk-24\`)
+3. 设置环境变量：
+   ```cmd
+   :: 临时设置 (当前会话)
+   set JAVA_HOME=D:\User\jdk-24
+   set PATH=%JAVA_HOME%\bin;%PATH%
+
+   :: 或永久设置 (系统环境变量)
+   :: 右键"此电脑" -> 属性 -> 高级系统设置 -> 环境变量
+   :: 新建 JAVA_HOME = D:\User\jdk-24
+   :: 编辑 PATH，添加 %JAVA_HOME%\bin
+   ```
+4. 验证安装：
+   ```cmd
+   java -version
+   :: 应显示: java version "24" 或类似
+   ```
 
 ### 下载安装
 

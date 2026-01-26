@@ -15,34 +15,60 @@
 
 ---
 
-## Memory System (MCP)
+## Memory System (MCP) - IMPORTANT
 
-### Automatic Behaviors
+### Proactive Trigger Rules
 
-The MCP tools are configured to trigger automatically. You should:
+**MUST search memory (memos_search) when:**
 
-| Situation | Action | Example |
-|-----------|--------|---------|
-| **Encounter error** | Search ERROR_PATTERN | `memos_search("ERROR_PATTERN ModuleNotFoundError")` |
-| **User says "之前/上次/previously"** | Search history | `memos_search("authentication history")` |
-| **Before modifying critical files** | Search GOTCHA | `memos_search("GOTCHA config.py")` |
-| **After fixing bug** | Save ERROR_PATTERN | `memos_save("[ERROR_PATTERN] Fixed...")` |
-| **After completing task** | Save MILESTONE | `memos_save("[MILESTONE] Completed...")` |
-| **After making decision** | Save DECISION | `memos_save("[DECISION] Chose X because...")` |
-| **Discover non-obvious issue** | Save GOTCHA | `memos_save("[GOTCHA] Watch out for...")` |
+| Trigger Keywords | Action | Example |
+|------------------|--------|---------|
+| 错误/error/exception/failed | Search ERROR_PATTERN | `memos_search("ERROR_PATTERN xxx")` |
+| 之前/上次/previously/last time | Search history | `memos_search("xxx history")` |
+| 注意/warning/watch out/careful | Search GOTCHA | `memos_search("GOTCHA xxx")` |
+| 怎么做/how to/how did we | Search related patterns | `memos_search("xxx implementation")` |
+| 配置/config/setup | Search CONFIG | `memos_search("CONFIG xxx")` |
+| 决定/为什么/why did we/decision | Search DECISION | `memos_search("DECISION xxx")` |
 
-### Memory Types
+**MUST save memory (memos_save) when:**
 
-| Type | Usage | Example |
-|------|-------|---------|
-| `ERROR_PATTERN` | Error + solution for future reference | "ModuleNotFoundError: pip install missing-package" |
-| `DECISION` | Architecture/design choice with rationale | "Chose JWT over sessions for stateless API" |
-| `MILESTONE` | Significant project achievement | "Completed user authentication system" |
-| `BUGFIX` | Bug fix with cause and solution | "Fixed login timeout - SESSION_TIMEOUT was 30s" |
-| `FEATURE` | New functionality added | "Added dark mode support" |
-| `CONFIG` | Environment or configuration change | "Updated .env for Qdrant Cloud" |
-| `CODE_PATTERN` | Reusable code template | "Neo4j query pattern for memory search" |
-| `GOTCHA` | Non-obvious issue or workaround | "WSL paths need bash wrapper for Windows Python" |
+| Trigger Situation | Memory Type | Example |
+|-------------------|-------------|---------|
+| 修复了 Bug / Fixed bug | ERROR_PATTERN | `[ERROR_PATTERN] Issue: xxx, Solution: xxx` |
+| 完成任务 / Task completed | MILESTONE | `[MILESTONE] Completed xxx feature` |
+| 做出决策 / Made decision | DECISION | `[DECISION] Chose xxx because xxx` |
+| 发现坑 / Found gotcha | GOTCHA | `[GOTCHA] Watch out: xxx when doing xxx` |
+| 优化方案 / Optimization plan | DECISION | `[DECISION] Optimization: xxx approach` |
+| 新功能 / New feature | FEATURE | `[FEATURE] Added xxx functionality` |
+| 改配置 / Config change | CONFIG | `[CONFIG] Updated xxx to xxx` |
+| 代码模式 / Code pattern | CODE_PATTERN | `[CODE_PATTERN] Template for xxx` |
+
+### Memory Types Reference
+
+| Type | When to Use |
+|------|-------------|
+| `ERROR_PATTERN` | Error encountered + solution found |
+| `DECISION` | Architecture/design choice with rationale |
+| `MILESTONE` | Significant project achievement |
+| `BUGFIX` | Bug fix with root cause |
+| `FEATURE` | New functionality added |
+| `CONFIG` | Environment or configuration change |
+| `CODE_PATTERN` | Reusable code template |
+| `GOTCHA` | Non-obvious issue or workaround |
+| `PROGRESS` | General progress update |
+
+---
+
+## Auto-Registration
+
+The MCP server auto-registers the default cube on startup. If you see "MemCube not loaded" error:
+
+```bash
+# Manual registration (fallback)
+curl -X POST "http://localhost:18000/mem_cubes" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"dev_user","mem_cube_name_or_path":"G:/test/MemOS/data/memos_cubes/dev_cube"}'
+```
 
 ---
 
@@ -51,30 +77,20 @@ The MCP tools are configured to trigger automatically. You should:
 ### Memory Cube
 - **Cube ID**: `dev_cube`
 - **Storage Path**: `data/memos_cubes/dev_cube`
+- **Full Path**: `G:/test/MemOS/data/memos_cubes/dev_cube`
 
 ### Memory Mode
 - **Backend**: `tree_text` (Knowledge Graph)
-- **Graph DB**: Neo4j Community Edition
-- **Vector DB**: Qdrant Cloud
+- **Graph DB**: Neo4j Community Edition (localhost:7687)
+- **Vector DB**: Qdrant Local (localhost:6333)
 
-### Neo4j Access
-- **URI**: `bolt://localhost:7687`
-- **Browser**: http://localhost:7474
-- **Useful Queries**:
-  ```cypher
-  -- View all memories
-  MATCH (n:Memory) RETURN n LIMIT 50
-
-  -- Filter by type
-  MATCH (n:Memory) WHERE n.memory_type = "MILESTONE" RETURN n
-
-  -- Search by tags
-  MATCH (n:Memory) WHERE "auth" IN n.tags RETURN n
-  ```
-
-### API Endpoints
-- **Base URL**: http://localhost:18000
-- **Docs**: http://localhost:18000/docs
+### Service Ports
+| Service | Port | URL |
+|---------|------|-----|
+| MemOS API | 18000 | http://localhost:18000/docs |
+| Qdrant | 6333 | http://localhost:6333/dashboard |
+| Neo4j | 7474/7687 | http://localhost:7474 |
+| Ollama | 11434 | http://localhost:11434 |
 
 ---
 
@@ -82,57 +98,21 @@ The MCP tools are configured to trigger automatically. You should:
 
 | File | Purpose |
 |------|---------|
-| `.env` | Environment configuration (Qdrant, Neo4j, LLM) |
+| `scripts/local/start.bat` | One-click silent launcher |
+| `.env` | Environment configuration |
 | `mcp-server/memos_mcp_server.py` | MCP server implementation |
-| `mcp-server/run_mcp.sh` | WSL wrapper script |
 | `data/memos_cubes/dev_cube/config.json` | Cube configuration |
-| `src/memos/graph_dbs/neo4j_community.py` | Neo4j Community backend |
-| `docs/MCP_GUIDE.md` | MCP configuration guide |
-| `docs/CHANGELOG.md` | Version history |
 
 ---
 
-## Recent Milestones
-
-> These are automatically tracked. Search with `memos_list()` for full history.
-
-- **2026-01-26**: Neo4j Knowledge Graph mode enabled (tree_text)
-- **2026-01-26**: Cross-project memory retrieval verified
-- **2026-01-26**: MCP proactive mode working
-- **2026-01-26**: README updated with new architecture
-
----
-
-## Development Notes
-
-### WSL Environment
-When working in WSL with Windows Python:
-- Use `bash` wrapper script for MCP
-- Windows paths need `G:/...` format for Python
-- WSL paths need `/mnt/g/...` format for bash
-
-### Memory Best Practices
-1. **Be specific** in memory content - include file paths, line numbers
-2. **Use tags** for better searchability
-3. **Include context** - why, not just what
-4. **Save immediately** after significant work
-
----
-
-## Quick Commands
+## Quick Start
 
 ```bash
-# Start MemOS API
-cd /mnt/g/test/MemOS && ./run.bat
+# Start all services (silent databases + API)
+scripts/local/start.bat
 
-# Test MCP server
-cd mcp-server && python test_server.py
-
-# View Neo4j Browser
-open http://localhost:7474
-
-# Check API health
-curl http://localhost:18000/users
+# Stop databases
+scripts/local/stop_db_silent.bat
 ```
 
 ---

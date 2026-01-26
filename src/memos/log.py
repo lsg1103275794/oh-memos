@@ -34,7 +34,12 @@ def _setup_logfile() -> Path:
 
     Returns: the logfile Path
     """
-    logfile = Path(settings.MEMOS_DIR / "logs" / "memos.log")
+    # Use project root logs/ folder if MEMOS_BASE_PATH is set, otherwise use .memos/logs/
+    base_path = os.getenv("MEMOS_BASE_PATH")
+    if base_path:
+        logfile = Path(base_path) / "logs" / "memos.log"
+    else:
+        logfile = Path(settings.MEMOS_DIR / "logs" / "memos.log")
     logfile.parent.mkdir(parents=True, exist_ok=True)
     logfile.touch(exist_ok=True)
 

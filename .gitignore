@@ -24,6 +24,16 @@ src/.env
 tmp/
 **/tmp_data/
 
+# ========== Logs ==========
+logs/
+!logs/.gitkeep
+src/logs/
+**/logs/*.log
+
+# ========== MemOS Internal Data ==========
+src/.memos/
+**/.memos/
+
 # evaluation data
 *.csv
 *.jsonl
@@ -214,7 +224,8 @@ venv.bak/
 !poetry.lock
 !requirements.txt
 
-# ignore specific files
+# ========== Local Scripts (machine-specific) ==========
+scripts/local/
 start_db.bat
 .trae/
 .memos/

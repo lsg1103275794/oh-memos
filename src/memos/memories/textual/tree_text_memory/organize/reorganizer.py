@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import traceback
 
@@ -28,17 +29,18 @@ logger = get_logger(__name__)
 
 
 def build_summary_parent_node(cluster_nodes):
+    """Build sources list for parent node - returns serializable dicts instead of objects."""
     normalized_sources = []
     for n in cluster_nodes:
-        sm = SourceMessage(
-            type="chat",
-            role=None,
-            chat_time=None,
-            message_id=None,
-            content=n.memory,
-            # extra
-            node_id=n.id,
-        )
+        # Return dict instead of SourceMessage to avoid Neo4j serialization issues
+        sm = {
+            "type": "chat",
+            "role": None,
+            "chat_time": None,
+            "message_id": None,
+            "content": n.memory[:200] if n.memory else "",  # Truncate to avoid large payloads
+            "node_id": n.id,
+        }
         normalized_sources.append(sm)
     return normalized_sources
 
@@ -91,7 +93,9 @@ class GraphStructureReorganizer:
 
         self.is_reorganize = is_reorganize
         self._reorganize_needed = True
+        logger.info(f"[Reorganizer] Initializing with is_reorganize={is_reorganize}")
         if self.is_reorganize:
+            logger.info("[Reorganizer] Starting message consumer and structure optimizer threads...")
             # ____ 1. For queue message driven thread ___________
             self.thread = ContextThread(target=self._run_message_consumer_loop)
             self.thread.start()
@@ -102,6 +106,7 @@ class GraphStructureReorganizer:
                 target=self._run_structure_organizer_loop
             )
             self.structure_optimizer_thread.start()
+            logger.info("[Reorganizer] Threads started successfully")
 
     def add_message(self, message: QueueMessage):
         self.queue.put_nowait(message)
@@ -207,8 +212,8 @@ class GraphStructureReorganizer:
         scope: str = "LongTermMemory",
         local_tree_threshold: int = 10,
         min_cluster_size: int = 4,
-        min_group_size: int = 20,
-        max_duration_sec: int = 600,
+        min_group_size: int | None = None,
+        max_duration_sec: int | None = None,
     ):
         """
         Periodically reorganize the graph:
@@ -216,6 +221,14 @@ class GraphStructureReorganizer:
         2. Summarize each cluster.
         3. Create parent nodes and build local PARENT trees.
         """
+        # Allow override via env var (default 10 for testing, 20 for production)
+        if min_group_size is None:
+            min_group_size = int(os.getenv("MOS_REORGANIZE_MIN_GROUP", "10"))
+
+        # Allow override via env var (default 30 minutes for slow LLM APIs)
+        if max_duration_sec is None:
+            max_duration_sec = int(os.getenv("MOS_REORGANIZE_TIMEOUT", "1800"))
+
         # --- Total time watch dog: check functions ---
         start_ts = time.time()
 

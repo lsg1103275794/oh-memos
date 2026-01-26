@@ -115,20 +115,103 @@ def format_memories_for_display(data: dict) -> str:
     return "\n".join(results)
 
 
+def format_graph_for_display(data: list) -> str:
+    """Format knowledge graph results with relationships for readable display."""
+    results = []
+
+    for cube_data in data:
+        cube_id = cube_data.get("cube_id", "unknown")
+        memories_list = cube_data.get("memories", [])
+
+        if not memories_list:
+            continue
+
+        results.append(f"## 🧠 Knowledge Graph: {cube_id}")
+        results.append("")
+
+        for mem_data in memories_list:
+            # Extract nodes and edges
+            nodes = mem_data.get("nodes", [])
+            edges = mem_data.get("edges", [])
+
+            # Build node lookup for relationship display
+            node_lookup = {}
+            for node in nodes:
+                node_id = node.get("id", "")
+                node_memory = node.get("memory", "")
+                node_lookup[node_id] = node_memory[:80] + "..." if len(node_memory) > 80 else node_memory
+
+            # Display nodes
+            if nodes:
+                results.append("### 📝 Memory Nodes")
+                results.append("")
+                for i, node in enumerate(nodes[:10], 1):  # Limit to 10 nodes
+                    memory = node.get("memory", "")
+                    first_line = memory.split("\n")[0][:100]
+                    node_id = node.get("id", "")[:8]
+                    results.append(f"{i}. **{first_line}**")
+                    results.append(f"   ID: `{node_id}...`")
+                    results.append("")
+
+            # Display relationships - THIS IS THE KEY PART
+            if edges:
+                results.append("### 🔗 Relationships (CAUSE/RELATE/CONFLICT)")
+                results.append("")
+                results.append("```")
+                for edge in edges:
+                    source_id = edge.get("source", "")
+                    target_id = edge.get("target", "")
+                    rel_type = edge.get("type", "UNKNOWN")
+
+                    # Skip PARENT relationships, only show semantic ones
+                    if rel_type == "PARENT":
+                        continue
+
+                    source_text = node_lookup.get(source_id, source_id[:8])[:50]
+                    target_text = node_lookup.get(target_id, target_id[:8])[:50]
+
+                    # Format relationship with arrow
+                    if rel_type == "CAUSE":
+                        arrow = "──CAUSE──>"
+                    elif rel_type == "RELATE":
+                        arrow = "──RELATE──"
+                    elif rel_type == "CONFLICT":
+                        arrow = "══CONFLICT══"
+                    elif rel_type == "CONDITION":
+                        arrow = "──CONDITION──>"
+                    else:
+                        arrow = f"──{rel_type}──"
+
+                    results.append(f"[{source_text}]")
+                    results.append(f"    {arrow}")
+                    results.append(f"[{target_text}]")
+                    results.append("")
+
+                results.append("```")
+                results.append("")
+
+        results.append("---")
+
+    if not results:
+        return "No memories or relationships found."
+
+    return "\n".join(results)
+
+
 def detect_memory_type(content: str) -> str:
     """Automatically detect memory type from content."""
     content_lower = content.lower()
 
-    # Pattern matching for memory types
+    # Pattern matching for memory types (Chinese + English)
     patterns = {
-        "ERROR_PATTERN": [r"error", r"exception", r"bug", r"fix", r"解决", r"错误"],
-        "DECISION": [r"decision", r"decided", r"decide", r"决策", r"选择", r"方案", r"architecture", r"chose", r"选用"],
-        "MILESTONE": [r"milestone", r"完成", r"release", r"发布", r"achieved"],
-        "BUGFIX": [r"bugfix", r"fixed", r"修复", r"patch"],
-        "FEATURE": [r"feature", r"新增", r"implement", r"add"],
-        "CONFIG": [r"config", r"配置", r"setting", r"environment"],
-        "CODE_PATTERN": [r"pattern", r"模式", r"template", r"snippet"],
-        "GOTCHA": [r"gotcha", r"注意", r"warning", r"caveat", r"陷阱"],
+        "ERROR_PATTERN": [r"error", r"exception", r"bug", r"fix", r"解决", r"错误", r"报错", r"失败"],
+        "DECISION": [r"decision", r"decided", r"decide", r"决策", r"选择", r"方案", r"architecture", r"chose", r"选用", r"优化方案", r"optimization"],
+        "MILESTONE": [r"milestone", r"完成", r"release", r"发布", r"achieved", r"里程碑", r"搞定"],
+        "BUGFIX": [r"bugfix", r"fixed", r"修复", r"patch", r"修好"],
+        "FEATURE": [r"feature", r"新增", r"implement", r"add", r"功能", r"新功能"],
+        "CONFIG": [r"config", r"配置", r"setting", r"environment", r"环境变量", r"\.env"],
+        "CODE_PATTERN": [r"pattern", r"模式", r"template", r"snippet", r"代码模板"],
+        "GOTCHA": [r"gotcha", r"注意", r"warning", r"caveat", r"陷阱", r"小心", r"坑", r"当心"],
     }
 
     for mem_type, keywords in patterns.items():
@@ -145,7 +228,7 @@ def suggest_search_queries(context: str) -> list[str]:
     context_lower = context.lower()
 
     # Error-related suggestions
-    if any(word in context_lower for word in ["error", "exception", "failed", "错误"]):
+    if any(word in context_lower for word in ["error", "exception", "failed", "错误", "报错", "失败"]):
         # Try to extract error type
         error_match = re.search(r"(\w+Error|\w+Exception)", context)
         if error_match:
@@ -153,12 +236,20 @@ def suggest_search_queries(context: str) -> list[str]:
         suggestions.append("ERROR_PATTERN solution")
 
     # Config-related suggestions
-    if any(word in context_lower for word in ["config", "setting", "env", "配置"]):
+    if any(word in context_lower for word in ["config", "setting", "env", "配置", "环境"]):
         suggestions.append("CONFIG environment")
 
     # Decision-related suggestions
-    if any(word in context_lower for word in ["why", "为什么", "decision", "选择"]):
+    if any(word in context_lower for word in ["why", "为什么", "decision", "选择", "决定", "优化"]):
         suggestions.append("DECISION architecture")
+
+    # Gotcha-related suggestions
+    if any(word in context_lower for word in ["注意", "warning", "careful", "小心", "坑"]):
+        suggestions.append("GOTCHA warning")
+
+    # History-related suggestions
+    if any(word in context_lower for word in ["之前", "上次", "previously", "last time", "earlier"]):
+        suggestions.append("PROGRESS history")
 
     return suggestions[:3]  # Return top 3 suggestions
 
@@ -284,6 +375,40 @@ Use this when you're unsure what to search for. Provide the current context
                 },
                 "required": ["context"]
             }
+        ),
+        Tool(
+            name="memos_get_graph",
+            description="""Get memory knowledge graph with relationships.
+
+USE THIS TOOL when you need to understand:
+- How memories are connected (dependencies, causality)
+- What caused a particular issue (CAUSE relationships)
+- Related context around a topic (RELATE relationships)
+- Conflicting information (CONFLICT relationships)
+
+Returns:
+- Memory nodes matching the query
+- Relationships between memories: CAUSE, RELATE, CONFLICT, CONDITION
+
+Example: If you search "Neo4j startup failure", you might see:
+  [Java not installed] ──CAUSE──> [Neo4j failed to start]
+
+This helps you understand the full context and dependencies.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to find related memories and their relationships"
+                    },
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "default": MEMOS_DEFAULT_CUBE
+                    }
+                },
+                "required": ["query"]
+            }
         )
     ]
 
@@ -396,6 +521,107 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 else:
                     return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
 
+            elif name == "memos_get_graph":
+                query = arguments.get("query", "")
+                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
+
+                # Auto-register cube if needed
+                await ensure_cube_registered(client, cube_id)
+
+                # Query Neo4j directly for relationships
+                neo4j_url = "http://localhost:7474/db/neo4j/tx/commit"
+                neo4j_auth = ("neo4j", "12345678")
+
+                # First search for relevant memories using MemOS API
+                search_response = await client.post(
+                    f"{MEMOS_URL}/search",
+                    json={
+                        "user_id": MEMOS_USER,
+                        "query": query,
+                        "install_cube_ids": [cube_id]
+                    }
+                )
+
+                memories = []
+                if search_response.status_code == 200:
+                    data = search_response.json()
+                    if data.get("code") == 200:
+                        text_mems = data.get("data", {}).get("text_mem", [])
+                        for cube_data in text_mems:
+                            memories.extend(cube_data.get("memories", []))
+
+                # Query Neo4j for all CAUSE/RELATE/CONFLICT relationships
+                cypher_query = """
+                MATCH (a)-[r:CAUSE|RELATE|CONFLICT|CONDITION]->(b)
+                WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
+                RETURN a.id as source_id, a.memory as source_memory,
+                       type(r) as relation_type,
+                       b.id as target_id, b.memory as target_memory
+                LIMIT 20
+                """
+
+                neo4j_response = await client.post(
+                    neo4j_url,
+                    json={
+                        "statements": [{
+                            "statement": cypher_query,
+                            "parameters": {"keyword": query}
+                        }]
+                    },
+                    auth=neo4j_auth
+                )
+
+                results = []
+                results.append(f"## 🧠 Knowledge Graph: {cube_id}")
+                results.append(f"Query: `{query}`")
+                results.append("")
+
+                # Display memories from search
+                if memories:
+                    results.append("### 📝 Related Memories")
+                    results.append("")
+                    for i, mem in enumerate(memories[:5], 1):
+                        memory = mem.get("memory", "")
+                        first_line = memory.split("\n")[0][:100]
+                        results.append(f"{i}. {first_line}")
+                    results.append("")
+
+                # Display relationships from Neo4j
+                if neo4j_response.status_code == 200:
+                    neo4j_data = neo4j_response.json()
+                    rows = neo4j_data.get("results", [{}])[0].get("data", [])
+
+                    if rows:
+                        results.append("### 🔗 Relationships")
+                        results.append("```")
+                        for row in rows:
+                            r = row.get("row", [])
+                            if len(r) >= 5:
+                                source_mem = (r[1] or "")[:50]
+                                rel_type = r[2]
+                                target_mem = (r[4] or "")[:50]
+
+                                if rel_type == "CAUSE":
+                                    arrow = "──CAUSE──>"
+                                elif rel_type == "RELATE":
+                                    arrow = "──RELATE──"
+                                elif rel_type == "CONFLICT":
+                                    arrow = "══CONFLICT══"
+                                else:
+                                    arrow = f"──{rel_type}──>"
+
+                                results.append(f"[{source_mem}...]")
+                                results.append(f"    {arrow}")
+                                results.append(f"[{target_mem}...]")
+                                results.append("")
+                        results.append("```")
+                    else:
+                        results.append("*No relationships found for this query.*")
+                else:
+                    results.append(f"*Neo4j query error: {neo4j_response.status_code}*")
+
+                return [TextContent(type="text", text="\n".join(results))]
+
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -408,6 +634,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 async def run_server():
     """Run the MCP server."""
+    # Pre-register default cube at startup
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            await ensure_cube_registered(client, MEMOS_DEFAULT_CUBE)
+            logger.info(f"Startup: Default cube '{MEMOS_DEFAULT_CUBE}' ready")
+        except Exception as e:
+            logger.warning(f"Startup: Could not pre-register cube: {e}")
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

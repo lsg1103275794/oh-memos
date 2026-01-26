@@ -292,6 +292,45 @@ Memory Save Flow (tree_text mode):
    MATCH (n:Memory) WHERE "auth" IN n.tags RETURN n
    ```
 
+### Relationship Detection (Auto-Enabled)
+
+When `MOS_ENABLE_REORGANIZE=true`, MemOS automatically detects relationships between memories:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Memory Relationship Types                     │
+├──────────────┬──────────────────────────────────────────────────┤
+│  CAUSE       │  A causes B (error → solution, bug → fix)        │
+│  CONDITION   │  A is required for B (Java 17 → Neo4j runs)      │
+│  RELATE      │  A and B are related (same feature, project)     │
+│  CONFLICT    │  A contradicts B (old config ↔ new config)       │
+└──────────────┴──────────────────────────────────────────────────┘
+```
+
+**Example: Auto-detected causal chain**
+```
+[Neo4j需要Java 17+]
+    ──CAUSE──>
+[Neo4j启动失败, JAVA_HOME not set]
+```
+
+**Query relationships with MCP:**
+```python
+# Use memos_get_graph tool
+memos_get_graph(query="Neo4j")  # Returns all CAUSE/RELATE/CONFLICT for Neo4j
+```
+
+**Query in Neo4j Browser:**
+```cypher
+-- View all causal relationships
+MATCH (a)-[r:CAUSE]->(b) RETURN a.memory, r, b.memory
+
+-- Find what caused an error
+MATCH (cause)-[:CAUSE]->(effect)
+WHERE effect.memory CONTAINS "failed"
+RETURN cause.memory AS root_cause
+```
+
 👉 **[Full Knowledge Graph Guide](docs/MCP_GUIDE.md#-advanced-neo4j-knowledge-graph-mode--高级-neo4j-知识图谱模式)**
 
 ---
@@ -998,6 +1037,7 @@ MemOSLocal-SM 是一套完整的 **AI 项目记忆解决方案**：
 | **结构** | 原始文本 | LLM 提炼: key, tags, background |
 | **记忆层级** | 单层 | WorkingMemory + LongTermMemory |
 | **置信度** | 无 | 自动评分 (0.0 - 1.0) |
+| **关系检测** | 无 | CAUSE / RELATE / CONFLICT / CONDITION |
 | **可视化** | 无 | Neo4j Browser 图谱查看 |
 
 ```env
@@ -1005,6 +1045,29 @@ MemOSLocal-SM 是一套完整的 **AI 项目记忆解决方案**：
 MOS_TEXT_MEM_TYPE=tree_text
 MOS_ENABLE_REORGANIZE=true
 NEO4J_URI=bolt://localhost:7687
+```
+
+#### 🔗 自动依赖关系检测
+
+当 `MOS_ENABLE_REORGANIZE=true` 时，MemOS 自动检测记忆之间的关系：
+
+| 关系类型 | 含义 | 示例 |
+|----------|------|------|
+| **CAUSE** | A 导致 B | 缺少Java → Neo4j启动失败 |
+| **CONDITION** | A 是 B 的前提 | Java 17 → Neo4j可运行 |
+| **RELATE** | A 和 B 相关 | 同一功能的不同记录 |
+| **CONFLICT** | A 和 B 矛盾 | 旧配置 ↔ 新配置 |
+
+**示例：自动检测的因果链**
+```
+[Neo4j需要Java 17+]
+    ──CAUSE──>
+[Neo4j启动失败, JAVA_HOME not set]
+```
+
+**使用 MCP 查询关系：**
+```python
+memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CONFLICT
 ```
 
 ### 🔒 隐私优先架构

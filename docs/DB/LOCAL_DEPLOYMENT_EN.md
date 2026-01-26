@@ -6,11 +6,11 @@
 
 MemOS requires the following database services:
 
-| Service | Purpose | Required | Default Port |
-|---------|---------|----------|--------------|
-| **Qdrant** | Vector search | [Required] | 6333 (HTTP), 6334 (gRPC) |
-| **Neo4j** | Knowledge graph | [tree_text mode] | 7474 (Browser), 7687 (Bolt) |
-| **Redis** | Task queue | [Optional] | 6379 |
+| Service | Purpose | Required | Default Port | Dependency |
+|---------|---------|----------|--------------|------------|
+| **Qdrant** | Vector search | [Required] | 6333, 6334 | None |
+| **Neo4j** | Knowledge graph | [tree_text mode] | 7474, 7687 | Java 17+ |
+| **Redis** | Task queue | [Optional] | 6379 | None |
 
 ## Quick Start
 
@@ -96,6 +96,29 @@ curl http://localhost:6333/collections
 ## 2. Neo4j (Knowledge Graph)
 
 > Required only for `tree_text` memory mode (knowledge graph features).
+
+### Prerequisites: Java Runtime
+
+Neo4j requires Java 17+ runtime environment:
+
+1. Download [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://adoptium.net/)
+2. Extract to your preferred location (e.g., `D:\User\jdk-24\`)
+3. Set environment variables:
+   ```cmd
+   :: Temporary (current session)
+   set JAVA_HOME=D:\User\jdk-24
+   set PATH=%JAVA_HOME%\bin;%PATH%
+
+   :: Or permanent (system environment variables)
+   :: Right-click "This PC" -> Properties -> Advanced -> Environment Variables
+   :: New: JAVA_HOME = D:\User\jdk-24
+   :: Edit PATH, add %JAVA_HOME%\bin
+   ```
+4. Verify installation:
+   ```cmd
+   java -version
+   :: Should show: java version "24" or similar
+   ```
 
 ### Download
 

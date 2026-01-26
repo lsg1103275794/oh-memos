@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest."
+description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph for relationships. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest, memos_get_graph."
 ---
 
 # Project Memory (MCP Powered)
@@ -17,6 +17,7 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |
 | `memos_list` | See all memories in project | `cube_id: "dev_cube", limit: 10` |
 | `memos_suggest` | Get search suggestions | `context: "Connection refused error"` |
+| `memos_get_graph` | **View dependency/causal relationships** | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
 
 ---
 
@@ -32,6 +33,24 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | "类似", "similar" | `CODE_PATTERN {pattern}` |
 | Working with config file | `CONFIG {filename}` |
 | Opening file for editing | `{filename} gotcha` |
+
+### When to Get Graph (`memos_get_graph`) - NEW!
+
+| User Says / Context | Query | Returns |
+|---------------------|-------|---------|
+| "依赖关系", "dependencies" | `{component}` | CAUSE/RELATE relationships |
+| "为什么失败", "why failed", "root cause" | `{error/feature}` | Causal chain (A→B→C) |
+| "相关的", "related to", "关联" | `{topic}` | RELATE relationships |
+| "冲突", "conflict", "矛盾" | `{topic}` | CONFLICT relationships |
+| "影响", "impact", "会影响什么" | `{change}` | What depends on this |
+| Debugging complex issues | `{error_keyword}` | Full context graph |
+
+**Example Output:**
+```
+[Neo4j需要Java 17+]
+    ──CAUSE──>
+[Neo4j启动失败, JAVA_HOME not set]
+```
 
 ### When to Save (`memos_save`)
 
@@ -161,6 +180,12 @@ Tags: gotcha, {category}
 │                                                                 │
 │  Hit error       ───> memos_search    ───> Find ERROR_PATTERN   │
 │                       query: "ERROR_PATTERN {type}"             │
+│                                                                 │
+│  Need root cause ───> memos_get_graph ───> View CAUSE chain     │
+│                       query: "{error_keyword}"                  │
+│                                                                 │
+│  Check deps      ───> memos_get_graph ───> View relationships   │
+│                       query: "{component}"                      │
 │                                                                 │
 │  Solved error    ───> memos_save      ───> Save ERROR_PATTERN   │
 │                       memory_type: "ERROR_PATTERN"              │

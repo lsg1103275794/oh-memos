@@ -46,7 +46,8 @@ class RelationAndReasoningDetector:
                     "sequence_links": [],
                     "aggregate_nodes": [],
                 }
-            """
+
+            # Get nearby nodes by tag overlap
             nearest = self.graph_store.get_neighbors_by_tag(
                 tags=node.metadata.tags,
                 exclude_ids=exclude_ids,
@@ -58,26 +59,19 @@ class RelationAndReasoningDetector:
             # 1) Pairwise relations (including CAUSE/CONDITION/CONFLICT)
             pairwise = self._detect_pairwise_causal_condition_relations(node, nearest)
             results["relations"].extend(pairwise["relations"])
-            """
 
-            """
             # 2) Inferred nodes (from causal/condition)
             inferred = self._infer_fact_nodes_from_relations(pairwise)
             results["inferred_nodes"].extend(inferred)
-            """
 
-            """
-            3) Sequence (optional, if you have timestamps)
-            seq = self._detect_sequence_links(node, nearest)
-            results["sequence_links"].extend(seq)
-            """
+            # 3) Sequence (optional, if you have timestamps)
+            # seq = self._detect_sequence_links(node, nearest)
+            # results["sequence_links"].extend(seq)
 
-            """
             # 4) Aggregate
-            agg = self._detect_aggregate_node_for_group(node, nearest, min_group_size=5)
-            if agg:
-                results["aggregate_nodes"].append(agg)
-            """
+            # agg = self._detect_aggregate_node_for_group(node, nearest, min_group_size=5)
+            # if agg:
+            #     results["aggregate_nodes"].append(agg)
 
         except Exception as e:
             logger.error(
@@ -227,12 +221,21 @@ class RelationAndReasoningDetector:
     def _parse_relation_result(self, response_text: str) -> str:
         """
         Normalize and validate the LLM relation type output.
+        Extract only the first word from the response (LLM may include explanations).
         """
-        relation = response_text.strip().upper()
         valid = {"CAUSE", "CONDITION", "RELATE", "CONFLICT", "NONE"}
+
+        # Get first line and first word only (LLM may add explanations after)
+        first_line = response_text.strip().split('\n')[0].strip()
+        # Extract first word, removing any markdown formatting
+        first_word = first_line.split()[0].strip('*:.,') if first_line.split() else ""
+        relation = first_word.upper()
+
         if relation not in valid:
             logger.warning(
-                f"[RelationDetector] Unexpected relation type: {relation}. Fallback to NONE."
+                f"[RelationDetector] Unexpected relation type: {relation} (from: {first_line[:50]}...). Fallback to NONE."
             )
             return "NONE"
+
+        logger.info(f"[RelationDetector] Detected relation: {relation}")
         return relation

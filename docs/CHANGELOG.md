@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
+  - New MCP tool `memos_get_graph` for querying memory relationships
+  - Returns CAUSE, RELATE, CONFLICT, CONDITION relationships from Neo4j
+  - Direct Neo4j HTTP API integration for relationship queries
+  - Example: Query "Neo4j" shows `[Java 17 required] ──CAUSE──> [Neo4j startup failed]`
+  - Updated SKILL.md with trigger rules for dependency queries
+  - Triggers: "依赖关系", "root cause", "为什么失败", "冲突", "关联"
+
 - **📄 CLAUDE.md Project Context** (NEW)
   - Created `CLAUDE.md` for project-specific Claude Code context
   - Includes: Memory system behaviors, memory types, configuration, key files
@@ -52,11 +60,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **🔧 Relationship Detection Parser**
+  - Fixed `_parse_relation_result()` to extract only first word from LLM response
+  - LLM returns `RELATE\n\n**Reasoning:**...` but parser expected single word
+  - Now correctly detects CAUSE, RELATE, CONFLICT, CONDITION relationships
+
+- **🔧 Neo4j SourceMessage Serialization**
+  - Fixed `build_summary_parent_node()` returning `SourceMessage` objects
+  - Neo4j packstream doesn't support custom Python objects
+  - Changed to return serializable dicts instead
+
 - **🔧 Neo4jCommunityGraphDB Compatibility**
   - Added missing `status` and `user_name_flag` parameters to `get_by_metadata()`
   - Fixed search API 500 error when using tree_text mode with Neo4j Community Edition
 
 ### Changed
+
+- **⚙️ Reorganizer Configuration**
+  - Added `MOS_REORGANIZE_MIN_GROUP` env var (default: 10, was hardcoded 20)
+  - Added `MOS_REORGANIZE_TIMEOUT` env var (default: 1800s for slow LLM APIs)
+  - Allows relationship detection to trigger with fewer candidate nodes
+
+- **📝 SKILL.md Updates**
+  - Added `memos_get_graph` to Quick Reference table
+  - Added "When to Get Graph" trigger rules section
+  - Updated workflow diagram with dependency checking flows
 
 - **📝 README.md Major Update**
   - Added "Two Memory Modes" comparison table
