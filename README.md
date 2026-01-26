@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 MemOSlocal
+# 🧠 MemOSLocal-SM
 
 **Persistent Project Memory Solution for AI Assistants**
 
@@ -58,7 +58,7 @@ Fell into the same trap again
 
 <div align="center">
 
-### ✨ Now, Try MemOSlocal
+### ✨ Now, Try MemOSLocal-SM
 
 <img src="https://img.shields.io/badge/-Before-red?style=for-the-badge" alt="Before"/>
 
@@ -74,7 +74,7 @@ Fell into the same trap again
 
 ## 🎯 What is This?
 
-MemOSlocal is a complete **AI Project Memory Solution** that includes:
+MemOSLocal-SM is a complete **AI Project Memory Solution** that includes:
 
 | Component | Description | Function |
 |-----------|-------------|----------|
@@ -299,7 +299,7 @@ User Input: "[MILESTONE] Completed user authentication"
 
 ## 🔒 Privacy-First Architecture
 
-> **Why "local" in MemOSlocal?** Your sensitive data never leaves your machine.
+> **Why "local" in MemOSLocal-SM?** Your sensitive data never leaves your machine.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -683,7 +683,7 @@ Add a `CLAUDE.md` file to your project root for **project-specific context**:
 ## 📁 Project Structure
 
 ```
-MemOSlocal/
+MemOSLocal-SM/
 │
 ├── 📄 CLAUDE.md                        # 🆕 Project context for Claude Code
 │
@@ -838,14 +838,14 @@ Tags: bugfix, auth, session, config
 
 ## 🔗 Repository
 
-- **Main Repo**: [https://github.com/lsg1103275794/MemOSlocal](https://github.com/lsg1103275794/MemOSlocal)
+- **Main Repo**: [https://github.com/lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
 - **Original Project**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
 
 ---
 
 <div align="center">
 
-**MemOSlocal** • Privacy-First Persistent Memory for AI
+**MemOSLocal-SM** • Privacy-First Persistent Memory for AI
 
 Copyright © 2026 lsg1103275794. Licensed under the [MIT License](LICENSE).
 
@@ -966,7 +966,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 ### 😫 你是否也有这些烦恼？
 
-| 问题 | 症状 | MemOSlocal 解决方案 |
+| 问题 | 症状 | MemOSLocal-SM 解决方案 |
 |------|------|---------------------|
 | **📝 文档臃肿** | AI 到处写 NOTES.md、TODO.md，项目越来越乱 | 统一存储到向量数据库，项目保持整洁 |
 | **🧠 记忆断层** | 新对话就忘光，"之前为什么选 Redis？" | 语义搜索自动召回相关决策记忆 |
@@ -974,7 +974,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 ### 这是什么？
 
-MemOSlocal 是一套完整的 **AI 项目记忆解决方案**：
+MemOSLocal-SM 是一套完整的 **AI 项目记忆解决方案**：
 
 - **📦 memos-deploy**: MemOS 便携部署包，一键启动记忆后端
 - **🧠 project-memory**: Claude Code 技能，AI 自动记忆/搜索/追踪
@@ -1098,6 +1098,6 @@ Contributions welcome! Please check out our [Contributing Guide](CONTRIBUTING.md
 
 *让 AI 记住你的每一个项目决策*
 
-[![Star](https://img.shields.io/github/stars/lsg1103275794/MemOSlocal?style=social)](https://github.com/lsg1103275794/MemOSlocal)
+[![Star](https://img.shields.io/github/stars/lsg1103275794/MemOSLocal-SM?style=social)](https://github.com/lsg1103275794/MemOSLocal-SM)
 
 </div>
