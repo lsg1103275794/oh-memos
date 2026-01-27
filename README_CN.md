@@ -136,31 +136,28 @@ pause
 
 ## 🔌 MCP Server (主动模式)
 
-> **新特性**: AI 现在可以**主动**使用记忆功能，而无需等待指令。
+> 📖 **完整配置导航**: 针对 **Trae, Cursor, Windsurf, Claude Desktop, Roo Code** 等主流平台的详细配置，请直接查阅：
+> 👉 **[MCP Server 详细配置指南](docs/MCP_GUIDE.md)**
 
-### 配置 Claude Code
-
-在 `~/.claude.json` 中添加以下配置（推荐全局配置）：
+**Claude Code 配置示例 (`~/.claude.json`)**:
 
 ```json
 {
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "C:/path/to/MemOS/conda_venv/python.exe",
-      "args": ["C:/path/to/MemOS/mcp-server/memos_mcp_server.py"],
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
       }
     }
   }
 }
 ```
-
-> **注意**: 请将路径替换为你的实际安装路径。更多关于 WSL 或 Linux 的配置，请参考 [MCP 配置指南](docs/MCP_GUIDE.md)。
 
 ## API 使用
 

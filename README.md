@@ -411,6 +411,32 @@ RETURN cause.memory AS root_cause
 
 > **Bonus**: Use local Qdrant for 100% offline operation. See [Database Setup](#-database-setup-qdrant).
 
+### 🔌 MCP Configuration (Proactive Mode)
+
+MCP (Model Context Protocol) allows AI to **proactively** use memory tools.
+
+> 📖 **Full Setup Guide**: For detailed configuration on **Trae, Cursor, Windsurf, Claude Desktop, and more**, please refer to the [MCP Server Configuration Guide](docs/MCP_GUIDE.md).
+
+**Example (Claude Code `~/.claude.json`):**
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "type": "stdio",
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ## 🚀 Quick Start
