@@ -8,6 +8,8 @@ MCP (Model Context Protocol) Server for MemOS, enabling Claude Code to **proacti
 - 💾 **memos_save** - Save important decisions, errors, patterns
 - 📋 **memos_list** - List all memories in a project
 - 💡 **memos_suggest** - Get smart search suggestions
+- 🧠 **memos_get_graph** - Query knowledge graph with relationships (CAUSE/RELATE/CONFLICT)
+- 🗑️ **memos_delete** - Delete memories (⚠️ disabled by default, requires `MEMOS_ENABLE_DELETE=true`)
 
 ## Installation
 
@@ -147,6 +149,25 @@ Save memories. Claude will use this when:
 | `MEMOS_TIMEOUT_STARTUP` | `30.0` | Startup cube registration timeout (seconds) |
 | `MEMOS_TIMEOUT_HEALTH` | `5.0` | Health check timeout (seconds) |
 | `MEMOS_API_WAIT_MAX` | `60.0` | Max wait time for API ready (seconds) |
+| `MEMOS_ENABLE_DELETE` | `false` | ⚠️ Enable delete functionality (dangerous, disabled by default) |
+
+## Safety: Delete Functionality
+
+The `memos_delete` tool is **DISABLED by default** to prevent accidental data loss.
+
+To enable deletion, explicitly set in your MCP config:
+
+```json
+"env": {
+  "MEMOS_ENABLE_DELETE": "true"
+}
+```
+
+**Safety features:**
+- Tool is hidden from AI when disabled
+- Requires explicit user confirmation
+- Supports single memory or bulk deletion
+- AI is instructed to always confirm before deleting
 
 ## Auto-Registration
 

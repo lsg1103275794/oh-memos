@@ -39,6 +39,10 @@ MEMOS_TIMEOUT_STARTUP = float(os.environ.get("MEMOS_TIMEOUT_STARTUP", "30.0"))  
 MEMOS_TIMEOUT_HEALTH = float(os.environ.get("MEMOS_TIMEOUT_HEALTH", "5.0"))  # Health check
 MEMOS_API_WAIT_MAX = float(os.environ.get("MEMOS_API_WAIT_MAX", "60.0"))  # Max wait for API ready
 
+# Safety configuration - dangerous operations disabled by default
+# Set to "true" to enable delete functionality (user must explicitly enable)
+MEMOS_ENABLE_DELETE = os.environ.get("MEMOS_ENABLE_DELETE", "false").lower() == "true"
+
 # Create server instance
 server = Server("memos-memory")
 
@@ -490,6 +494,52 @@ This helps you understand the full context and dependencies.""",
         )
     ]
 
+    # Conditionally add delete tool if enabled (dangerous operation, disabled by default)
+    if MEMOS_ENABLE_DELETE:
+        tools.append(
+            Tool(
+                name="memos_delete",
+                description="""⚠️ DELETE memories from project memory. USE WITH CAUTION!
+
+This tool is DISABLED by default. User must explicitly enable it via MEMOS_ENABLE_DELETE=true.
+
+ONLY use this tool when the user EXPLICITLY requests deletion.
+NEVER use this tool proactively or without user confirmation.
+
+Operations:
+- Delete a single memory by ID
+- Delete ALL memories in a cube (requires delete_all=true)
+
+Before deleting, always:
+1. Confirm with the user what will be deleted
+2. Show the memory content that will be deleted
+3. Get explicit user approval""",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "memory_id": {
+                            "type": "string",
+                            "description": "ID of the specific memory to delete. Get this from memos_search or memos_list."
+                        },
+                        "cube_id": {
+                            "type": "string",
+                            "description": "Memory cube ID (project name). Defaults to current project.",
+                            "default": MEMOS_DEFAULT_CUBE
+                        },
+                        "delete_all": {
+                            "type": "boolean",
+                            "description": "Set to true to delete ALL memories in the cube. DANGEROUS! Requires explicit user confirmation.",
+                            "default": False
+                        }
+                    },
+                    "required": []
+                }
+            )
+        )
+        logger.info("Delete tool enabled (MEMOS_ENABLE_DELETE=true)")
+
+    return tools
+
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
@@ -773,6 +823,45 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     results.append(f"*Neo4j query error: {neo4j_response.status_code}*")
 
                 return [TextContent(type="text", text="\n".join(results))]
+
+            elif name == "memos_delete":
+                # Safety check - only allow if explicitly enabled
+                if not MEMOS_ENABLE_DELETE:
+                    return [TextContent(type="text", text="❌ Delete functionality is DISABLED. Set MEMOS_ENABLE_DELETE=true in environment to enable.")]
+
+                memory_id = arguments.get("memory_id")
+                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
+                delete_all = arguments.get("delete_all", False)
+
+                # Auto-register cube
+                await ensure_cube_registered(client, cube_id)
+
+                if delete_all:
+                    # Delete ALL memories - very dangerous!
+                    response = await client.delete(
+                        f"{MEMOS_URL}/memories/{cube_id}",
+                        params={"user_id": MEMOS_USER}
+                    )
+
+                    if response.status_code == 200:
+                        return [TextContent(type="text", text=f"⚠️ ALL memories deleted from cube: {cube_id}")]
+                    else:
+                        return [TextContent(type="text", text=f"Delete all failed: {response.status_code}")]
+
+                elif memory_id:
+                    # Delete single memory
+                    response = await client.delete(
+                        f"{MEMOS_URL}/memories/{cube_id}/{memory_id}",
+                        params={"user_id": MEMOS_USER}
+                    )
+
+                    if response.status_code == 200:
+                        return [TextContent(type="text", text=f"✅ Memory deleted: {memory_id}")]
+                    else:
+                        return [TextContent(type="text", text=f"Delete failed: {response.status_code}")]
+
+                else:
+                    return [TextContent(type="text", text="❌ Must provide either memory_id or delete_all=true")]
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
