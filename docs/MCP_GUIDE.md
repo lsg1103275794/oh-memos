@@ -95,11 +95,22 @@ Global configuration makes memos MCP available to all projects without per-proje
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
         "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
-      }
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph"
+      ]
     }
   }
 }
 ```
+
+> **`alwaysAllow` 说明**: 列出的工具将自动授权，无需每次确认。建议不要将 `memos_delete` 加入此列表。
+>
+> **`alwaysAllow` note**: Listed tools are auto-approved without confirmation. It's recommended NOT to include `memos_delete` in this list.
 
 **优势 | Advantages:**
 - ✅ 一次配置，所有项目可用 | Configure once, available to all projects
@@ -152,7 +163,14 @@ Edit `~/.claude.json`, find your project config (e.g., `/your/project/path`), ad
             "MEMOS_USER": "dev_user",
             "MEMOS_DEFAULT_CUBE": "dev_cube",
             "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
-          }
+          },
+          "alwaysAllow": [
+            "memos_search",
+            "memos_save",
+            "memos_list",
+            "memos_suggest",
+            "memos_get_graph"
+          ]
         }
       }
     }
@@ -182,7 +200,14 @@ In WSL environment, Windows Python cannot handle WSL path format directly. Use a
       "MEMOS_USER": "dev_user",
       "MEMOS_DEFAULT_CUBE": "dev_cube",
       "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
-    }
+    },
+    "alwaysAllow": [
+      "memos_search",
+      "memos_save",
+      "memos_list",
+      "memos_suggest",
+      "memos_get_graph"
+    ]
   }
 }
 ```
@@ -243,7 +268,14 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
       "MEMOS_USER": "dev_user",
       "MEMOS_DEFAULT_CUBE": "dev_cube",
       "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
-    }
+    },
+    "alwaysAllow": [
+      "memos_search",
+      "memos_save",
+      "memos_list",
+      "memos_suggest",
+      "memos_get_graph"
+    ]
   }
 }
 ```
@@ -274,12 +306,28 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
-      }
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes",
+        "MEMOS_TIMEOUT_TOOL": "120.0",
+        "MEMOS_TIMEOUT_STARTUP": "30.0",
+        "MEMOS_TIMEOUT_HEALTH": "5.0",
+        "MEMOS_API_WAIT_MAX": "60.0",
+        "MEMOS_ENABLE_DELETE": "false"
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph"
+      ]
     }
   }
 }
 ```
+
+> 此为完整配置示例，包含所有可选超时参数。超时参数可省略（使用默认值）。
+>
+> This is the full config example with all optional timeout parameters. Timeout params can be omitted (defaults apply).
 
 ### macOS/Linux 用户 - 全局配置示例
 
@@ -299,7 +347,14 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
         "MEMOS_CUBES_DIR": "/home/user/projects/MemOS/data/memos_cubes"
-      }
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph"
+      ]
     }
   }
 }
@@ -323,7 +378,14 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
         "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
-      }
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph"
+      ]
     }
   }
 }
@@ -361,6 +423,8 @@ After restart, Claude Code will have these tools:
 - `memos_save` - 保存记忆 | Save memories
 - `memos_list` - 列出记忆 | List memories
 - `memos_suggest` - 智能建议 | Smart suggestions
+- `memos_get_graph` - 知识图谱查询 | Knowledge graph query (relationships: CAUSE/RELATE/CONFLICT/CONDITION)
+- `memos_delete` - 删除记忆 | Delete memories (需启用 `MEMOS_ENABLE_DELETE=true` | requires `MEMOS_ENABLE_DELETE=true`)
 
 ---
 
@@ -482,6 +546,69 @@ Suggested Searches:
 
 ---
 
+### memos_get_graph
+
+查询知识图谱，获取记忆之间的关系。
+
+Query knowledge graph to understand relationships between memories.
+
+**关系类型 | Relationship Types:**
+
+| 关系 | 含义 | Meaning |
+|------|------|---------|
+| `CAUSE` | 因果关系 | A caused B |
+| `RELATE` | 关联关系 | A is related to B |
+| `CONFLICT` | 冲突关系 | A conflicts with B |
+| `CONDITION` | 条件关系 | A depends on condition B |
+
+**参数 | Parameters:**
+
+```json
+{
+  "query": "搜索关键词",
+  "cube_id": "dev_cube"  // 可选
+}
+```
+
+**示例 | Example:**
+
+```
+查询 Neo4j 启动失败的关系:
+→ memos_get_graph("Neo4j startup failure")
+→ 返回:
+  [Java not installed] ──CAUSE──> [Neo4j failed to start]
+  [Port 7687 in use] ──RELATE──> [Neo4j failed to start]
+```
+
+---
+
+### memos_delete
+
+删除记忆。**默认禁用**，需设置 `MEMOS_ENABLE_DELETE=true` 启用。
+
+Delete memories. **Disabled by default**, requires `MEMOS_ENABLE_DELETE=true` to enable.
+
+**参数 | Parameters:**
+
+```json
+{
+  "memory_id": "xxx",       // 删除单条记忆 | Delete single memory
+  "cube_id": "dev_cube",    // 可选
+  "delete_all": false        // ⚠️ 设为 true 删除全部 | Set true to delete all
+}
+```
+
+**安全特性 | Safety Features:**
+
+| 特性 | 说明 | Description |
+|------|------|-------------|
+| 默认禁用 | 需 `MEMOS_ENABLE_DELETE=true` | Disabled by default |
+| 工具隐藏 | 禁用时 AI 看不到此工具 | Hidden from AI when disabled |
+| 确认要求 | AI 删除前必须确认 | AI must confirm before deleting |
+| 批量保护 | `delete_all` 需二次确认 | Bulk delete requires extra confirmation |
+
+---
+
 ## ⚙️ Environment Variables | 环境变量
 
 | 变量 | 默认值 | 说明 |
@@ -489,23 +616,94 @@ Suggested Searches:
 | `MEMOS_URL` | `http://localhost:18000` | MemOS API 地址 |
 | `MEMOS_USER` | `dev_user` | 用户 ID |
 | `MEMOS_DEFAULT_CUBE` | `dev_cube` | 默认记忆 Cube |
-| `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube 存储目录 (用于自动注册) |
+| `MEMOS_CUBES_DIR` | *(需配置)* | Cube 存储目录 (用于自动注册) |
+| `MEMOS_TIMEOUT_TOOL` | `120.0` | 工具调用超时 (秒) - 大文档+向量化时需更长 |
+| `MEMOS_TIMEOUT_STARTUP` | `30.0` | 启动注册超时 (秒) |
+| `MEMOS_TIMEOUT_HEALTH` | `5.0` | 健康检查超时 (秒) |
+| `MEMOS_API_WAIT_MAX` | `60.0` | 等待 API 就绪最大时间 (秒) |
+| `MEMOS_ENABLE_DELETE` | `false` | ⚠️ 启用删除功能 (危险操作，默认禁用) |
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
+| `MEMOS_USER` | `dev_user` | Default user ID |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
+| `MEMOS_CUBES_DIR` | *(must configure)* | Cube storage directory (for auto-registration) |
+| `MEMOS_TIMEOUT_TOOL` | `120.0` | Tool call timeout (seconds) - for large documents with embedding |
+| `MEMOS_TIMEOUT_STARTUP` | `30.0` | Startup cube registration timeout (seconds) |
+| `MEMOS_TIMEOUT_HEALTH` | `5.0` | Health check timeout (seconds) |
+| `MEMOS_API_WAIT_MAX` | `60.0` | Max wait time for API ready (seconds) |
+| `MEMOS_ENABLE_DELETE` | `false` | ⚠️ Enable delete functionality (dangerous, disabled by default) |
+
+> **超时说明**: 当保存或搜索大文档时，embedding 模型处理需要较长时间。`MEMOS_TIMEOUT_TOOL` 默认 120 秒，可按需调整。
+>
+> **Timeout note**: When saving/searching large documents, embedding model processing takes longer. `MEMOS_TIMEOUT_TOOL` defaults to 120s, adjust as needed.
 
 ### 自动注册 Cube | Auto-Register Cube
 
-MCP Server 会在首次使用时**自动注册** cube，无需手动创建。
+MCP Server 会在首次使用时**自动注册** cube，无需手动创建。启动时还会等待 API 就绪并预注册。
 
-MCP Server will **auto-register** cube on first use, no manual creation needed.
+MCP Server will **auto-register** cube on first use, no manual creation needed. It also waits for API readiness and pre-registers at startup.
 
 ```
+MCP Server 启动 | Startup
+        ↓
+等待 API 就绪 (最长 MEMOS_API_WAIT_MAX 秒)
+Wait for API ready (up to MEMOS_API_WAIT_MAX seconds)
+        ↓
+预注册 cube (最多 3 次重试)
+Pre-register cube (up to 3 retries)
+        ↓
 首次调用 memos_search/save/list
+First call to memos_search/save/list
         ↓
-检查 cube 是否已注册
-        ↓ (未注册)
-自动调用 /mem_cubes 注册
+验证 cube 已加载 | Verify cube loaded
+        ↓ (未加载 | not loaded)
+自动注册并重试 | Auto-register and retry
         ↓
-继续执行原操作
+继续执行 | Continue operation
 ```
+
+---
+
+## 🔒 Safety: Delete Functionality | 安全: 删除功能
+
+`memos_delete` 工具**默认禁用**，防止 AI 意外删除数据。
+
+The `memos_delete` tool is **DISABLED by default** to prevent accidental data loss by AI.
+
+### 启用删除 | Enable Delete
+
+在 MCP 配置的 `env` 中显式设置:
+
+Explicitly set in your MCP config `env`:
+
+```json
+"env": {
+  "MEMOS_ENABLE_DELETE": "true"
+}
+```
+
+### 安全机制 | Safety Mechanisms
+
+```
+用户启用 MEMOS_ENABLE_DELETE=true
+        ↓
+工具对 AI 可见 | Tool visible to AI
+        ↓
+AI 收到删除请求 | AI receives delete request
+        ↓
+AI 必须向用户确认 | AI must confirm with user
+        ↓
+确认后执行删除 | Execute after confirmation
+```
+
+| 安全层 | 说明 | Safety Layer | Description |
+|--------|------|-------------|-------------|
+| 环境变量开关 | 默认 `false` | Env var switch | Default `false` |
+| 工具隐藏 | 禁用时 AI 无法看到工具 | Tool hiding | AI can't see tool when disabled |
+| 确认提示 | 工具描述要求 AI 确认 | Confirmation | Tool description requires AI to confirm |
+| 双重调用 | 禁用时调用返回错误提示 | Double check | Returns error message if called when disabled |
 
 ---
 
@@ -525,6 +723,8 @@ MCP Server will **auto-register** cube on first use, no manual creation needed.
 |  |  Error detected? ----> memos_search(ERROR_PATTERN)    |  |
 |  |  Task completed? ----> memos_save(MILESTONE)          |  |
 |  |  Need history?   ----> memos_search(keywords)         |  |
+|  |  Need relations? ----> memos_get_graph(query)         |  |
+|  |  Cleanup needed? ----> memos_delete(memory_id)        |  |
 |  |                                                       |  |
 |  +--------------------------+----------------------------+  |
 |                             |                               |
@@ -535,9 +735,9 @@ MCP Server will **auto-register** cube on first use, no manual creation needed.
 |                      MemOS API (:18000)                     |
 |                             |                               |
 |                  +----------+----------+                    |
-|                  v                     v                    |
-|             Embedding             Vector DB                 |
-|             (Ollama)              (Qdrant)                  |
+|                  v          v          v                    |
+|             Embedding    Vector DB   Graph DB               |
+|             (Ollama)     (Qdrant)    (Neo4j)                |
 |                                                             |
 +-------------------------------------------------------------+
 ```
@@ -646,6 +846,10 @@ curl -X POST http://localhost:18000/mem_cubes \
 - [ ] 自动检测项目切换，切换 cube
 - [x] ~~Hooks 集成，在特定事件时自动触发~~ ✅ 已完成
 - [x] ~~CLAUDE.md 项目上下文~~ ✅ 已完成
+- [x] ~~知识图谱关系查询 (memos_get_graph)~~ ✅ 已完成
+- [x] ~~安全删除功能 (memos_delete + 安全开关)~~ ✅ 已完成
+- [x] ~~可配置超时参数~~ ✅ 已完成
+- [x] ~~启动时自动注册 + 重试机制~~ ✅ 已完成
 - [ ] 记忆相关性评分优化
 - [ ] 多 cube 跨项目搜索
 - [ ] 记忆过期/归档机制

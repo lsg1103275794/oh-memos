@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph for relationships. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest, memos_get_graph."
+description: "Proactive project memory management via MemOS MCP. YOU MUST USE memos_search AUTOMATICALLY when user says: 找/找寻/查找/搜索/find/search/look up/有没有/记得吗/之前/上次/previously - ALWAYS search memory database FIRST before answering. Also use MCP tools when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) Need to understand dependencies - memos_get_graph. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest, memos_get_graph."
 ---
 
 # Project Memory (MCP Powered)
@@ -25,12 +25,19 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ### When to Search (`memos_search`)
 
+**IMPORTANT: When the user uses ANY of these keywords, you MUST proactively call `memos_search` to check the memory database BEFORE responding.**
+
 | User Says / Context | Search Query |
 |---------------------|--------------|
-| "之前", "上次", "previously" | `{topic} history` |
-| "为什么", "why did we" | `DECISION {topic}` |
-| "怎么解决", "how to fix", error message | `ERROR_PATTERN {error_type}` |
-| "类似", "similar" | `CODE_PATTERN {pattern}` |
+| "找", "找一下", "找找", "找寻", "查找", "搜索", "搜一下" | `{topic}` - search for the mentioned topic |
+| "find", "search", "look up", "look for", "check if" | `{topic}` - search for the mentioned topic |
+| "有没有", "是否有", "有记录吗", "记得吗" | `{topic}` - check if memory exists |
+| "之前", "上次", "以前", "previously", "last time" | `{topic} history` |
+| "为什么", "why did we", "当时为什么" | `DECISION {topic}` |
+| "怎么解决", "how to fix", "怎么修", error message | `ERROR_PATTERN {error_type}` |
+| "类似", "similar", "像...一样" | `CODE_PATTERN {pattern}` |
+| "什么时候", "when did", "哪次" | `{topic}` - search timeline |
+| "谁", "who", "哪个项目" | `{topic}` - search context |
 | Working with config file | `CONFIG {filename}` |
 | Opening file for editing | `{filename} gotcha` |
 
@@ -197,6 +204,9 @@ Tags: gotcha, {category}
 │                       memory_type: "MILESTONE"                  │
 │                                                                 │
 │  "之前/上次"     ───> memos_search    ───> Find history         │
+│                                                                 │
+│  "找/查找/搜索"  ───> memos_search    ───> Search memory DB     │
+│  "find/search"                                                  │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │

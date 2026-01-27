@@ -236,6 +236,29 @@ class MOSCore:
                 f"User '{user_id}' does not have access to cube '{cube_id}'. Please register the cube first or request access."
             )
 
+    def _find_mem_cube(self, cube_id: str) -> tuple[str, GeneralMemCube | None]:
+        """Find a mem_cube by ID, supporting both full path and basename lookup.
+
+        Args:
+            cube_id (str): The cube ID to find (can be full path or just the name).
+
+        Returns:
+            tuple[str, GeneralMemCube | None]: (actual_key, mem_cube) or (cube_id, None) if not found.
+        """
+        # Direct match
+        if cube_id in self.mem_cubes:
+            return cube_id, self.mem_cubes[cube_id]
+
+        # Try basename match (e.g., "dev_cube" matches "G:/test/.../dev_cube")
+        cube_basename = os.path.basename(cube_id.rstrip('/\\'))
+        for key, cube in self.mem_cubes.items():
+            key_basename = os.path.basename(key.rstrip('/\\'))
+            if key_basename == cube_basename or key_basename == cube_id:
+                logger.debug(f"Cube '{cube_id}' matched by basename to key '{key}'")
+                return key, cube
+
+        return cube_id, None
+
     def _get_all_documents(self, path: str) -> list[str]:
         """Get all documents from path.
 
@@ -483,7 +506,8 @@ class MOSCore:
             if isinstance(mem_cube_name_or_path, GeneralMemCube):
                 mem_cube_id = f"cube_{target_user_id}"
             else:
-                mem_cube_id = mem_cube_name_or_path
+                # Extract cube name from path (e.g., "G:/test/MemOS/data/memos_cubes/dev_cube" -> "dev_cube")
+                mem_cube_id = os.path.basename(mem_cube_name_or_path.rstrip('/\\'))
 
         if mem_cube_id in self.mem_cubes:
             logger.info(f"MemCube with ID {mem_cube_id} already in MOS, skip install.")
@@ -1032,13 +1056,23 @@ class MOSCore:
             mem_cube_id = accessible_cubes[0].cube_id  # TODO not only first
         else:
             self._validate_cube_access(target_user_id, mem_cube_id)
-        if self.config.enable_textual_memory and self.mem_cubes[mem_cube_id].text_mem:
-            result["text_mem"].append(
-                {"cube_id": mem_cube_id, "memories": self.mem_cubes[mem_cube_id].text_mem.get_all()}
+
+        # Use smart lookup to find the cube (handles both full path and basename)
+        actual_key, mem_cube = self._find_mem_cube(mem_cube_id)
+        if mem_cube is None:
+            raise KeyError(
+                f"MemCube '{mem_cube_id}' not found in memory. "
+                f"Available cubes: {list(self.mem_cubes.keys())}. "
+                f"Please register the cube first."
             )
-        if self.config.enable_activation_memory and self.mem_cubes[mem_cube_id].act_mem:
+
+        if self.config.enable_textual_memory and mem_cube.text_mem:
+            result["text_mem"].append(
+                {"cube_id": mem_cube_id, "memories": mem_cube.text_mem.get_all()}
+            )
+        if self.config.enable_activation_memory and mem_cube.act_mem:
             result["act_mem"].append(
-                {"cube_id": mem_cube_id, "memories": self.mem_cubes[mem_cube_id].act_mem.get_all()}
+                {"cube_id": mem_cube_id, "memories": mem_cube.act_mem.get_all()}
             )
         return result
 

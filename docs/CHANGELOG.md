@@ -66,6 +66,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **🔧 MCP Cube Registration LLM Trigger** (reorganizer.py)
+  - Fixed unnecessary LLM calls when loading existing cube
+  - Changed `_reorganize_needed` initial value from `True` to `False`
+  - Reorganizer now only triggers when new memories are actually added
+  - Before: Every `init_from_dir()` → immediate LLM cluster/summarize call
+  - After: LLM only called after `handle_add()` processes new nodes
+  - Significantly reduces API costs and startup time
+
 - **🔧 Relationship Detection Parser**
   - Fixed `_parse_relation_result()` to extract only first word from LLM response
   - LLM returns `RELATE\n\n**Reasoning:**...` but parser expected single word
