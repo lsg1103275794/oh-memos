@@ -26,6 +26,139 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 
 ---
 
+## 🚀 各平台配置示例 | Platform Configuration Examples
+
+根据你使用的平台，选择对应的配置文件进行设置。以下示例均以当前项目路径 `G:/test/MemOS` 为准。
+
+### 1. Claude Code (CLI)
+
+**配置文件**: `~/.claude.json`
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "type": "stdio",
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": [
+        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
+      ],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      },
+      "alwaysAllow": [
+        "memos_search",
+        "memos_save",
+        "memos_list",
+        "memos_suggest",
+        "memos_get_graph",
+        "memos_get_stats"
+      ]
+    }
+  }
+}
+```
+
+### 2. Trae (IDE)
+
+**配置路径**: `设置 (Settings)` -> `AI` -> `MCP` -> `Add Server`
+
+- **Name**: `memos`
+- **Type**: `command`
+- **Command**: `G:/test/MemOS/conda_venv/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
+- **Env Vars**:
+  - `MEMOS_URL`: `http://localhost:18000`
+  - `MEMOS_USER`: `dev_user`
+  - `MEMOS_DEFAULT_CUBE`: `dev_cube`
+  - `MEMOS_CUBES_DIR`: `G:/test/MemOS/data/memos_cubes`
+
+### 3. Cursor (IDE)
+
+**配置路径**: `Settings` -> `Features` -> `MCP` -> `+ Add Server`
+
+- **Name**: `memos`
+- **Type**: `stdio`
+- **Command**: `G:/test/MemOS/conda_venv/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
+
+> 注意：Cursor 目前主要通过命令行参数传递环境变量，或在启动 Cursor 的 shell 中预设。
+
+### 4. Claude Desktop
+
+**配置文件**: 
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": [
+        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
+      ],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      }
+    }
+  }
+}
+```
+
+### 5. Windsurf (IDE)
+
+**配置文件**: `~/.codeium/windsurf/mcp_config.json`
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": [
+        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
+      ],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      }
+    }
+  }
+}
+```
+
+### 6. Cline / Roo Code (VS Code Extensions)
+
+**配置路径**: 点击插件图标 -> `Settings (齿轮)` -> `MCP Servers` -> `Edit Config`
+
+```json
+{
+  "mcpServers": {
+    "memos": {
+      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "args": [
+        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
+      ],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+---
+
 ## 🚀 Quick Start | 快速开始
 
 ### 1. 安装依赖 | Install Dependencies
@@ -86,15 +219,15 @@ Global configuration makes memos MCP available to all projects without per-proje
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "/path/to/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/conda_venv/python.exe",
       "args": [
-        "/path/to/MemOS/mcp-server/memos_mcp_server.py"
+        "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
       },
       "alwaysAllow": [
         "memos_search",
@@ -154,15 +287,15 @@ Edit `~/.claude.json`, find your project config (e.g., `/your/project/path`), ad
       "mcpServers": {
         "memos": {
           "type": "stdio",
-          "command": "/path/to/MemOS/conda_venv/python.exe",
+          "command": "G:/test/MemOS/conda_venv/python.exe",
           "args": [
-            "/path/to/MemOS/mcp-server/memos_mcp_server.py"
+            "G:/test/MemOS/mcp-server/memos_mcp_server.py"
           ],
           "env": {
             "MEMOS_URL": "http://localhost:18000",
             "MEMOS_USER": "dev_user",
             "MEMOS_DEFAULT_CUBE": "dev_cube",
-            "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
+            "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
           },
           "alwaysAllow": [
             "memos_search",
@@ -193,13 +326,13 @@ In WSL environment, Windows Python cannot handle WSL path format directly. Use a
     "type": "stdio",
     "command": "bash",
     "args": [
-      "/path/to/MemOS/mcp-server/run_mcp.sh"
+      "/mnt/g/test/MemOS/mcp-server/run_mcp.sh"
     ],
     "env": {
       "MEMOS_URL": "http://localhost:18000",
       "MEMOS_USER": "dev_user",
       "MEMOS_DEFAULT_CUBE": "dev_cube",
-      "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
+      "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
     },
     "alwaysAllow": [
       "memos_search",
@@ -226,11 +359,11 @@ export MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:-dev_cube}"
 
 # WSL path for Windows Python executable
 # 替换 /path/to/MemOS 为你的实际路径 | Replace /path/to/MemOS with your path
-PYTHON="/path/to/MemOS/conda_venv/python.exe"
+PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"
 
 # Windows-style path for the script (Windows Python needs this)
 # 替换 /path/to/MemOS 为你的实际路径 | Replace /path/to/MemOS with your path
-SCRIPT="/path/to/MemOS/mcp-server/memos_mcp_server.py"
+SCRIPT="G:/test/MemOS/mcp-server/memos_mcp_server.py"
 
 exec "$PYTHON" "$SCRIPT" "$@"
 ```
@@ -259,15 +392,15 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
 "mcpServers": {
   "memos": {
     "type": "stdio",
-    "command": "/path/to/MemOS/conda_venv/python.exe",
+    "command": "G:/test/MemOS/conda_venv/python.exe",
     "args": [
-      "/path/to/MemOS/mcp-server/memos_mcp_server.py"
+      "G:/test/MemOS/mcp-server/memos_mcp_server.py"
     ],
     "env": {
       "MEMOS_URL": "http://localhost:18000",
       "MEMOS_USER": "dev_user",
       "MEMOS_DEFAULT_CUBE": "dev_cube",
-      "MEMOS_CUBES_DIR": "/path/to/MemOS/data/memos_cubes"
+      "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
     },
     "alwaysAllow": [
       "memos_search",
