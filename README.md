@@ -112,33 +112,49 @@ MemOSLocal-SM is a complete **AI Project Memory Solution** that includes:
 └─────────────────────────────────────┼─────────────────────────────────────┘
                                       │
                                       ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                             MemOS Backend                                 │
-│                        http://localhost:18000                             │
-│                                                                           │
-│   ┌───────────────────────────────────────────────────────────────────┐   │
-│   │                     Memory Mode Selection                         │   │
-│   │                                                                   │   │
-│   │   general_text (Flat)           tree_text (Knowledge Graph)       │   │
-│   │   ┌───────────────┐             ┌─────────────────────────────┐   │   │
-│   │   │    Qdrant     │             │   Neo4j     +     Qdrant    │   │   │
-│   │   │   (Vector)    │             │  (Graph)         (Vector)   │   │   │
-│   │   └───────────────┘             └────────────┬────────────────┘   │   │
-│   │                                              │                    │   │
-│   │                                   ┌──────────┴──────────┐         │   │
-│   │                                   │   LLM Extraction    │         │   │
-│   │                                   │  key, tags, conf.   │         │   │
-│   │                                   └─────────────────────┘         │   │
-│   └───────────────────────────────────────────────────────────────────┘   │
-│                                                                           │
-│   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────┐   │
-│   │  Memory Storage │    │  Vector Search  │    │  LLM Enhancement    │   │
-│   │                 │    │                 │    │                     │   │
-│   │  Qdrant Cloud   │    │    Semantic     │    │       OpenAI        │   │
-│   │   or Local      │    │   Similarity    │    │   Compatible API    │   │
-│   └─────────────────┘    └─────────────────┘    └─────────────────────┘   │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        MemOS Backend (localhost:18000)                   │
+│                                                                          │
+│   ┌─── Memory Mode ──────────────────────────────────────────────────┐   │
+│   │                                                                  │   │
+│   │   general_text (Flat)         tree_text (Knowledge Graph)        │   │
+│   │   ┌───────────────┐          ┌──────────────────────────────┐    │   │
+│   │   │    Qdrant     │          │        Save Pipeline         │    │   │
+│   │   │   (Vector)    │          │                              │    │   │
+│   │   │   Only        │          │  Input ──> LLM Extraction    │    │   │
+│   │   └───────────────┘          │           (key, tags, conf.) │    │   │
+│   │                              │               │              │    │   │
+│   │                              │        ┌──────┴──────┐       │    │   │
+│   │                              │        ▼             ▼       │    │   │
+│   │                              │   ┌────────┐   ┌────────┐    │    │   │
+│   │                              │   │ Neo4j  │   │ Qdrant │    │    │   │
+│   │                              │   │(Graph) │   │(Vector)│    │    │   │
+│   │                              │   └───┬────┘   └────────┘    │    │   │
+│   │                              │       │                      │    │   │
+│   │                              │       ▼                      │    │   │
+│   │                              │  ┌─────────────────────┐     │    │   │
+│   │                              │  │  Reorganizer (Async) │    │    │   │
+│   │                              │  │  LLM detects links:  │    │    │   │
+│   │                              │  │  CAUSE / CONDITION   │    │    │   │
+│   │                              │  │  RELATE / CONFLICT   │    │    │   │
+│   │                              │  └─────────────────────┘     │    │   │
+│   │                              └──────────────────────────────┘    │   │
+│   └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│   ┌─── Services ─────────────────────────────────────────────────────┐   │
+│   │                                                                  │   │
+│   │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │   │
+│   │  │ Qdrant       │  │   Neo4j      │  │   LLM (OpenAI API)     │  │   │
+│   │  │ :6333        │  │   :7687      │  │   via Ollama :11434    │  │   │
+│   │  │              │  │              │  │                        │  │   │
+│   │  │ Embedding    │  │ Knowledge    │  │ 1. Memory Extraction   │  │   │
+│   │  │ + Semantic   │  │ Graph +      │  │    (key/tags/conf.)    │  │   │
+│   │  │   Search     │  │ Relationship │  │ 2. Relationship        │  │   │
+│   │  │              │  │ Edges        │  │    Detection (Reorg.)  │  │   │
+│   │  └──────────────┘  └──────────────┘  └────────────────────────┘  │   │
+│   └──────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -232,10 +248,11 @@ Memory Save Flow (tree_text mode):
                                    │
                                    ▼
              ┌─────────────────────────────────────────┐
-             │           LLM Memory Extraction         │
-             │      (Uses OPENAI_API_KEY from .env)    │
+             │         ① LLM Memory Extraction         │
+             │      (OpenAI-compatible API / Ollama)   │
              │                                         │
-             │   Extract: key, tags, background        │
+             │   Input:  raw text                      │
+             │   Output: key, tags, background         │
              │   Evaluate: confidence (0.0 - 1.0)      │
              │   Classify: WorkingMemory / LongTerm    │
              └─────────────────────────────────────────┘
@@ -244,8 +261,66 @@ Memory Save Flow (tree_text mode):
                           ▼               ▼
                     ┌──────────┐    ┌──────────┐
                     │  Neo4j   │    │  Qdrant  │
-                    │ (Graph)  │    │ (Vector) │
+                    │ (Graph   │    │ (Vector  │
+                    │  Node)   │    │  Index)  │
                     └──────────┘    └──────────┘
+                          │
+                          ▼
+             ┌─────────────────────────────────────────┐
+             │    ② Reorganizer (Async Background)     │
+             │                                         │
+             │   1. Fetch new unprocessed nodes        │
+             │   2. Compare with existing memories     │
+             │   3. LLM analyzes pairwise relations    │
+             │   4. Create relationship edges:         │
+             │      CAUSE / CONDITION / RELATE /       │
+             │      CONFLICT                           │
+             │   5. Write edges back to Neo4j          │
+             └─────────────────────────────────────────┘
+```
+
+```
+Memory Search Flow (tree_text mode):
+
+     User Query: "Why did Neo4j fail to start?"
+                                   │
+                          ┌───────┴───────┐
+                          ▼               ▼
+                    ┌──────────┐    ┌──────────┐
+                    │  Qdrant  │    │  Neo4j   │
+                    │ Semantic │    │  Graph   │
+                    │  Search  │    │ Traverse │
+                    └────┬─────┘    └────┬─────┘
+                         │               │
+                         └───────┬───────┘
+                                 ▼
+                    ┌──────────────────────┐
+                    │  Merged Results      │
+                    │                      │
+                    │  Memories + Related  │
+                    │  Nodes + Edges       │
+                    │  (CAUSE chains,      │
+                    │   CONDITION deps)    │
+                    └──────────────────────┘
+```
+
+```
+LLM Usage Summary:
+
+  ┌──────────────────────────────────────────────────────────┐
+  │                   LLM is used TWICE                      │
+  ├──────────────────────────────────────────────────────────┤
+  │                                                          │
+  │  ① During Save (Extraction):                             │
+  │     Raw text ──LLM──> key, tags, background, confidence  │
+  │     Runs: synchronously on every save                    │
+  │                                                          │
+  │  ② During Reorganize (Relationship Detection):           │
+  │     Memory A + Memory B ──LLM──> Relationship type       │
+  │     Runs: asynchronously in background thread            │
+  │     Detects: CAUSE, CONDITION, RELATE, CONFLICT          │
+  │                                                          │
+  └──────────────────────────────────────────────────────────┘
 ```
 
 ### Memory Node Structure
@@ -298,7 +373,7 @@ When `MOS_ENABLE_REORGANIZE=true`, MemOS automatically detects relationships bet
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Memory Relationship Types                     │
+│                    Memory Relationship Types                    │
 ├──────────────┬──────────────────────────────────────────────────┤
 │  CAUSE       │  A causes B (error → solution, bug → fix)        │
 │  CONDITION   │  A is required for B (Java 17 → Neo4j runs)      │
@@ -349,15 +424,27 @@ RETURN cause.memory AS root_cause
 │  └─────────────┘    └─────────────┘    └─────────────┬─────────────┘  │
 │                                                      │                │
 │  ┌───────────────────────────────────────────┐       │                │
-│  │  [Ollama] Local Embedding                 │<──────┤                │
+│  │  [Ollama] Local LLM + Embedding           │<──────┤                │
 │  │                                           │       │                │
-│  │  "Fix login bug in auth.py"               │ Embed │                │
-│  │              |                            │       │                │
-│  │              v                            │       │                │
-│  │  [0.23, -0.87, 0.45, 0.12, ...]           │       │                │
+│  │  ① Embedding (nomic-embed-text):          │       │                │
+│  │     "Fix login bug" → [0.23, -0.87, ...]  │       │                │
 │  │                                           │       │                │
-│  │  * Text stays local                       │       │                │
-│  │  * Only vectors go to cloud               │       │                │
+│  │  ② Memory Extraction (tree_text):         │       │                │
+│  │     Raw text → {key, tags, confidence}    │       │                │
+│  │                                           │       │                │
+│  │  ③ Relationship Detection (Reorganizer):  │       │                │
+│  │     Memory A + B → CAUSE/RELATE/...       │       │                │
+│  │                                           │       │                │
+│  │  * All LLM processing stays local         │       │                │
+│  └───────────────────────────────────────────┘       │                │
+│                                                      │                │
+│  ┌───────────────────────────────────────────┐       │                │
+│  │  [Neo4j] Knowledge Graph (localhost:7687)  │<──────┤               │
+│  │                                           │       │                │
+│  │  Nodes: Memory with key, tags, confidence │       │                │
+│  │  Edges: CAUSE, CONDITION, RELATE, CONFLICT│       │                │
+│  │                                           │       │                │
+│  │  * 100% local, never leaves machine       │       │                │
 │  └───────────────────────────────────────────┘       │                │
 │                                                      │                │
 └──────────────────────────────────────────────────────┼────────────────┘
@@ -365,18 +452,19 @@ RETURN cause.memory AS root_cause
                            Only numerical vectors      │
                            (no readable text)          v
 ┌───────────────────────────────────────────────────────────────────────┐
-│  [CLOUD] QDRANT CLOUD (europe-west3, GCP)                             │
+│  [CLOUD or LOCAL] QDRANT                                              │
 │                                                                       │
+│  Option A: Qdrant Cloud (cross-device sync)                           │
 │  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │  Vector Database                                                │  │
-│  │                                                                 │  │
 │  │  ID: abc123  ->  [0.23, -0.87, 0.45, 0.12, ...]                 │  │
 │  │  ID: def456  ->  [0.91, 0.33, -0.28, 0.67, ...]                 │  │
-│  │  ID: ghi789  ->  [-0.15, 0.72, 0.88, -0.41, ...]                │  │
-│  │                                                                 │  │
 │  │  X Cannot reverse vectors to original text                      │  │
-│  │  * Cross-device sync                                            │  │
-│  │  * Persistent storage                                           │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  Option B: Qdrant Local (localhost:6333, 100% offline)                │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │  Same vector storage, but completely local                      │  │
+│  │  * No data leaves your machine at all                           │  │
 │  └─────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
 └───────────────────────────────────────────────────────────────────────┘
@@ -386,30 +474,33 @@ RETURN cause.memory AS root_cause
 <tr>
 <td width="50%" align="center">
 
-### 🏠 What Stays Local
+### What Stays Local
 
-- ✅ Original text content
-- ✅ Code snippets
-- ✅ API keys & secrets
-- ✅ Error messages
-- ✅ Embedding process (Ollama)
+- Original text content
+- Code snippets
+- API keys & secrets
+- Error messages
+- Embedding process (Ollama)
+- **Neo4j knowledge graph (all nodes + edges)**
+- **LLM extraction & relationship detection**
 
 </td>
 <td width="50%" align="center">
 
-### ☁️ What Goes to Cloud
+### What Goes to Cloud (Qdrant Cloud only)
 
-- ⭕ Numerical vectors only
-- ⭕ Memory IDs
-- ⭕ Timestamps
-- ❌ **No readable text**
-- ❌ **No source code**
+- Numerical vectors only
+- Memory IDs
+- Timestamps
+- **No readable text**
+- **No source code**
+- **No graph relationships**
 
 </td>
 </tr>
 </table>
 
-> **Bonus**: Use local Qdrant for 100% offline operation. See [Database Setup](#-database-setup-qdrant).
+> **100% Local Mode**: Use local Qdrant + local Neo4j + Ollama for fully offline operation. Zero data leaves your machine.
 
 ### 🔌 MCP Configuration (Proactive Mode)
 
@@ -689,24 +780,24 @@ Add a `CLAUDE.md` file to your project root for **project-specific context**:
 🤖 AI: Retrieving project memories, generating report...
 
     ╔══════════════════════════════════════════════════════╗
-    ║              📊 Project Progress Report              ║
+    ║               Project Progress Report                ║
     ║              my-awesome-project                      ║
     ╠══════════════════════════════════════════════════════╣
     ║                                                      ║
-    ║  ✅ Completed Milestones (4)                         ║
+    ║     Completed Milestones (4)                         ║
     ║  ├── User authentication system       2025-01-15     ║
     ║  ├── Database schema design           2025-01-18     ║
     ║  ├── RESTful API framework            2025-01-20     ║
     ║  └── Unit test coverage 80%           2025-01-22     ║
     ║                                                      ║
-    ║  🔧 Recent Fixes (2)                                 ║
+    ║     Recent Fixes (2)                                 ║
     ║  ├── JWT token expiry issue           2025-01-20     ║
     ║  └── Session timeout config           2025-01-24     ║
     ║                                                      ║
-    ║  ⚠️ Notes                                            ║
+    ║     Notes                                            ║
     ║  └── Docker container needs > 2GB RAM (OOM issue)    ║
     ║                                                      ║
-    ║  📝 Pending                                          ║
+    ║     Pending                                          ║
     ║  └── Add API rate limiting (mentioned last time)     ║
     ║                                                      ║
     ╚══════════════════════════════════════════════════════╝
@@ -724,23 +815,23 @@ Add a `CLAUDE.md` file to your project root for **project-specific context**:
 │                                                                         │
 │  AI: [Automatically detects need for memory search]                     │
 │                                                                         │
-│      ┌─────────────────────────────────────────────────────────────┐   │
-│      │  memos_search (MCP)                                          │   │
-│      │  query: "Neo4j knowledge graph config"                      │   │
-│      │                                                              │   │
-│      │  [*] Searching across ALL projects...                       │   │
-│      │                                                              │   │
-│      │  [OK] Found in: dev_cube (MemOS project!)                   │   │
-│      │  [Date] January 25, 2026 at 10:59 PM                        │   │
-│      │  [Memo] "Updated README.md to showcase Neo4j Knowledge..."  │   │
-│      └─────────────────────────────────────────────────────────────┘   │
+│      ┌─────────────────────────────────────────────────────────────┐    │
+│      │  memos_search (MCP)                                         │    │
+│      │  query: "Neo4j knowledge graph config"                      │    │
+│      │                                                             │    │
+│      │  [*] Searching across ALL projects...                       │    │
+│      │                                                             │    │
+│      │  [OK] Found in: dev_cube (MemOS project!)                   │    │
+│      │  [Date] January 25, 2026 at 10:59 PM                        │    │
+│      │  [Memo] "Updated README.md to showcase Neo4j Knowledge..."  │    │
+│      └─────────────────────────────────────────────────────────────┘    │
 │                                                                         │
 │  AI: Found relevant memory! Here's the Neo4j configuration:             │
 │                                                                         │
 │      tree_text mode requires:                                           │
 │      - Neo4j Community Edition (bolt://localhost:7687)                  │
-│      - MOS_TEXT_MEM_TYPE=tree_text in .env                             │
-│      - Cube config with graph_db backend...                            │
+│      - MOS_TEXT_MEM_TYPE=tree_text in .env                              │
+│      - Cube config with graph_db backend...                             │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -777,7 +868,7 @@ MemOSLocal-SM/
 │   └── 🔧 run.bat                     # Quick start (after setup)
 │
 ├── 📂 mcp-server/                      # 🔌 MCP Protocol Server (Recommended!)
-│   ├── 🐍 memos_mcp_server.py         # Main MCP server (5 tools)
+│   ├── 🐍 memos_mcp_server.py         # Main MCP server (8 tools)
 │   ├── 🔧 run_mcp.sh                  # WSL wrapper script
 │   ├── 🐍 install.py                  # Auto-configure Claude Code
 │   ├── 🐍 test_server.py              # Test server functionality
@@ -816,11 +907,14 @@ With MCP configured, AI uses these tools **automatically**:
 
 | Tool | Function | Auto-Trigger |
 |------|----------|--------------|
-| `memos_search` | Search memories | Error encountered, user says "之前/previously" |
+| `memos_search` | Search memories | Error encountered, user says "previously" |
 | `memos_save` | Save memories | Bug fixed, decision made, task completed |
 | `memos_list` | List all memories | Check project status |
+| `memos_list_v2` | List memories (enhanced) | Grouped by type with better formatting |
+| `memos_get_stats` | Memory statistics | Overview of memory distribution |
 | `memos_suggest` | Get search hints | Unsure what to search |
-| `memos_get_graph` | Query dependency relationships | User asks "why failed", "dependencies", "root cause" |
+| `memos_get_graph` | Query knowledge graph | User asks "why failed", "dependencies" |
+| `memos_delete` | Delete memories | Cleanup test data (requires safety switch) |
 
 ```
 No manual commands needed - AI handles everything!
@@ -1169,8 +1263,11 @@ memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CON
 | `memos_search` | 搜索记忆 | 遇到错误、用户说"之前" |
 | `memos_save` | 保存记忆 | 修复 Bug、做出决策 |
 | `memos_list` | 列出记忆 | 查看项目进度 |
+| `memos_list_v2` | 列出记忆(增强) | 按类型分组显示 |
+| `memos_get_stats` | 记忆统计 | 查看记忆分布概况 |
 | `memos_suggest` | 搜索建议 | 不确定搜什么 |
-| `memos_get_graph` | 查询依赖关系 | 用户问"为什么失败"、"依赖关系"、"根本原因" |
+| `memos_get_graph` | 查询知识图谱 | 用户问"为什么失败"、"依赖关系" |
+| `memos_delete` | 删除记忆 | 清理测试数据（需启用安全开关） |
 
 ### MCP 配置示例
 

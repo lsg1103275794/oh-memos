@@ -223,7 +223,7 @@ venv.bak/
 !pyproject.toml
 !poetry.lock
 !requirements.txt
-
+verify_mems.py
 # ========== Local Scripts (machine-specific) ==========
 scripts/local/
 start_db.bat

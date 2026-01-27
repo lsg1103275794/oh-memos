@@ -6,6 +6,7 @@ This MCP server provides tools for Claude to proactively search and save
 project memories, enabling intelligent context-aware assistance.
 """
 
+import argparse
 import asyncio
 import json
 import logging
@@ -13,6 +14,7 @@ import os
 import re
 from typing import Any
 
+import sys
 import httpx
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -22,26 +24,49 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Parse command line arguments first (WSL env vars don't pass to Windows Python)
+def parse_args():
+    parser = argparse.ArgumentParser(description='MemOS MCP Server')
+    parser.add_argument('--memos-url', default=None, help='MemOS API URL')
+    parser.add_argument('--memos-user', default=None, help='Default user ID')
+    parser.add_argument('--memos-default-cube', default=None, help='Default cube ID')
+    parser.add_argument('--memos-cubes-dir', default=None, help='Cubes directory path')
+    parser.add_argument('--memos-enable-delete', default=None, help='Enable delete tool (true/false)')
+    parser.add_argument('--memos-timeout-tool', default=None, help='Tool call timeout in seconds')
+    parser.add_argument('--memos-timeout-startup', default=None, help='Startup timeout in seconds')
+    parser.add_argument('--memos-timeout-health', default=None, help='Health check timeout in seconds')
+    parser.add_argument('--memos-api-wait-max', default=None, help='Max API wait time in seconds')
+    return parser.parse_known_args()[0]
+
+_args = parse_args()
+
+# Logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
 logger = logging.getLogger("memos-mcp")
 
-# Configuration
-MEMOS_URL = os.environ.get("MEMOS_URL", "http://localhost:18000")
-MEMOS_USER = os.environ.get("MEMOS_USER", "dev_user")
-MEMOS_DEFAULT_CUBE = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
-MEMOS_CUBES_DIR = os.environ.get("MEMOS_CUBES_DIR", "G:/test/MemOS/data/memos_cubes")
+# Configuration: CLI args take precedence over env vars
+MEMOS_URL = _args.memos_url or os.environ.get("MEMOS_URL", "http://localhost:18000")
+MEMOS_USER = _args.memos_user or os.environ.get("MEMOS_USER", "dev_user")
+MEMOS_DEFAULT_CUBE = _args.memos_default_cube or os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
+MEMOS_CUBES_DIR = _args.memos_cubes_dir or os.environ.get("MEMOS_CUBES_DIR", "G:/test/MemOS/data/memos_cubes")
 
 # Timeout configuration (in seconds)
 # Large documents with embedding may take longer
-MEMOS_TIMEOUT_TOOL = float(os.environ.get("MEMOS_TIMEOUT_TOOL", "120.0"))  # Tool call timeout
-MEMOS_TIMEOUT_STARTUP = float(os.environ.get("MEMOS_TIMEOUT_STARTUP", "30.0"))  # Startup registration
-MEMOS_TIMEOUT_HEALTH = float(os.environ.get("MEMOS_TIMEOUT_HEALTH", "5.0"))  # Health check
-MEMOS_API_WAIT_MAX = float(os.environ.get("MEMOS_API_WAIT_MAX", "60.0"))  # Max wait for API ready
+MEMOS_TIMEOUT_TOOL = float(_args.memos_timeout_tool or os.environ.get("MEMOS_TIMEOUT_TOOL", "120.0"))
+MEMOS_TIMEOUT_STARTUP = float(_args.memos_timeout_startup or os.environ.get("MEMOS_TIMEOUT_STARTUP", "30.0"))
+MEMOS_TIMEOUT_HEALTH = float(_args.memos_timeout_health or os.environ.get("MEMOS_TIMEOUT_HEALTH", "5.0"))
+MEMOS_API_WAIT_MAX = float(_args.memos_api_wait_max or os.environ.get("MEMOS_API_WAIT_MAX", "60.0"))
 
 # Safety configuration - dangerous operations disabled by default
 # Set to "true" to enable delete functionality (user must explicitly enable)
-MEMOS_ENABLE_DELETE = os.environ.get("MEMOS_ENABLE_DELETE", "false").lower() == "true"
+_enable_delete_val = _args.memos_enable_delete or os.environ.get("MEMOS_ENABLE_DELETE", "false")
+MEMOS_ENABLE_DELETE = _enable_delete_val.lower() == "true"
 
 # Create server instance
 server = Server("memos-memory")
@@ -169,7 +194,14 @@ def format_memories_for_display(data: dict) -> str:
     text_mems = data.get("text_mem", [])
     for cube_data in text_mems:
         cube_id = cube_data.get("cube_id", "unknown")
-        memories = cube_data.get("memories", [])
+        memories_data = cube_data.get("memories", [])
+        
+        # If memories is a dict with nodes (tree_text mode), extract nodes
+        memories = []
+        if isinstance(memories_data, dict) and "nodes" in memories_data:
+            memories = memories_data["nodes"]
+        elif isinstance(memories_data, list):
+            memories = memories_data
 
         if memories:
             results.append(f"## 📦 Cube: {cube_id}")
@@ -190,22 +222,22 @@ def format_memories_for_display(data: dict) -> str:
             for mem_type, items in grouped.items():
                 results.append(f"### 🏷️ Type: {mem_type}")
                 results.append("")
-                
+
                 for i, mem in enumerate(items, 1):
                     memory_text = mem.get("memory", "")
-                    mem_id = mem.get("id", "")[:8]
-                    
+                    mem_id = mem.get("id", "")  # Full UUID for delete operations
+
                     # Remove the [TYPE] prefix from display text if present
                     display_text = re.sub(r"^\[[A-Z_]+\]\s*", "", memory_text)
-                    
+
                     # Extract first line as title
                     first_line = display_text.split("\n")[0][:100]
                     if len(display_text.split("\n")) > 1 or len(display_text) > 100:
                         results.append(f"#### {i}. {first_line}")
                     else:
                         results.append(f"#### {i}. {display_text}")
-                        
-                    results.append(f"ID: `{mem_id}...`")
+
+                    results.append(f"ID: `{mem_id}`")
                     results.append("")
                     
                     # Detect if it's a code block (simple heuristic)
@@ -261,9 +293,9 @@ def format_graph_for_display(data: list) -> str:
                 for i, node in enumerate(nodes[:10], 1):  # Limit to 10 nodes
                     memory = node.get("memory", "")
                     first_line = memory.split("\n")[0][:100]
-                    node_id = node.get("id", "")[:8]
+                    node_id = node.get("id", "")  # Full UUID for delete operations
                     results.append(f"{i}. **{first_line}**")
-                    results.append(f"   ID: `{node_id}...`")
+                    results.append(f"   ID: `{node_id}`")
                     results.append("")
 
             # Display relationships with Mermaid diagram
@@ -397,7 +429,7 @@ def suggest_search_queries(context: str) -> list[str]:
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """List available MCP tools."""
-    return [
+    tools = [
         Tool(
             name="memos_search",
             description="""Search project memories for relevant context.
@@ -474,6 +506,31 @@ Memory types:
                     }
                 },
                 "required": ["content"]
+            }
+        ),
+        Tool(
+            name="memos_list_v2",
+            description="""List memories from a memory cube (v2 with improved formatting).""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "default": MEMOS_DEFAULT_CUBE
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of memories to return.",
+                        "default": 20
+                    },
+                    "memory_type": {
+                        "type": "string",
+                        "description": "Optional: Filter by memory type (e.g., DECISION, ERROR_PATTERN).",
+                        "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX", "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
+                    }
+                },
+                "required": []
             }
         ),
         Tool(
@@ -587,6 +644,7 @@ NEVER use this tool proactively or without user confirmation.
 
 Operations:
 - Delete a single memory by ID
+- Delete multiple memories by IDs
 - Delete ALL memories in a cube (requires delete_all=true)
 
 Before deleting, always:
@@ -599,6 +657,11 @@ Before deleting, always:
                         "memory_id": {
                             "type": "string",
                             "description": "ID of the specific memory to delete. Get this from memos_search or memos_list."
+                        },
+                        "memory_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of memory IDs to delete in batch."
                         },
                         "cube_id": {
                             "type": "string",
@@ -717,14 +780,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 else:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
-            elif name == "memos_list":
+            elif name in ("memos_list", "memos_list_v2"):
                 cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
-                limit = arguments.get("limit", 10)
+                limit = arguments.get("limit", 20)
                 memory_type = arguments.get("memory_type")
 
-                # Auto-register cube if needed
-                if not await ensure_cube_registered(client, cube_id):
-                    await ensure_cube_registered(client, cube_id, force=True)
+                # Auto-register cube
+                await ensure_cube_registered(client, cube_id)
 
                 params = {
                     "user_id": MEMOS_USER,
@@ -742,18 +804,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("code") == 200:
-                        # Wrap data in the format format_memories_for_display expects
-                        mems = data.get("data", {}).get("memories", [])[:limit]
-                        wrapped_data = {
-                            "text_mem": [{
-                                "cube_id": cube_id,
-                                "memories": mems
-                            }]
-                        }
-                        formatted = format_memories_for_display(wrapped_data)
+                        formatted = format_memories_for_display(data.get("data", {}))
                         return [TextContent(type="text", text=formatted)]
                     else:
-                        # Try force re-register and retry
+                        # Force re-register and retry
                         _registered_cubes.discard(cube_id)
                         if await ensure_cube_registered(client, cube_id, force=True):
                             retry_response = await client.get(
@@ -763,37 +817,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                             if retry_response.status_code == 200:
                                 retry_data = retry_response.json()
                                 if retry_data.get("code") == 200:
-                                    mems = retry_data.get("data", {}).get("memories", [])[:limit]
-                                    wrapped_data = {
-                                        "text_mem": [{
-                                            "cube_id": cube_id,
-                                            "memories": mems
-                                        }]
-                                    }
-                                    formatted = format_memories_for_display(wrapped_data)
+                                    formatted = format_memories_for_display(retry_data.get("data", {}))
                                     return [TextContent(type="text", text=formatted)]
                         return [TextContent(type="text", text=f"List failed: {data.get('message', 'Unknown error')}")]
-                elif response.status_code in (400, 500):
-                    # Cube not loaded, force re-register and retry
-                    _registered_cubes.discard(cube_id)
-                    if await ensure_cube_registered(client, cube_id, force=True):
-                        retry_response = await client.get(
-                            f"{MEMOS_URL}/memories",
-                            params=params
-                        )
-                        if retry_response.status_code == 200:
-                            retry_data = retry_response.json()
-                            if retry_data.get("code") == 200:
-                                mems = retry_data.get("data", {}).get("memories", [])[:limit]
-                                wrapped_data = {
-                                    "text_mem": [{
-                                        "cube_id": cube_id,
-                                        "memories": mems
-                                    }]
-                                }
-                                formatted = format_memories_for_display(wrapped_data)
-                                return [TextContent(type="text", text=formatted)]
-                    return [TextContent(type="text", text=f"API error: {response.status_code} - Cube may not be loaded")]
                 else:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
@@ -825,21 +851,34 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("code") == 200:
-                        mems = data.get("data", {}).get("memories", [])
+                        # Extract memories correctly from text_mem and handle nodes
+                        text_mems = data.get("data", {}).get("text_mem", [])
                         stats = {}
-                        for mem in mems:
-                            memory_text = mem.get("memory", "")
-                            type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
-                            mem_type = type_match.group(1) if type_match else "PROGRESS"
-                            stats[mem_type] = stats.get(mem_type, 0) + 1
+                        total = 0
                         
-                        result = [f"## 📊 Statistics for Cube: {cube_id}"]
-                        result.append(f"Total Memories: {len(mems)}")
-                        result.append("")
-                        result.append("| Memory Type | Count |")
-                        result.append("| :--- | :--- |")
-                        for t, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
-                            result.append(f"| {t} | {count} |")
+                        for cube_data in text_mems:
+                            mem_data = cube_data.get("memories", [])
+                            memories = []
+                            if isinstance(mem_data, dict) and "nodes" in mem_data:
+                                memories = mem_data["nodes"]
+                            elif isinstance(mem_data, list):
+                                memories = mem_data
+                                
+                            for mem in memories:
+                                memory_text = mem.get("memory", "")
+                                total += 1
+                                type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
+                                mem_type = type_match.group(1) if type_match else "PROGRESS"
+                                stats[mem_type] = stats.get(mem_type, 0) + 1
+                        
+                        if not stats:
+                            return [TextContent(type="text", text=f"No memories found in cube '{cube_id}'.")]
+                            
+                        result = [f"## 📊 Memory Stats: {cube_id}"]
+                        result.append(f"Total Memories: **{total}**\n")
+                        for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
+                            percentage = (count / total) * 100
+                            result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
                         
                         return [TextContent(type="text", text="\n".join(result))]
                     else:
@@ -954,8 +993,16 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     return [TextContent(type="text", text="❌ Delete functionality is DISABLED. Set MEMOS_ENABLE_DELETE=true in environment to enable.")]
 
                 memory_id = arguments.get("memory_id")
+                memory_ids = arguments.get("memory_ids", [])
                 cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
                 delete_all = arguments.get("delete_all", False)
+
+                # Collect all IDs to delete
+                ids_to_delete = []
+                if memory_id:
+                    ids_to_delete.append(memory_id)
+                if memory_ids:
+                    ids_to_delete.extend(memory_ids)
 
                 # Auto-register cube
                 await ensure_cube_registered(client, cube_id)
@@ -968,24 +1015,53 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     )
 
                     if response.status_code == 200:
-                        return [TextContent(type="text", text=f"⚠️ ALL memories deleted from cube: {cube_id}")]
+                        data = response.json()
+                        if data.get("code") == 200:
+                            return [TextContent(type="text", text=f"⚠️ **ALL memories deleted** from cube: `{cube_id}`")]
+                        else:
+                            return [TextContent(type="text", text=f"❌ **Delete all failed**: {data.get('message', 'Unknown error')}")]
                     else:
-                        return [TextContent(type="text", text=f"Delete all failed: {response.status_code}")]
+                        return [TextContent(type="text", text=f"❌ **API error** during delete all: {response.status_code}")]
 
-                elif memory_id:
-                    # Delete single memory
-                    response = await client.delete(
-                        f"{MEMOS_URL}/memories/{cube_id}/{memory_id}",
-                        params={"user_id": MEMOS_USER}
-                    )
+                elif ids_to_delete:
+                    # Delete single or multiple memories
+                    results = []
+                    for mid in ids_to_delete:
+                        # Optional: Try to fetch memory first to confirm it exists and show content
+                        try:
+                            get_resp = await client.get(
+                                f"{MEMOS_URL}/memories/{cube_id}/{mid}",
+                                params={"user_id": MEMOS_USER}
+                            )
+                            mem_content = "*(Unknown content)*"
+                            if get_resp.status_code == 200:
+                                g_data = get_resp.json()
+                                if g_data.get("code") == 200 and g_data.get("data"):
+                                    # Extract memory text from the node
+                                    mem_node = g_data.get("data")
+                                    if isinstance(mem_node, dict):
+                                        mem_content = mem_node.get("memory", mem_content)
+                        except Exception:
+                            mem_content = "*(Fetch failed)*"
 
-                    if response.status_code == 200:
-                        return [TextContent(type="text", text=f"✅ Memory deleted: {memory_id}")]
-                    else:
-                        return [TextContent(type="text", text=f"Delete failed: {response.status_code}")]
+                        response = await client.delete(
+                            f"{MEMOS_URL}/memories/{cube_id}/{mid}",
+                            params={"user_id": MEMOS_USER}
+                        )
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get("code") == 200:
+                                results.append(f"✅ Deleted: `{mid}`\n   > {mem_content[:150]}...")
+                            else:
+                                results.append(f"❌ Failed: `{mid}` ({data.get('message', 'Unknown error')})")
+                        else:
+                            results.append(f"❌ API Error: `{mid}` (Status: {response.status_code})")
+
+                    return [TextContent(type="text", text="\n".join(results))]
 
                 else:
-                    return [TextContent(type="text", text="❌ Must provide either memory_id or delete_all=true")]
+                    return [TextContent(type="text", text="❌ Must provide either `memory_id`, `memory_ids` or `delete_all=true`")]
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
@@ -1032,6 +1108,13 @@ async def run_server():
 
 def main():
     """Entry point."""
+    # Log configuration at startup
+    logger.info(f"MemOS MCP Server starting...")
+    logger.info(f"  MEMOS_URL: {MEMOS_URL}")
+    logger.info(f"  MEMOS_USER: {MEMOS_USER}")
+    logger.info(f"  MEMOS_DEFAULT_CUBE: {MEMOS_DEFAULT_CUBE}")
+    logger.info(f"  MEMOS_ENABLE_DELETE: {MEMOS_ENABLE_DELETE}")
+    logger.info(f"  MEMOS_TIMEOUT_TOOL: {MEMOS_TIMEOUT_TOOL}s")
     asyncio.run(run_server())
 
 

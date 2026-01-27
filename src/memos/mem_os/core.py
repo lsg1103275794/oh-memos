@@ -1140,6 +1140,11 @@ class MOSCore:
         else:
             self._validate_cube_access(target_user_id, mem_cube_id)
         self.mem_cubes[mem_cube_id].text_mem.delete([memory_id])  # Pass as list
+        if self.mem_cubes[mem_cube_id].pref_mem:
+            try:
+                self.mem_cubes[mem_cube_id].pref_mem.delete([memory_id])
+            except Exception as e:
+                logger.warning(f"Failed to delete {memory_id} from pref_mem: {e}")
         logger.info(f"MemCube {mem_cube_id} deleted memory {memory_id}")
 
     def delete_all(self, mem_cube_id: str | None = None, user_id: str | None = None) -> None:
@@ -1166,6 +1171,11 @@ class MOSCore:
         else:
             self._validate_cube_access(target_user_id, mem_cube_id)
         self.mem_cubes[mem_cube_id].text_mem.delete_all()
+        if self.mem_cubes[mem_cube_id].pref_mem:
+            try:
+                self.mem_cubes[mem_cube_id].pref_mem.delete_all()
+            except Exception as e:
+                logger.warning(f"Failed to delete all from pref_mem: {e}")
         logger.info(f"MemCube {mem_cube_id} deleted all memories")
 
     def dump(

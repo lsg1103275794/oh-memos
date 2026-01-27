@@ -824,6 +824,20 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
             result = session.run(query, params)
             return [record["id"] for record in result]
 
+    def delete_node(self, id: str, user_name: str | None = None) -> None:
+        """
+        Delete a node from the graph and the vector database.
+        """
+        # Step 1: Delete from vector database
+        try:
+            self.vec_db.delete([id])
+            logger.info(f"Deleted vector for node {id} from vector DB.")
+        except Exception as e:
+            logger.warning(f"Failed to delete vector for node {id} from vector DB: {e}")
+
+        # Step 2: Delete from Neo4j
+        super().delete_node(id, user_name=user_name)
+
     def delete_node_by_prams(
         self,
         writable_cube_ids: list[str],
@@ -921,31 +935,35 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
             f"[delete_node_by_prams] Deleting nodes - memory_ids: {memory_ids}, file_ids: {file_ids}, filter: {filter}"
         )
 
-        # First count matching nodes to get accurate count
-        count_query = f"MATCH (n:Memory) WHERE {ids_where} RETURN count(n) AS node_count"
-        logger.info(f"[delete_node_by_prams] count_query: {count_query}")
-        print(f"[delete_node_by_prams] count_query: {count_query}")
-
-        # Then delete nodes
-        delete_query = f"MATCH (n:Memory) WHERE {ids_where} DETACH DELETE n"
-        logger.info(f"[delete_node_by_prams] delete_query: {delete_query}")
-        print(f"[delete_node_by_prams] delete_query: {delete_query}")
-        print(f"[delete_node_by_prams] params: {params}")
+        # First find matching node IDs to delete from vector DB
+        find_query = f"MATCH (n:Memory) WHERE {ids_where} RETURN n.id AS node_id"
+        logger.info(f"[delete_node_by_prams] find_query: {find_query}")
+        print(f"[delete_node_by_prams] find_query: {find_query}")
 
         deleted_count = 0
         try:
             with self.driver.session(database=self.db_name) as session:
-                # Count nodes before deletion
-                count_result = session.run(count_query, **params)
-                count_record = count_result.single()
-                expected_count = 0
-                if count_record:
-                    expected_count = count_record["node_count"] or 0
+                # Find matching node IDs
+                find_result = session.run(find_query, **params)
+                node_ids = [record["node_id"] for record in find_result]
+                
+                if not node_ids:
+                    logger.info("[delete_node_by_prams] No matching nodes found to delete.")
+                    return 0
 
-                # Delete nodes
-                session.run(delete_query, **params)
-                # Use the count from before deletion as the actual deleted count
-                deleted_count = expected_count
+                # Step 1: Delete from vector database
+                try:
+                    self.vec_db.delete(node_ids)
+                    logger.info(f"Deleted {len(node_ids)} vectors from vector DB.")
+                except Exception as e:
+                    logger.warning(f"Failed to delete vectors from vector DB: {e}")
+
+                # Step 2: Delete nodes from Neo4j
+                # Use a simpler delete query by IDs since we already have them
+                delete_query = "MATCH (n:Memory) WHERE n.id IN $node_ids DETACH DELETE n"
+                session.run(delete_query, node_ids=node_ids)
+                
+                deleted_count = len(node_ids)
 
         except Exception as e:
             logger.error(f"[delete_node_by_prams] Failed to delete nodes: {e}", exc_info=True)

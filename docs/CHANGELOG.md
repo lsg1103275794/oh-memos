@@ -18,7 +18,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
+- **🔧 MCP Search Result ID Truncation** (memos_mcp_server.py)
+  - **Root Cause**: Search results showed truncated IDs (`4a7ddcf7...`) but Neo4j requires full UUID for deletion
+  - **Fix**: `format_memories_for_display()` and `memos_get_graph` now return complete UUIDs
+  - **Impact**: `memos_delete` can now correctly delete memories using IDs from search results
+  - Collaboration: Claude Opus + Gemini (API endpoint fix + multi-DB sync verification)
+
+- **🔧 WSL Environment Variable Passing** (run_mcp.sh, memos_mcp_server.py)
+  - **Issue**: Claude Code's `env` config doesn't pass through to Windows Python via WSL bash
+  - **Fix**: Added CLI argument parsing (`--memos-enable-delete`, etc.) as fallback
+  - **Default**: `MEMOS_ENABLE_DELETE=true` for dev environment in run_mcp.sh
+  - All timeout and config variables now support both env vars and CLI args
+
+- **📊 README Architecture Diagrams Update** (README.md)
+  - Updated main architecture diagram with complete `tree_text` mode data flow
+  - Added **Memory Save Flow**: LLM Extraction → Neo4j + Qdrant → Reorganizer (async)
+  - Added **Memory Search Flow**: Qdrant semantic + Neo4j graph traverse → merged results
+  - Added **LLM Usage Summary**: Dual LLM use (extraction + relationship detection)
+  - Updated Privacy Architecture to include Neo4j local storage
+  - Updated MCP tools table: 8 tools (added `memos_list_v2`, `memos_get_stats`, `memos_delete`)
+
+- **🗑️ Memory Deletion & Synchronization Optimization**
+  - **API Correction**: Fixed memory deletion endpoint format to `/memories/{mem_cube_id}/{memory_id}` to resolve 500 errors.
+  - **Multi-DB Sync**: Verified end-to-end deletion sync across MemCube list, Qdrant (Vector DB), and Neo4j (Graph DB).
+  - **Graph Integrity**: Confirmed Neo4j `DETACH DELETE` logic correctly removes nodes and all associated relationships/edges.
+  - **Verification Suite**: Developed `verify_mems.py` for automated cross-database deletion verification.
+  - **MCP Tool Safety**: Validated `memos_delete` tool with `MEMOS_ENABLE_DELETE` safety flag and batch deletion (`memory_ids`) support.
+
+- **�🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
   - New MCP tool `memos_get_graph` for querying memory relationships
   - Returns CAUSE, RELATE, CONFLICT, CONDITION relationships from Neo4j
   - Direct Neo4j HTTP API integration for relationship queries
