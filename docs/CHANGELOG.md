@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **📊 Enhanced MCP Server Tools** (memos_mcp_server.py)
+  - **Mermaid Graph Support**: `memos_get_graph` now generates Mermaid diagrams for visual relationship exploration.
+  - **Smart Filtering**: `memos_list` now supports `memory_type` filtering (e.g., list only DECISIONS or ERRORS).
+  - **Memory Statistics**: New tool `memos_get_stats` to show memory distribution by type in a cube.
+  - **Improved Display**: Search results are now grouped by memory type with automatic code block detection.
+  - **Robust Registration**: Enhanced auto-registration logic with forced retry on tool call failure.
+
+### Fixed
+
 - **🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
   - New MCP tool `memos_get_graph` for querying memory relationships
   - Returns CAUSE, RELATE, CONFLICT, CONDITION relationships from Neo4j

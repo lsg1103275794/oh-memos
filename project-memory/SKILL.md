@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. YOU MUST USE memos_search AUTOMATICALLY when user says: 找/找寻/查找/搜索/find/search/look up/有没有/记得吗/之前/上次/previously - ALWAYS search memory database FIRST before answering. Also use MCP tools when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) Need to understand dependencies - memos_get_graph. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest, memos_get_graph."
+description: "Proactive project memory management via MemOS MCP. YOU MUST USE memos_search AUTOMATICALLY when user says: 找/找寻/查找/搜索/find/search/look up/有没有/记得吗/之前/上次/previously/RAG/rag/检索/向量/语义 - ALWAYS search memory database FIRST before answering. USE memos_get_graph when user says: 知识图谱/knowledge graph/KG/依赖关系/dependency/dependencies/关系图/关联/因果/cause/impact - to view CAUSE/RELATE/CONFLICT relationships. Also use MCP tools when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) Need to understand dependencies - memos_get_graph. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest, memos_get_graph."
 ---
 
 # Project Memory (MCP Powered)
@@ -13,11 +13,11 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 | Tool | When to Use | Example |
 |------|-------------|---------|
-| `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN ModuleNotFoundError"` |
+| `memos_search` | Find related memories, solutions, patterns (RAG/向量/语义搜索) | `query: "ERROR_PATTERN ModuleNotFoundError"` |
 | `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |
 | `memos_list` | See all memories in project | `cube_id: "dev_cube", limit: 10` |
 | `memos_suggest` | Get search suggestions | `context: "Connection refused error"` |
-| `memos_get_graph` | **View dependency/causal relationships** | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
+| `memos_get_graph` | **知识图谱/Knowledge Graph - View dependency/causal relationships** | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
 
 ---
 
@@ -40,16 +40,25 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | "谁", "who", "哪个项目" | `{topic}` - search context |
 | Working with config file | `CONFIG {filename}` |
 | Opening file for editing | `{filename} gotcha` |
+| "RAG", "rag", "检索增强", "retrieval" | `{topic}` - search with RAG context |
+| "向量", "vector", "embedding", "嵌入" | `{topic}` - semantic vector search |
+| "语义搜索", "semantic search", "智能搜索" | `{topic}` - meaning-based search |
 
-### When to Get Graph (`memos_get_graph`) - NEW!
+### When to Get Graph (`memos_get_graph`) - Knowledge Graph & Dependencies
+
+**IMPORTANT: When the user mentions knowledge graph, dependencies, or causal relationships, you MUST call `memos_get_graph` to retrieve relationship data.**
 
 | User Says / Context | Query | Returns |
 |---------------------|-------|---------|
-| "依赖关系", "dependencies" | `{component}` | CAUSE/RELATE relationships |
-| "为什么失败", "why failed", "root cause" | `{error/feature}` | Causal chain (A→B→C) |
-| "相关的", "related to", "关联" | `{topic}` | RELATE relationships |
-| "冲突", "conflict", "矛盾" | `{topic}` | CONFLICT relationships |
-| "影响", "impact", "会影响什么" | `{change}` | What depends on this |
+| "知识图谱", "knowledge graph", "KG" | `{topic}` | Full knowledge graph for topic |
+| "依赖关系", "dependency", "dependencies", "依赖" | `{component}` | CAUSE/RELATE relationships |
+| "关系图", "relationship graph", "关联图" | `{topic}` | Visual relationship mapping |
+| "为什么失败", "why failed", "root cause", "根因" | `{error/feature}` | Causal chain (A→B→C) |
+| "相关的", "related to", "关联", "有关系" | `{topic}` | RELATE relationships |
+| "冲突", "conflict", "矛盾", "冲突检测" | `{topic}` | CONFLICT relationships |
+| "影响", "impact", "会影响什么", "影响范围" | `{change}` | What depends on this |
+| "因果", "cause", "causation", "因果链" | `{topic}` | CAUSE chain analysis |
+| "上下游", "upstream", "downstream" | `{component}` | Dependency flow |
 | Debugging complex issues | `{error_keyword}` | Full context graph |
 
 **Example Output:**
@@ -192,7 +201,11 @@ Tags: gotcha, {category}
 │                       query: "{error_keyword}"                  │
 │                                                                 │
 │  Check deps      ───> memos_get_graph ───> View relationships   │
-│                       query: "{component}"                      │
+│  "依赖关系"            query: "{component}"                      │
+│  "dependency"                                                   │
+│                                                                 │
+│  知识图谱/KG     ───> memos_get_graph ───> Full knowledge graph  │
+│  knowledge graph       query: "{topic}"                         │
 │                                                                 │
 │  Solved error    ───> memos_save      ───> Save ERROR_PATTERN   │
 │                       memory_type: "ERROR_PATTERN"              │
@@ -207,6 +220,9 @@ Tags: gotcha, {category}
 │                                                                 │
 │  "找/查找/搜索"  ───> memos_search    ───> Search memory DB     │
 │  "find/search"                                                  │
+│                                                                 │
+│  RAG/rag/检索    ───> memos_search    ───> RAG-enhanced search  │
+│  向量/语义搜索         query: "{topic}"                         │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │

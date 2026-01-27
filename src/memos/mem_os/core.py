@@ -1139,7 +1139,7 @@ class MOSCore:
             mem_cube_id = accessible_cubes[0].cube_id  # TODO not only first
         else:
             self._validate_cube_access(target_user_id, mem_cube_id)
-        self.mem_cubes[mem_cube_id].text_mem.delete(memory_id)
+        self.mem_cubes[mem_cube_id].text_mem.delete([memory_id])  # Pass as list
         logger.info(f"MemCube {mem_cube_id} deleted memory {memory_id}")
 
     def delete_all(self, mem_cube_id: str | None = None, user_id: str | None = None) -> None:

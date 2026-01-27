@@ -175,21 +175,50 @@ def format_memories_for_display(data: dict) -> str:
             results.append(f"## 📦 Cube: {cube_id}")
             results.append("")
 
-            for i, mem in enumerate(memories, 1):
+            # Group by type
+            grouped = {}
+            for mem in memories:
                 memory_text = mem.get("memory", "")
-                metadata = mem.get("metadata", {})
-                mem_id = mem.get("id", "")[:8]
+                # Try to extract type from [TYPE] prefix
+                type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
+                mem_type = type_match.group(1) if type_match else "PROGRESS"
+                if mem_type not in grouped:
+                    grouped[mem_type] = []
+                grouped[mem_type].append(mem)
 
-                # Extract first line as title
-                first_line = memory_text.split("\n")[0][:100]
-
-                results.append(f"### {i}. {first_line}")
-                results.append(f"ID: `{mem_id}...`")
+            # Display by type
+            for mem_type, items in grouped.items():
+                results.append(f"### 🏷️ Type: {mem_type}")
                 results.append("")
-                results.append(memory_text)
-                results.append("")
-                results.append("---")
-                results.append("")
+                
+                for i, mem in enumerate(items, 1):
+                    memory_text = mem.get("memory", "")
+                    mem_id = mem.get("id", "")[:8]
+                    
+                    # Remove the [TYPE] prefix from display text if present
+                    display_text = re.sub(r"^\[[A-Z_]+\]\s*", "", memory_text)
+                    
+                    # Extract first line as title
+                    first_line = display_text.split("\n")[0][:100]
+                    if len(display_text.split("\n")) > 1 or len(display_text) > 100:
+                        results.append(f"#### {i}. {first_line}")
+                    else:
+                        results.append(f"#### {i}. {display_text}")
+                        
+                    results.append(f"ID: `{mem_id}...`")
+                    results.append("")
+                    
+                    # Detect if it's a code block (simple heuristic)
+                    if "```" not in display_text and any(line.strip().startswith(("import ", "def ", "class ", "export ", "const ", "let ", "var ")) for line in display_text.split("\n")):
+                        results.append("```python")
+                        results.append(display_text)
+                        results.append("```")
+                    else:
+                        results.append(display_text)
+                        
+                    results.append("")
+                    results.append("---")
+                    results.append("")
 
     if not results:
         return "No memories found matching your query."
@@ -221,7 +250,9 @@ def format_graph_for_display(data: list) -> str:
             for node in nodes:
                 node_id = node.get("id", "")
                 node_memory = node.get("memory", "")
-                node_lookup[node_id] = node_memory[:80] + "..." if len(node_memory) > 80 else node_memory
+                # Clean up memory text for mermaid (remove newlines and special chars)
+                clean_text = node_memory.replace("\n", " ").replace('"', "'").replace("[", "(").replace("]", ")")
+                node_lookup[node_id] = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
 
             # Display nodes
             if nodes:
@@ -235,11 +266,19 @@ def format_graph_for_display(data: list) -> str:
                     results.append(f"   ID: `{node_id}...`")
                     results.append("")
 
-            # Display relationships - THIS IS THE KEY PART
+            # Display relationships with Mermaid diagram
             if edges:
-                results.append("### 🔗 Relationships (CAUSE/RELATE/CONFLICT)")
+                results.append("### 📊 Relationship Diagram (Mermaid)")
                 results.append("")
-                results.append("```")
+                results.append("```mermaid")
+                results.append("graph TD")
+                
+                # Style definitions
+                results.append("    classDef cause fill:#f96,stroke:#333,stroke-width:2px;")
+                results.append("    classDef relate fill:#bbf,stroke:#333,stroke-width:1px;")
+                results.append("    classDef conflict fill:#f66,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;")
+                
+                added_edges = set()
                 for edge in edges:
                     source_id = edge.get("source", "")
                     target_id = edge.get("target", "")
@@ -248,27 +287,44 @@ def format_graph_for_display(data: list) -> str:
                     # Skip PARENT relationships, only show semantic ones
                     if rel_type == "PARENT":
                         continue
+                    
+                    # Avoid duplicate edges in diagram
+                    edge_key = f"{source_id}-{target_id}-{rel_type}"
+                    if edge_key in added_edges:
+                        continue
+                    added_edges.add(edge_key)
 
-                    source_text = node_lookup.get(source_id, source_id[:8])[:50]
-                    target_text = node_lookup.get(target_id, target_id[:8])[:50]
+                    source_text = node_lookup.get(source_id, source_id[:8])
+                    target_text = node_lookup.get(target_id, target_id[:8])
+                    
+                    # Sanitize IDs for mermaid (must be alphanumeric)
+                    s_id = f"node_{source_id[:8]}"
+                    t_id = f"node_{target_id[:8]}"
 
-                    # Format relationship with arrow
+                    # Format relationship in mermaid
                     if rel_type == "CAUSE":
-                        arrow = "──CAUSE──>"
+                        results.append(f'    {s_id}["{source_text}"] -- CAUSE --> {t_id}["{target_text}"]:::cause')
                     elif rel_type == "RELATE":
-                        arrow = "──RELATE──"
+                        results.append(f'    {s_id}["{source_text}"] -. RELATE .- {t_id}["{target_text}"]:::relate')
                     elif rel_type == "CONFLICT":
-                        arrow = "══CONFLICT══"
+                        results.append(f'    {s_id}["{source_text}"] == CONFLICT == {t_id}["{target_text}"]:::conflict')
                     elif rel_type == "CONDITION":
-                        arrow = "──CONDITION──>"
+                        results.append(f'    {s_id}["{source_text}"] -- CONDITION --> {t_id}["{target_text}"]')
                     else:
-                        arrow = f"──{rel_type}──"
+                        results.append(f'    {s_id}["{source_text}"] -- {rel_type} --> {t_id}["{target_text}"]')
 
-                    results.append(f"[{source_text}]")
-                    results.append(f"    {arrow}")
-                    results.append(f"[{target_text}]")
-                    results.append("")
+                results.append("```")
+                results.append("")
 
+                # Textual fallback for terminals that don't render mermaid
+                results.append("### 🔗 Textual Relationships")
+                results.append("")
+                results.append("```")
+                for edge in edges:
+                    if edge.get("type") == "PARENT": continue
+                    s_text = node_lookup.get(edge.get("source"), "???")[:40]
+                    t_text = node_lookup.get(edge.get("target"), "???")[:40]
+                    results.append(f"[{s_text}] --{edge.get('type')}--> [{t_text}]")
                 results.append("```")
                 results.append("")
 
@@ -424,7 +480,8 @@ Memory types:
             name="memos_list",
             description="""List all memories in a project cube.
 
-Use this to get an overview of what's been recorded for the project.""",
+Use this to get an overview of what's been recorded for the project.
+You can filter by memory type to find specific categories like decisions or errors.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -432,6 +489,12 @@ Use this to get an overview of what's been recorded for the project.""",
                         "type": "string",
                         "description": "Memory cube ID (project name)",
                         "default": MEMOS_DEFAULT_CUBE
+                    },
+                    "memory_type": {
+                        "type": "string",
+                        "description": "Filter by memory type (e.g., 'DECISION', 'ERROR_PATTERN')",
+                        "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
+                                "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
                     },
                     "limit": {
                         "type": "integer",
@@ -456,6 +519,22 @@ Use this when you're unsure what to search for. Provide the current context
                     }
                 },
                 "required": ["context"]
+            }
+        ),
+        Tool(
+            name="memos_get_stats",
+            description="""Get statistics about memories in a project cube.
+            
+Use this to see how many memories of each type (DECISION, ERROR_PATTERN, etc.) are stored.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID (project name)",
+                        "default": MEMOS_DEFAULT_CUBE
+                    }
+                }
             }
         ),
         Tool(
@@ -641,51 +720,58 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             elif name == "memos_list":
                 cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
                 limit = arguments.get("limit", 10)
+                memory_type = arguments.get("memory_type")
 
-                # Auto-register cube with retry
+                # Auto-register cube if needed
                 if not await ensure_cube_registered(client, cube_id):
                     await ensure_cube_registered(client, cube_id, force=True)
 
+                params = {
+                    "user_id": MEMOS_USER,
+                    "mem_cube_id": cube_id,
+                    "limit": limit
+                }
+                if memory_type:
+                    params["memory_type"] = memory_type
+
                 response = await client.get(
                     f"{MEMOS_URL}/memories",
-                    params={
-                        "user_id": MEMOS_USER,
-                        "mem_cube_id": cube_id
-                    }
+                    params=params
                 )
 
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("code") == 200:
-                        memories = data.get("data", {}).get("memories", [])[:limit]
-                        if not memories:
-                            return [TextContent(type="text", text="No memories found in this cube.")]
-
-                        result = [f"## 📚 Memories in {cube_id} ({len(memories)} shown)\n"]
-                        for i, mem in enumerate(memories, 1):
-                            first_line = mem.get("memory", "").split("\n")[0][:80]
-                            result.append(f"{i}. {first_line}")
-
-                        return [TextContent(type="text", text="\n".join(result))]
+                        # Wrap data in the format format_memories_for_display expects
+                        mems = data.get("data", {}).get("memories", [])[:limit]
+                        wrapped_data = {
+                            "text_mem": [{
+                                "cube_id": cube_id,
+                                "memories": mems
+                            }]
+                        }
+                        formatted = format_memories_for_display(wrapped_data)
+                        return [TextContent(type="text", text=formatted)]
                     else:
                         # Try force re-register and retry
                         _registered_cubes.discard(cube_id)
                         if await ensure_cube_registered(client, cube_id, force=True):
                             retry_response = await client.get(
                                 f"{MEMOS_URL}/memories",
-                                params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
+                                params=params
                             )
                             if retry_response.status_code == 200:
                                 retry_data = retry_response.json()
                                 if retry_data.get("code") == 200:
-                                    memories = retry_data.get("data", {}).get("memories", [])[:limit]
-                                    if not memories:
-                                        return [TextContent(type="text", text="No memories found in this cube.")]
-                                    result = [f"## 📚 Memories in {cube_id} ({len(memories)} shown)\n"]
-                                    for i, mem in enumerate(memories, 1):
-                                        first_line = mem.get("memory", "").split("\n")[0][:80]
-                                        result.append(f"{i}. {first_line}")
-                                    return [TextContent(type="text", text="\n".join(result))]
+                                    mems = retry_data.get("data", {}).get("memories", [])[:limit]
+                                    wrapped_data = {
+                                        "text_mem": [{
+                                            "cube_id": cube_id,
+                                            "memories": mems
+                                        }]
+                                    }
+                                    formatted = format_memories_for_display(wrapped_data)
+                                    return [TextContent(type="text", text=formatted)]
                         return [TextContent(type="text", text=f"List failed: {data.get('message', 'Unknown error')}")]
                 elif response.status_code in (400, 500):
                     # Cube not loaded, force re-register and retry
@@ -693,19 +779,20 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     if await ensure_cube_registered(client, cube_id, force=True):
                         retry_response = await client.get(
                             f"{MEMOS_URL}/memories",
-                            params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
+                            params=params
                         )
                         if retry_response.status_code == 200:
                             retry_data = retry_response.json()
                             if retry_data.get("code") == 200:
-                                memories = retry_data.get("data", {}).get("memories", [])[:limit]
-                                if not memories:
-                                    return [TextContent(type="text", text="No memories found in this cube.")]
-                                result = [f"## 📚 Memories in {cube_id} ({len(memories)} shown)\n"]
-                                for i, mem in enumerate(memories, 1):
-                                    first_line = mem.get("memory", "").split("\n")[0][:80]
-                                    result.append(f"{i}. {first_line}")
-                                return [TextContent(type="text", text="\n".join(result))]
+                                mems = retry_data.get("data", {}).get("memories", [])[:limit]
+                                wrapped_data = {
+                                    "text_mem": [{
+                                        "cube_id": cube_id,
+                                        "memories": mems
+                                    }]
+                                }
+                                formatted = format_memories_for_display(wrapped_data)
+                                return [TextContent(type="text", text=formatted)]
                     return [TextContent(type="text", text=f"API error: {response.status_code} - Cube may not be loaded")]
                 else:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
@@ -722,6 +809,43 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     return [TextContent(type="text", text="\n".join(result))]
                 else:
                     return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
+
+            elif name == "memos_get_stats":
+                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
+                
+                # Auto-register cube if needed
+                if not await ensure_cube_registered(client, cube_id):
+                    await ensure_cube_registered(client, cube_id, force=True)
+
+                response = await client.get(
+                    f"{MEMOS_URL}/memories",
+                    params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == 200:
+                        mems = data.get("data", {}).get("memories", [])
+                        stats = {}
+                        for mem in mems:
+                            memory_text = mem.get("memory", "")
+                            type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
+                            mem_type = type_match.group(1) if type_match else "PROGRESS"
+                            stats[mem_type] = stats.get(mem_type, 0) + 1
+                        
+                        result = [f"## 📊 Statistics for Cube: {cube_id}"]
+                        result.append(f"Total Memories: {len(mems)}")
+                        result.append("")
+                        result.append("| Memory Type | Count |")
+                        result.append("| :--- | :--- |")
+                        for t, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
+                            result.append(f"| {t} | {count} |")
+                        
+                        return [TextContent(type="text", text="\n".join(result))]
+                    else:
+                        return [TextContent(type="text", text=f"Stats failed: {data.get('message', 'Unknown error')}")]
+                else:
+                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
             elif name == "memos_get_graph":
                 query = arguments.get("query", "")
