@@ -92,7 +92,9 @@ class GraphStructureReorganizer:
         self.resolver = NodeHandler(graph_store=graph_store, llm=llm, embedder=embedder)
 
         self.is_reorganize = is_reorganize
-        self._reorganize_needed = True
+        # Start with False to avoid triggering LLM on cube load
+        # Only set to True when new nodes are actually added (in handle_add)
+        self._reorganize_needed = False
         logger.info(f"[Reorganizer] Initializing with is_reorganize={is_reorganize}")
         if self.is_reorganize:
             logger.info("[Reorganizer] Starting message consumer and structure optimizer threads...")
@@ -377,8 +379,17 @@ class GraphStructureReorganizer:
                         inf_node.memory,
                         inf_node.metadata.model_dump(exclude_none=True),
                     )
-                    for src_id in inf_node.metadata.sources:
-                        self.graph_store.add_edge(src_id, inf_node.id, "INFERS")
+                    for source in inf_node.metadata.sources:
+                        # Handle both string IDs and SourceMessage objects
+                        if isinstance(source, str):
+                            src_id = source
+                        elif isinstance(source, SourceMessage):
+                            # SourceMessage doesn't have node ID, skip or use message_id
+                            src_id = source.message_id if source.message_id else None
+                        else:
+                            src_id = str(source) if source else None
+                        if src_id:
+                            self.graph_store.add_edge(src_id, inf_node.id, "INFERS")
 
                 # 3) Add sequence links
                 for seq in results["sequence_links"]:
@@ -392,8 +403,16 @@ class GraphStructureReorganizer:
                         agg_node.memory,
                         agg_node.metadata.model_dump(exclude_none=True),
                     )
-                    for child_id in agg_node.metadata.sources:
-                        self.graph_store.add_edge(agg_node.id, child_id, "AGGREGATE_TO")
+                    for source in agg_node.metadata.sources:
+                        # Handle both string IDs and SourceMessage objects
+                        if isinstance(source, str):
+                            child_id = source
+                        elif isinstance(source, SourceMessage):
+                            child_id = source.message_id if source.message_id else None
+                        else:
+                            child_id = str(source) if source else None
+                        if child_id:
+                            self.graph_store.add_edge(agg_node.id, child_id, "AGGREGATE_TO")
 
         logger.info("[Reorganizer] Cluster relation/reasoning done.")
 

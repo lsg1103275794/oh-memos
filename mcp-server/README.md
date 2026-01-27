@@ -143,6 +143,10 @@ Save memories. Claude will use this when:
 | `MEMOS_USER` | `dev_user` | Default user ID |
 | `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
 | `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage directory (for auto-registration) |
+| `MEMOS_TIMEOUT_TOOL` | `120.0` | Tool call timeout (seconds) - for large documents with embedding |
+| `MEMOS_TIMEOUT_STARTUP` | `30.0` | Startup cube registration timeout (seconds) |
+| `MEMOS_TIMEOUT_HEALTH` | `5.0` | Health check timeout (seconds) |
+| `MEMOS_API_WAIT_MAX` | `60.0` | Max wait time for API ready (seconds) |
 
 ## Auto-Registration
 
