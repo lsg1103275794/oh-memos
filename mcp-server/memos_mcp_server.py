@@ -68,6 +68,11 @@ MEMOS_API_WAIT_MAX = float(_args.memos_api_wait_max or os.environ.get("MEMOS_API
 _enable_delete_val = _args.memos_enable_delete or os.environ.get("MEMOS_ENABLE_DELETE", "false")
 MEMOS_ENABLE_DELETE = _enable_delete_val.lower() == "true"
 
+# Neo4j configuration (for fallback direct queries)
+NEO4J_HTTP_URL = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "12345678")
+
 # Create server instance
 server = Server("memos-memory")
 
@@ -450,6 +455,161 @@ def suggest_search_queries(context: str) -> list[str]:
     return suggestions[:3]  # Return top 3 suggestions
 
 
+# =============================================================================
+# HTTP Client Management (Connection Reuse)
+# =============================================================================
+
+_http_client: httpx.AsyncClient | None = None
+
+
+async def get_http_client() -> httpx.AsyncClient:
+    """Get or create a shared HTTP client for connection reuse."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=MEMOS_TIMEOUT_TOOL,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10)
+        )
+    return _http_client
+
+
+async def close_http_client():
+    """Close the shared HTTP client."""
+    global _http_client
+    if _http_client is not None and not _http_client.is_closed:
+        await _http_client.aclose()
+        _http_client = None
+
+
+# =============================================================================
+# API Call with Retry Helper
+# =============================================================================
+
+async def api_call_with_retry(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    cube_id: str,
+    **kwargs
+) -> tuple[bool, dict | None, int]:
+    """
+    Make API call with automatic cube re-registration on failure.
+
+    Returns:
+        tuple: (success: bool, data: dict | None, status_code: int)
+    """
+    # First attempt
+    if method.upper() == "GET":
+        response = await client.get(url, **kwargs)
+    elif method.upper() == "POST":
+        response = await client.post(url, **kwargs)
+    elif method.upper() == "DELETE":
+        response = await client.delete(url, **kwargs)
+    else:
+        raise ValueError(f"Unsupported HTTP method: {method}")
+
+    if response.status_code == 200:
+        data = response.json()
+        if data.get("code") == 200:
+            return True, data, 200
+
+        # API returned error code - try re-registration
+        _registered_cubes.discard(cube_id)
+        if await ensure_cube_registered(client, cube_id, force=True):
+            # Retry
+            if method.upper() == "GET":
+                retry_response = await client.get(url, **kwargs)
+            elif method.upper() == "POST":
+                retry_response = await client.post(url, **kwargs)
+            else:
+                retry_response = await client.delete(url, **kwargs)
+
+            if retry_response.status_code == 200:
+                retry_data = retry_response.json()
+                if retry_data.get("code") == 200:
+                    return True, retry_data, 200
+                return False, retry_data, 200
+
+        return False, data, 200
+
+    elif response.status_code == 400:
+        # 400 often means cube not loaded - force re-register and retry
+        _registered_cubes.discard(cube_id)
+        if await ensure_cube_registered(client, cube_id, force=True):
+            if method.upper() == "GET":
+                retry_response = await client.get(url, **kwargs)
+            elif method.upper() == "POST":
+                retry_response = await client.post(url, **kwargs)
+            else:
+                retry_response = await client.delete(url, **kwargs)
+
+            if retry_response.status_code == 200:
+                retry_data = retry_response.json()
+                if retry_data.get("code") == 200:
+                    return True, retry_data, 200
+        return False, None, 400
+
+    return False, None, response.status_code
+
+
+# =============================================================================
+# Memory Data Extraction Helper (handles both flat and tree_text modes)
+# =============================================================================
+
+def extract_memories_from_response(data: dict) -> list[dict]:
+    """
+    Extract memory nodes from API response, handling both flat and tree_text modes.
+
+    Args:
+        data: API response data containing text_mem
+
+    Returns:
+        List of memory node dictionaries
+    """
+    memories = []
+    text_mems = data.get("text_mem", [])
+
+    for cube_data in text_mems:
+        mem_data = cube_data.get("memories", [])
+
+        # Handle tree_text mode (dict with "nodes" key)
+        if isinstance(mem_data, dict) and "nodes" in mem_data:
+            memories.extend(mem_data["nodes"])
+        # Handle flat mode (list of memories)
+        elif isinstance(mem_data, list):
+            memories.extend(mem_data)
+
+    return memories
+
+
+# =============================================================================
+# Stats Computation Helper
+# =============================================================================
+
+def compute_memory_stats(data: dict) -> tuple[dict[str, int], int]:
+    """
+    Compute memory type statistics from API response.
+
+    Args:
+        data: API response data
+
+    Returns:
+        tuple: (stats_dict: {type: count}, total_count)
+    """
+    memories = extract_memories_from_response(data)
+    stats: dict[str, int] = {}
+    total = 0
+
+    for mem in memories:
+        memory_text = mem.get("memory", "")
+        total += 1
+        type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
+        mem_type = type_match.group(1) if type_match else "PROGRESS"
+        stats[mem_type] = stats.get(mem_type, 0) + 1
+
+    return stats, total
+
+
 # Define MCP Tools
 
 @server.list_tools()
@@ -483,6 +643,60 @@ The tool returns relevant memories that can help you:
                     "cube_id": {
                         "type": "string",
                         "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
+                        "default": MEMOS_DEFAULT_CUBE
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 10)",
+                        "default": 10
+                    }
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="memos_search_context",
+            description="""Context-aware memory search with LLM intent analysis.
+
+USE THIS TOOL when you need smarter search that understands:
+- The broader conversation context (what you've been discussing)
+- Implied entities and concepts that aren't explicitly mentioned
+- The type of information the user is really looking for
+
+This tool analyzes the query + recent conversation to:
+1. Determine search intent (factual lookup, relationship query, causal question, etc.)
+2. Extract explicit AND implied entities
+3. Expand the query with related terms for better recall
+4. Apply smart filters based on intent
+
+Example: If you've been discussing "login errors" and user asks "what was the solution?",
+this tool understands they mean "login error solution" even without explicit mention.
+
+Best used when:
+- Query is ambiguous or refers to earlier conversation
+- You want better recall through query expansion
+- You need to find related concepts, not just exact matches""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query - can be brief since context helps clarify intent"
+                    },
+                    "context": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "role": {"type": "string", "enum": ["user", "assistant"]},
+                                "content": {"type": "string"}
+                            }
+                        },
+                        "description": "Recent conversation messages for context (last 5-10 turns)"
+                    },
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path.",
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
@@ -621,6 +835,52 @@ Use this to see how many memories of each type (DECISION, ERROR_PATTERN, etc.) a
             }
         ),
         Tool(
+            name="memos_trace_path",
+            description="""Trace reasoning paths between two memory nodes.
+
+USE THIS TOOL when you need to understand:
+- How two concepts or events are connected
+- The chain of causality or dependencies between memories
+- Indirect relationships that span multiple hops
+
+This is powerful for AI reasoning:
+- "How did decision A lead to outcome B?"
+- "What's the connection between error X and configuration Y?"
+- "Trace the path from this bug to its root cause"
+
+Returns:
+- Whether a path exists between the two nodes
+- Full path details with all intermediate nodes and edges
+- The relationship types along the path (CAUSE, RELATE, CONDITION, etc.)
+
+Example: Tracing from "Java not installed" to "API timeout error" might reveal:
+  [Java not installed] ──CAUSE──> [Neo4j failed] ──CAUSE──> [DB connection lost] ──CAUSE──> [API timeout]""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source_id": {
+                        "type": "string",
+                        "description": "ID of the source memory node to start from. Get this from memos_search or memos_get_graph."
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "description": "ID of the target memory node to find path to. Get this from memos_search or memos_get_graph."
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum path length (hops). Default 3, max 10.",
+                        "default": 3
+                    },
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path.",
+                        "default": MEMOS_DEFAULT_CUBE
+                    }
+                },
+                "required": ["source_id", "target_id"]
+            }
+        ),
+        Tool(
             name="memos_get_graph",
             description="""Get memory knowledge graph with relationships.
 
@@ -652,6 +912,48 @@ This helps you understand the full context and dependencies.""",
                     }
                 },
                 "required": ["query"]
+            }
+        ),
+        Tool(
+            name="memos_export_schema",
+            description="""Export knowledge graph schema and statistics.
+
+USE THIS TOOL when you need to understand:
+- The overall structure of the project's memory graph
+- What types of relationships exist in the knowledge base
+- How well-connected the memories are
+- The most common tags and memory types
+- Time range of stored knowledge
+
+This helps AI understand:
+- What kind of information has been stored
+- How memories relate to each other
+- Whether there are gaps in the knowledge (orphan nodes)
+- The overall health of the knowledge graph
+
+Returns comprehensive statistics including:
+- Total nodes and edges
+- Relationship type distribution (CAUSE, RELATE, CONFLICT, etc.)
+- Memory type distribution (LongTermMemory, WorkingMemory, etc.)
+- Top 20 most frequent tags
+- Average and max connections per node
+- Number of orphan (unconnected) nodes
+- Time range of data""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path.",
+                        "default": MEMOS_DEFAULT_CUBE
+                    },
+                    "sample_size": {
+                        "type": "integer",
+                        "description": "Number of nodes to sample for analysis (10-1000). Default 100.",
+                        "default": 100
+                    }
+                },
+                "required": []
             }
         )
     ]
@@ -713,452 +1015,624 @@ Before deleting, always:
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls."""
 
-    async with httpx.AsyncClient(timeout=MEMOS_TIMEOUT_TOOL) as client:
-        try:
-            # Determine target cube_id (explicit > derived > default)
-            arg_cube_id = arguments.get("cube_id")
-            cube_id = arg_cube_id if arg_cube_id else get_default_cube_id()
+    # Use shared HTTP client for connection reuse
+    client = await get_http_client()
 
-            if name == "memos_search":
-                query = arguments.get("query", "")
+    try:
+        # Determine target cube_id (explicit > derived > default)
+        arg_cube_id = arguments.get("cube_id")
+        cube_id = arg_cube_id if arg_cube_id else get_default_cube_id()
 
-                # Auto-register cube if needed (with force retry on first call)
-                if not await ensure_cube_registered(client, cube_id):
-                    # Force retry registration
-                    await ensure_cube_registered(client, cube_id, force=True)
+        if name == "memos_search":
+            query = arguments.get("query", "")
+            top_k = arguments.get("top_k", 10)
 
-                response = await client.post(
-                    f"{MEMOS_URL}/search",
-                    json={
-                        "user_id": MEMOS_USER,
-                        "query": query,
-                        "install_cube_ids": [cube_id]
-                    }
-                )
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
 
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("code") == 200:
-                        formatted = format_memories_for_display(data.get("data", {}))
-                        return [TextContent(type="text", text=formatted)]
-                    else:
-                        # Force re-register and retry
-                        _registered_cubes.discard(cube_id)
-                        if await ensure_cube_registered(client, cube_id, force=True):
-                            retry_response = await client.post(
-                                f"{MEMOS_URL}/search",
-                                json={
-                                    "user_id": MEMOS_USER,
-                                    "query": query,
-                                    "install_cube_ids": [cube_id]
-                                }
-                            )
-                            if retry_response.status_code == 200:
-                                retry_data = retry_response.json()
-                                if retry_data.get("code") == 200:
-                                    formatted = format_memories_for_display(retry_data.get("data", {}))
-                                    return [TextContent(type="text", text=formatted)]
-                        return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
+            success, data, status = await api_call_with_retry(
+                client, "POST", f"{MEMOS_URL}/search", cube_id,
+                json={
+                    "user_id": MEMOS_USER,
+                    "query": query,
+                    "install_cube_ids": [cube_id],
+                    "top_k": top_k
+                }
+            )
+
+            if success and data:
+                formatted = format_memories_for_display(data.get("data", {}))
+                return [TextContent(type="text", text=formatted)]
+            elif data:
+                return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
+            else:
+                return [TextContent(type="text", text=f"API error: {status}")]
+
+        elif name == "memos_search_context":
+            query = arguments.get("query", "")
+            context = arguments.get("context", [])
+
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
+
+            # Format context as chat_history for the API
+            chat_history = []
+            for msg in context[-10:]:  # Last 10 messages
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if content:
+                    chat_history.append({"role": role, "content": content})
+
+            response = await client.post(
+                f"{MEMOS_URL}/product/search",
+                json={
+                    "user_id": MEMOS_USER,
+                    "query": query,
+                    "readable_cube_ids": [cube_id],
+                    "enable_context_analysis": True,
+                    "chat_history": chat_history,
+                    "top_k": 15,
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == 200:
+                    results = []
+                    results.append("## 🔍 Context-Aware Search Results")
+                    results.append("")
+                    formatted = format_memories_for_display(data.get("data", {}))
+                    if context:
+                        results.append(f"*Analyzed with {len(context)} context messages*")
+                        results.append("")
+                    results.append(formatted)
+                    return [TextContent(type="text", text="\n".join(results))]
                 else:
-                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
+                    # Fallback to standard search
+                    fallback_response = await client.post(
+                        f"{MEMOS_URL}/search",
+                        json={
+                            "user_id": MEMOS_USER,
+                            "query": query,
+                            "install_cube_ids": [cube_id]
+                        }
+                    )
+                    if fallback_response.status_code == 200:
+                        fallback_data = fallback_response.json()
+                        if fallback_data.get("code") == 200:
+                            formatted = format_memories_for_display(fallback_data.get("data", {}))
+                            return [TextContent(type="text", text=f"## Search Results (fallback)\n\n{formatted}")]
+                    return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
+            else:
+                return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
-            elif name == "memos_save":
-                content = arguments.get("content", "")
-                memory_type = arguments.get("memory_type") or detect_memory_type(content)
+        elif name == "memos_save":
+            content = arguments.get("content", "")
+            memory_type = arguments.get("memory_type") or detect_memory_type(content)
 
-                # Prepend memory type if not already present
-                if not content.startswith(f"[{memory_type}]"):
-                    content = f"[{memory_type}] {content}"
+            # Prepend memory type if not already present
+            if not content.startswith(f"[{memory_type}]"):
+                content = f"[{memory_type}] {content}"
 
-                # Auto-register cube with retry on failure
-                if not await ensure_cube_registered(client, cube_id):
-                    await ensure_cube_registered(client, cube_id, force=True)
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
 
-                response = await client.post(
-                    f"{MEMOS_URL}/memories",
-                    json={
-                        "user_id": MEMOS_USER,
-                        "mem_cube_id": cube_id,
-                        "memory_content": content
-                    }
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("code") == 200:
-                        return [TextContent(type="text", text=f"✅ Memory saved successfully as [{memory_type}]")]
-                    else:
-                        # Try force re-register and retry once
-                        _registered_cubes.discard(cube_id)
-                        if await ensure_cube_registered(client, cube_id, force=True):
-                            retry_response = await client.post(
-                                f"{MEMOS_URL}/memories",
-                                json={
-                                    "user_id": MEMOS_USER,
-                                    "mem_cube_id": cube_id,
-                                    "memory_content": content
-                                }
-                            )
-                            if retry_response.status_code == 200:
-                                retry_data = retry_response.json()
-                                if retry_data.get("code") == 200:
-                                    return [TextContent(type="text", text=f"✅ Memory saved successfully as [{memory_type}] (after re-registration)")]
-                        return [TextContent(type="text", text=f"Save failed: {data.get('message', 'Unknown error')}")]
-                elif response.status_code == 400:
-                    # 400 often means cube not loaded, force re-register and retry
-                    _registered_cubes.discard(cube_id)
-                    if await ensure_cube_registered(client, cube_id, force=True):
-                        retry_response = await client.post(
-                            f"{MEMOS_URL}/memories",
-                            json={
-                                "user_id": MEMOS_USER,
-                                "mem_cube_id": cube_id,
-                                "memory_content": content
-                            }
-                        )
-                        if retry_response.status_code == 200:
-                            retry_data = retry_response.json()
-                            if retry_data.get("code") == 200:
-                                return [TextContent(type="text", text=f"✅ Memory saved successfully as [{memory_type}] (after re-registration)")]
-                    return [TextContent(type="text", text=f"API error: 400 - Cube may not be loaded. Try again.")]
-                else:
-                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
-
-            elif name in ("memos_list", "memos_list_v2"):
-                limit = arguments.get("limit", 20)
-                memory_type = arguments.get("memory_type")
-
-                # Auto-register cube
-                await ensure_cube_registered(client, cube_id)
-
-                params = {
+            success, data, status = await api_call_with_retry(
+                client, "POST", f"{MEMOS_URL}/memories", cube_id,
+                json={
                     "user_id": MEMOS_USER,
                     "mem_cube_id": cube_id,
-                    "limit": limit
+                    "memory_content": content
                 }
-                if memory_type:
-                    params["memory_type"] = memory_type
+            )
 
-                response = await client.get(
-                    f"{MEMOS_URL}/memories",
-                    params=params
-                )
+            if success:
+                return [TextContent(type="text", text=f"✅ Memory saved successfully as [{memory_type}]")]
+            elif data:
+                return [TextContent(type="text", text=f"Save failed: {data.get('message', 'Unknown error')}")]
+            else:
+                return [TextContent(type="text", text=f"API error: {status}")]
 
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("code") == 200:
-                        formatted = format_memories_for_display(data.get("data", {}))
-                        return [TextContent(type="text", text=formatted)]
-                    else:
-                        # Force re-register and retry
-                        _registered_cubes.discard(cube_id)
-                        if await ensure_cube_registered(client, cube_id, force=True):
-                            retry_response = await client.get(
-                                f"{MEMOS_URL}/memories",
-                                params=params
-                            )
-                            if retry_response.status_code == 200:
-                                retry_data = retry_response.json()
-                                if retry_data.get("code") == 200:
-                                    formatted = format_memories_for_display(retry_data.get("data", {}))
-                                    return [TextContent(type="text", text=formatted)]
-                        return [TextContent(type="text", text=f"List failed: {data.get('message', 'Unknown error')}")]
-                else:
-                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
+        elif name in ("memos_list", "memos_list_v2"):
+            limit = arguments.get("limit", 20)
+            memory_type = arguments.get("memory_type")
 
-            elif name == "memos_suggest":
-                context = arguments.get("context", "")
-                suggestions = suggest_search_queries(context)
+            # Auto-register cube
+            await ensure_cube_registered(client, cube_id)
 
-                if suggestions:
-                    result = ["## 🔍 Suggested Searches\n"]
-                    result.append("Based on your context, try these searches:\n")
-                    for i, suggestion in enumerate(suggestions, 1):
-                        result.append(f"{i}. `{suggestion}`")
-                    return [TextContent(type="text", text="\n".join(result))]
-                else:
-                    return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
+            params = {
+                "user_id": MEMOS_USER,
+                "mem_cube_id": cube_id,
+                "limit": limit
+            }
+            if memory_type:
+                params["memory_type"] = memory_type
 
-            elif name == "memos_get_stats":
-                
-                # Auto-register cube if needed
-                if not await ensure_cube_registered(client, cube_id):
-                    await ensure_cube_registered(client, cube_id, force=True)
+            success, data, status = await api_call_with_retry(
+                client, "GET", f"{MEMOS_URL}/memories", cube_id,
+                params=params
+            )
 
-                response = await client.get(
-                    f"{MEMOS_URL}/memories",
-                    params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
-                )
+            if success and data:
+                formatted = format_memories_for_display(data.get("data", {}))
+                return [TextContent(type="text", text=formatted)]
+            elif data:
+                return [TextContent(type="text", text=f"List failed: {data.get('message', 'Unknown error')}")]
+            else:
+                return [TextContent(type="text", text=f"API error: {status}")]
 
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("code") == 200:
-                        # Extract memories correctly from text_mem and handle nodes
-                        text_mems = data.get("data", {}).get("text_mem", [])
-                        stats = {}
-                        total = 0
-                        
-                        for cube_data in text_mems:
-                            mem_data = cube_data.get("memories", [])
-                            memories = []
-                            if isinstance(mem_data, dict) and "nodes" in mem_data:
-                                memories = mem_data["nodes"]
-                            elif isinstance(mem_data, list):
-                                memories = mem_data
-                                
-                            for mem in memories:
-                                memory_text = mem.get("memory", "")
-                                total += 1
-                                type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
-                                mem_type = type_match.group(1) if type_match else "PROGRESS"
-                                stats[mem_type] = stats.get(mem_type, 0) + 1
-                        
-                        if not stats:
-                            return [TextContent(type="text", text=f"No memories found in cube '{cube_id}'.")]
-                            
-                        result = [f"## 📊 Memory Stats: {cube_id}"]
-                        result.append(f"Total Memories: **{total}**\n")
-                        for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
-                            percentage = (count / total) * 100
-                            result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
-                        
-                        return [TextContent(type="text", text="\n".join(result))]
-                    else:
-                        # Force re-register and retry
-                        _registered_cubes.discard(cube_id)
-                        if await ensure_cube_registered(client, cube_id, force=True):
-                            retry_response = await client.get(
-                                f"{MEMOS_URL}/memories",
-                                params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
-                            )
-                            if retry_response.status_code == 200:
-                                retry_data = retry_response.json()
-                                if retry_data.get("code") == 200:
-                                    # Process retry data (re-use the same logic or extract)
-                                    text_mems = retry_data.get("data", {}).get("text_mem", [])
-                                    stats = {}
-                                    total = 0
-                                    for cube_data in text_mems:
-                                        mem_data = cube_data.get("memories", [])
-                                        memories = mem_data.get("nodes", []) if isinstance(mem_data, dict) else mem_data
-                                        for mem in memories:
-                                            memory_text = mem.get("memory", "")
-                                            total += 1
-                                            type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
-                                            mem_type = type_match.group(1) if type_match else "PROGRESS"
-                                            stats[mem_type] = stats.get(mem_type, 0) + 1
-                                    if stats:
-                                        result = [f"## 📊 Memory Stats: {cube_id} (Retried)"]
-                                        result.append(f"Total Memories: **{total}**\n")
-                                        for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
-                                            percentage = (count / total) * 100
-                                            result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
-                                        return [TextContent(type="text", text="\n".join(result))]
-                        return [TextContent(type="text", text=f"Stats failed: {data.get('message', 'Unknown error')}")]
-                else:
-                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
+        elif name == "memos_suggest":
+            context = arguments.get("context", "")
+            suggestions = suggest_search_queries(context)
 
-            elif name == "memos_get_graph":
-                query = arguments.get("query", "")
+            if suggestions:
+                result = ["## 🔍 Suggested Searches\n"]
+                result.append("Based on your context, try these searches:\n")
+                for i, suggestion in enumerate(suggestions, 1):
+                    result.append(f"{i}. `{suggestion}`")
+                return [TextContent(type="text", text="\n".join(result))]
+            else:
+                return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
 
-                # Auto-register cube if needed
-                await ensure_cube_registered(client, cube_id)
+        elif name == "memos_get_stats":
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
 
-                # Query Neo4j directly for relationships
-                neo4j_url = "http://localhost:7474/db/neo4j/tx/commit"
-                neo4j_auth = ("neo4j", "12345678")
+            success, data, status = await api_call_with_retry(
+                client, "GET", f"{MEMOS_URL}/memories", cube_id,
+                params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
+            )
 
-                # First search for relevant memories using MemOS API
-                search_response = await client.post(
-                    f"{MEMOS_URL}/search",
+            if success and data:
+                # Use helper function to compute stats
+                stats, total = compute_memory_stats(data.get("data", {}))
+
+                if not stats:
+                    return [TextContent(type="text", text=f"No memories found in cube '{cube_id}'.")]
+
+                result = [f"## 📊 Memory Stats: {cube_id}"]
+                result.append(f"Total Memories: **{total}**\n")
+                for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
+                    percentage = (count / total) * 100
+                    result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
+
+                return [TextContent(type="text", text="\n".join(result))]
+            elif data:
+                return [TextContent(type="text", text=f"Stats failed: {data.get('message', 'Unknown error')}")]
+            else:
+                return [TextContent(type="text", text=f"API error: {status}")]
+
+        elif name == "memos_trace_path":
+            source_id = arguments.get("source_id", "")
+            target_id = arguments.get("target_id", "")
+            max_depth = min(arguments.get("max_depth", 3), 10)
+
+            if not source_id or not target_id:
+                return [TextContent(type="text", text="❌ Both source_id and target_id are required.")]
+
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
+
+            # Call the trace_path API endpoint
+            try:
+                response = await client.post(
+                    f"{MEMOS_URL}/product/graph/trace_path",
                     json={
                         "user_id": MEMOS_USER,
-                        "query": query,
-                        "install_cube_ids": [cube_id]
+                        "source_id": source_id,
+                        "target_id": target_id,
+                        "max_depth": max_depth,
+                        "include_all_paths": False,
+                        "mem_cube_id": cube_id,
                     }
                 )
 
-                memories = []
-                if search_response.status_code == 200:
-                    data = search_response.json()
+                if response.status_code == 200:
+                    data = response.json()
                     if data.get("code") == 200:
-                        text_mems = data.get("data", {}).get("text_mem", [])
-                        for cube_data in text_mems:
-                            memories.extend(cube_data.get("memories", []))
-                    else:
-                        # Try to re-register and search again
-                        _registered_cubes.discard(cube_id)
-                        if await ensure_cube_registered(client, cube_id, force=True):
-                            retry_search = await client.post(
-                                f"{MEMOS_URL}/search",
-                                json={
-                                    "user_id": MEMOS_USER,
-                                    "query": query,
-                                    "install_cube_ids": [cube_id]
-                                }
-                            )
-                            if retry_search.status_code == 200:
-                                retry_data = retry_search.json()
-                                if retry_data.get("code") == 200:
-                                    text_mems = retry_data.get("data", {}).get("text_mem", [])
-                                    for cube_data in text_mems:
-                                        memories.extend(cube_data.get("memories", []))
+                        trace_data = data.get("data", {})
+                        found = trace_data.get("found", False)
+                        paths = trace_data.get("paths", [])
+                        source_node = trace_data.get("source", {})
+                        target_node = trace_data.get("target", {})
 
-                # Query Neo4j for all CAUSE/RELATE/CONFLICT relationships
-                cypher_query = """
-                MATCH (a)-[r:CAUSE|RELATE|CONFLICT|CONDITION]->(b)
-                WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
-                RETURN a.id as source_id, a.memory as source_memory,
-                       type(r) as relation_type,
-                       b.id as target_id, b.memory as target_memory
-                LIMIT 20
+                        results = []
+                        results.append(f"## 🔗 Path Trace Results")
+                        results.append("")
+
+                        if source_node:
+                            source_mem = source_node.get("memory", "")[:80]
+                            results.append(f"**Source**: {source_mem}...")
+                        if target_node:
+                            target_mem = target_node.get("memory", "")[:80]
+                            results.append(f"**Target**: {target_mem}...")
+                        results.append("")
+
+                        if not found:
+                            results.append(f"*No path found within {max_depth} hops.*")
+                            results.append("")
+                            results.append("Suggestions:")
+                            results.append("- Try increasing max_depth (up to 10)")
+                            results.append("- Verify the node IDs are correct")
+                            results.append("- The nodes may not be connected in the graph")
+                        else:
+                            for i, path in enumerate(paths, 1):
+                                length = path.get("length", 0)
+                                nodes = path.get("nodes", [])
+                                edges = path.get("edges", [])
+
+                                results.append(f"### Path {i} (Length: {length})")
+                                results.append("")
+                                results.append("```")
+
+                                for j, node in enumerate(nodes):
+                                    node_mem = node.get("memory", "")[:60]
+                                    results.append(f"[{j+1}] {node_mem}...")
+
+                                    if j < len(edges):
+                                        edge = edges[j]
+                                        edge_type = edge.get("type", "UNKNOWN")
+                                        results.append(f"    │")
+                                        results.append(f"    └── {edge_type} ──>")
+
+                                results.append("```")
+                                results.append("")
+
+                        return [TextContent(type="text", text="\n".join(results))]
+                    else:
+                        return [TextContent(type="text", text=f"Trace path failed: {data.get('message', 'Unknown error')}")]
+                else:
+                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
+
+            except Exception as e:
+                # Fallback: Direct Neo4j query if API endpoint not available
+                logger.warning(f"Falling back to direct Neo4j query: {e}")
+
+                # Use configured Neo4j credentials
+                neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
+
+                cypher_query = f"""
+                MATCH (source:Memory), (target:Memory)
+                WHERE source.id = $source_id AND target.id = $target_id
+                MATCH path = shortestPath((source)-[*1..{max_depth}]-(target))
+                RETURN [n IN nodes(path) | {{id: n.id, memory: n.memory}}] AS nodes,
+                       [r IN relationships(path) | {{type: type(r)}}] AS rels
+                LIMIT 1
                 """
 
                 neo4j_response = await client.post(
-                    neo4j_url,
+                    NEO4J_HTTP_URL,
                     json={
                         "statements": [{
                             "statement": cypher_query,
-                            "parameters": {"keyword": query}
+                            "parameters": {"source_id": source_id, "target_id": target_id}
                         }]
                     },
                     auth=neo4j_auth
                 )
 
-                results = []
-                results.append(f"## 🧠 Knowledge Graph: {cube_id}")
-                results.append(f"Query: `{query}`")
+                results = [f"## 🔗 Path Trace (Direct Query)"]
                 results.append("")
 
-                # Display memories from search
-                if memories:
-                    results.append("### 📝 Related Memories")
-                    results.append("")
-                    for i, mem in enumerate(memories[:5], 1):
-                        memory = mem.get("memory", "")
-                        first_line = memory.split("\n")[0][:100]
-                        results.append(f"{i}. {first_line}")
-                    results.append("")
-
-                # Display relationships from Neo4j
                 if neo4j_response.status_code == 200:
                     neo4j_data = neo4j_response.json()
                     rows = neo4j_data.get("results", [{}])[0].get("data", [])
 
                     if rows:
-                        results.append("### 🔗 Relationships")
+                        row = rows[0].get("row", [[], []])
+                        nodes = row[0] if len(row) > 0 else []
+                        rels = row[1] if len(row) > 1 else []
+
                         results.append("```")
-                        for row in rows:
-                            r = row.get("row", [])
-                            if len(r) >= 5:
-                                source_mem = (r[1] or "")[:50]
-                                rel_type = r[2]
-                                target_mem = (r[4] or "")[:50]
-
-                                if rel_type == "CAUSE":
-                                    arrow = "──CAUSE──>"
-                                elif rel_type == "RELATE":
-                                    arrow = "──RELATE──"
-                                elif rel_type == "CONFLICT":
-                                    arrow = "══CONFLICT══"
-                                else:
-                                    arrow = f"──{rel_type}──>"
-
-                                results.append(f"[{source_mem}...]")
-                                results.append(f"    {arrow}")
-                                results.append(f"[{target_mem}...]")
-                                results.append("")
+                        for j, node in enumerate(nodes):
+                            node_mem = (node.get("memory") or "")[:60]
+                            results.append(f"[{j+1}] {node_mem}...")
+                            if j < len(rels):
+                                rel_type = rels[j].get("type", "?")
+                                results.append(f"    └── {rel_type} ──>")
                         results.append("```")
                     else:
-                        results.append("*No relationships found for this query.*")
+                        results.append(f"*No path found within {max_depth} hops.*")
                 else:
                     results.append(f"*Neo4j query error: {neo4j_response.status_code}*")
 
                 return [TextContent(type="text", text="\n".join(results))]
 
-            elif name == "memos_delete":
-                # Safety check - only allow if explicitly enabled
-                if not MEMOS_ENABLE_DELETE:
-                    return [TextContent(type="text", text="❌ Delete functionality is DISABLED. Set MEMOS_ENABLE_DELETE=true in environment to enable.")]
+        elif name == "memos_get_graph":
+            query = arguments.get("query", "")
 
-                memory_id = arguments.get("memory_id")
-                memory_ids = arguments.get("memory_ids", [])
-                delete_all = arguments.get("delete_all", False)
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
 
-                # Collect all IDs to delete
-                ids_to_delete = []
-                if memory_id:
-                    ids_to_delete.append(memory_id)
-                if memory_ids:
-                    ids_to_delete.extend(memory_ids)
+            # Use configured Neo4j credentials
+            neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
 
-                # Auto-register cube
-                await ensure_cube_registered(client, cube_id)
+            # First search for relevant memories using MemOS API
+            search_response = await client.post(
+                f"{MEMOS_URL}/search",
+                json={
+                    "user_id": MEMOS_USER,
+                    "query": query,
+                    "install_cube_ids": [cube_id]
+                }
+            )
 
-                if delete_all:
-                    # Delete ALL memories - very dangerous!
+            # Use helper to extract memories (handles tree_text mode)
+            memories = []
+            if search_response.status_code == 200:
+                data = search_response.json()
+                if data.get("code") == 200:
+                    memories = extract_memories_from_response(data.get("data", {}))
+                else:
+                    # Try to re-register and search again
+                    _registered_cubes.discard(cube_id)
+                    if await ensure_cube_registered(client, cube_id, force=True):
+                        retry_search = await client.post(
+                            f"{MEMOS_URL}/search",
+                            json={
+                                "user_id": MEMOS_USER,
+                                "query": query,
+                                "install_cube_ids": [cube_id]
+                            }
+                        )
+                        if retry_search.status_code == 200:
+                            retry_data = retry_search.json()
+                            if retry_data.get("code") == 200:
+                                memories = extract_memories_from_response(retry_data.get("data", {}))
+
+            # Query Neo4j for all CAUSE/RELATE/CONFLICT relationships
+            cypher_query = """
+            MATCH (a)-[r:CAUSE|RELATE|CONFLICT|CONDITION]->(b)
+            WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
+            RETURN a.id as source_id, a.memory as source_memory,
+                   type(r) as relation_type,
+                   b.id as target_id, b.memory as target_memory
+            LIMIT 20
+            """
+
+            neo4j_response = await client.post(
+                NEO4J_HTTP_URL,
+                json={
+                    "statements": [{
+                        "statement": cypher_query,
+                        "parameters": {"keyword": query}
+                    }]
+                },
+                auth=neo4j_auth
+            )
+
+            results = []
+            results.append(f"## 🧠 Knowledge Graph: {cube_id}")
+            results.append(f"Query: `{query}`")
+            results.append("")
+
+            # Display memories from search
+            if memories:
+                results.append("### 📝 Related Memories")
+                results.append("")
+                for i, mem in enumerate(memories[:5], 1):
+                    memory = mem.get("memory", "")
+                    first_line = memory.split("\n")[0][:100]
+                    results.append(f"{i}. {first_line}")
+                results.append("")
+
+            # Display relationships from Neo4j
+            if neo4j_response.status_code == 200:
+                neo4j_data = neo4j_response.json()
+                rows = neo4j_data.get("results", [{}])[0].get("data", [])
+
+                if rows:
+                    results.append("### 🔗 Relationships")
+                    results.append("```")
+                    for row in rows:
+                        r = row.get("row", [])
+                        if len(r) >= 5:
+                            source_mem = (r[1] or "")[:50]
+                            rel_type = r[2]
+                            target_mem = (r[4] or "")[:50]
+
+                            if rel_type == "CAUSE":
+                                arrow = "──CAUSE──>"
+                            elif rel_type == "RELATE":
+                                arrow = "──RELATE──"
+                            elif rel_type == "CONFLICT":
+                                arrow = "══CONFLICT══"
+                            else:
+                                arrow = f"──{rel_type}──>"
+
+                            results.append(f"[{source_mem}...]")
+                            results.append(f"    {arrow}")
+                            results.append(f"[{target_mem}...]")
+                            results.append("")
+                    results.append("```")
+                else:
+                    results.append("*No relationships found for this query.*")
+            else:
+                results.append(f"*Neo4j query error: {neo4j_response.status_code}*")
+
+            return [TextContent(type="text", text="\n".join(results))]
+
+        elif name == "memos_export_schema":
+            sample_size = min(max(arguments.get("sample_size", 100), 10), 1000)
+
+            # Auto-register cube if needed
+            await ensure_cube_registered(client, cube_id)
+
+            try:
+                response = await client.post(
+                    f"{MEMOS_URL}/product/graph/schema",
+                    json={
+                        "user_id": MEMOS_USER,
+                        "mem_cube_id": cube_id,
+                        "sample_size": sample_size,
+                    }
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == 200:
+                        schema = data.get("data", {})
+
+                        results = []
+                        results.append("## 📊 Knowledge Graph Schema")
+                        results.append("")
+
+                        # Overview
+                        results.append("### Overview")
+                        results.append(f"- **Total Nodes**: {schema.get('total_nodes', 0)}")
+                        results.append(f"- **Total Edges**: {schema.get('total_edges', 0)}")
+                        results.append(f"- **Avg Connections/Node**: {schema.get('avg_connections_per_node', 0):.2f}")
+                        results.append(f"- **Max Connections**: {schema.get('max_connections', 0)}")
+                        results.append(f"- **Orphan Nodes**: {schema.get('orphan_node_count', 0)}")
+                        results.append("")
+
+                        # Time range
+                        time_range = schema.get("time_range", {})
+                        if time_range.get("earliest") or time_range.get("latest"):
+                            results.append("### Time Range")
+                            if time_range.get("earliest"):
+                                results.append(f"- Earliest: {time_range['earliest']}")
+                            if time_range.get("latest"):
+                                results.append(f"- Latest: {time_range['latest']}")
+                            results.append("")
+
+                        # Edge types
+                        edge_dist = schema.get("edge_type_distribution", {})
+                        if edge_dist:
+                            results.append("### Relationship Types")
+                            for edge_type, count in sorted(edge_dist.items(), key=lambda x: x[1], reverse=True):
+                                results.append(f"- **{edge_type}**: {count}")
+                            results.append("")
+
+                        # Memory types
+                        mem_dist = schema.get("memory_type_distribution", {})
+                        if mem_dist:
+                            results.append("### Memory Types")
+                            for mem_type, count in sorted(mem_dist.items(), key=lambda x: x[1], reverse=True):
+                                results.append(f"- {mem_type}: {count}")
+                            results.append("")
+
+                        # Top tags
+                        tag_freq = schema.get("tag_frequency", {})
+                        if tag_freq:
+                            results.append("### Top Tags")
+                            tag_items = list(tag_freq.items())[:10]
+                            for tag, count in tag_items:
+                                results.append(f"- `{tag}`: {count}")
+                            results.append("")
+
+                        # Health assessment
+                        results.append("### Health Assessment")
+                        total_nodes = schema.get("total_nodes", 0)
+                        orphan_count = schema.get("orphan_node_count", 0)
+                        if total_nodes > 0:
+                            orphan_ratio = orphan_count / total_nodes
+                            if orphan_ratio > 0.5:
+                                results.append("⚠️ High orphan ratio - many memories are not connected")
+                            elif orphan_ratio > 0.2:
+                                results.append("📋 Moderate orphan ratio - some memories could benefit from more connections")
+                            else:
+                                results.append("✅ Good connectivity - memories are well connected")
+
+                        avg_conn = schema.get("avg_connections_per_node", 0)
+                        if avg_conn < 1:
+                            results.append("⚠️ Low average connections - consider enriching relationships")
+                        elif avg_conn > 5:
+                            results.append("✅ Rich relationships - good knowledge graph density")
+
+                        return [TextContent(type="text", text="\n".join(results))]
+                    else:
+                        return [TextContent(type="text", text=f"Schema export failed: {data.get('message', 'Unknown error')}")]
+                else:
+                    return [TextContent(type="text", text=f"API error: {response.status_code}")]
+
+            except Exception as e:
+                logger.error(f"Schema export error: {e}")
+                return [TextContent(type="text", text=f"Schema export error: {str(e)}")]
+
+        elif name == "memos_delete":
+            # Safety check - only allow if explicitly enabled
+            if not MEMOS_ENABLE_DELETE:
+                return [TextContent(type="text", text="❌ Delete functionality is DISABLED. Set MEMOS_ENABLE_DELETE=true in environment to enable.")]
+
+            memory_id = arguments.get("memory_id")
+            memory_ids = arguments.get("memory_ids", [])
+            delete_all = arguments.get("delete_all", False)
+
+            # Collect all IDs to delete
+            ids_to_delete = []
+            if memory_id:
+                ids_to_delete.append(memory_id)
+            if memory_ids:
+                ids_to_delete.extend(memory_ids)
+
+            # Auto-register cube
+            await ensure_cube_registered(client, cube_id)
+
+            if delete_all:
+                # Delete ALL memories - very dangerous!
+                response = await client.delete(
+                    f"{MEMOS_URL}/memories/{cube_id}",
+                    params={"user_id": MEMOS_USER}
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == 200:
+                        return [TextContent(type="text", text=f"⚠️ **ALL memories deleted** from cube: `{cube_id}`")]
+                    else:
+                        return [TextContent(type="text", text=f"❌ **Delete all failed**: {data.get('message', 'Unknown error')}")]
+                else:
+                    return [TextContent(type="text", text=f"❌ **API error** during delete all: {response.status_code}")]
+
+            elif ids_to_delete:
+                # Delete single or multiple memories
+                results = []
+                for mid in ids_to_delete:
+                    # Optional: Try to fetch memory first to confirm it exists and show content
+                    try:
+                        get_resp = await client.get(
+                            f"{MEMOS_URL}/memories/{cube_id}/{mid}",
+                            params={"user_id": MEMOS_USER}
+                        )
+                        mem_content = "*(Unknown content)*"
+                        if get_resp.status_code == 200:
+                            g_data = get_resp.json()
+                            if g_data.get("code") == 200 and g_data.get("data"):
+                                # Extract memory text from the node
+                                mem_node = g_data.get("data")
+                                if isinstance(mem_node, dict):
+                                    mem_content = mem_node.get("memory", mem_content)
+                    except Exception:
+                        mem_content = "*(Fetch failed)*"
+
                     response = await client.delete(
-                        f"{MEMOS_URL}/memories/{cube_id}",
+                        f"{MEMOS_URL}/memories/{cube_id}/{mid}",
                         params={"user_id": MEMOS_USER}
                     )
 
                     if response.status_code == 200:
                         data = response.json()
                         if data.get("code") == 200:
-                            return [TextContent(type="text", text=f"⚠️ **ALL memories deleted** from cube: `{cube_id}`")]
+                            results.append(f"✅ Deleted: `{mid}`\n   > {mem_content[:150]}...")
                         else:
-                            return [TextContent(type="text", text=f"❌ **Delete all failed**: {data.get('message', 'Unknown error')}")]
+                            results.append(f"❌ Failed: `{mid}` ({data.get('message', 'Unknown error')})")
                     else:
-                        return [TextContent(type="text", text=f"❌ **API error** during delete all: {response.status_code}")]
+                        results.append(f"❌ API Error: `{mid}` (Status: {response.status_code})")
 
-                elif ids_to_delete:
-                    # Delete single or multiple memories
-                    results = []
-                    for mid in ids_to_delete:
-                        # Optional: Try to fetch memory first to confirm it exists and show content
-                        try:
-                            get_resp = await client.get(
-                                f"{MEMOS_URL}/memories/{cube_id}/{mid}",
-                                params={"user_id": MEMOS_USER}
-                            )
-                            mem_content = "*(Unknown content)*"
-                            if get_resp.status_code == 200:
-                                g_data = get_resp.json()
-                                if g_data.get("code") == 200 and g_data.get("data"):
-                                    # Extract memory text from the node
-                                    mem_node = g_data.get("data")
-                                    if isinstance(mem_node, dict):
-                                        mem_content = mem_node.get("memory", mem_content)
-                        except Exception:
-                            mem_content = "*(Fetch failed)*"
-
-                        response = await client.delete(
-                            f"{MEMOS_URL}/memories/{cube_id}/{mid}",
-                            params={"user_id": MEMOS_USER}
-                        )
-
-                        if response.status_code == 200:
-                            data = response.json()
-                            if data.get("code") == 200:
-                                results.append(f"✅ Deleted: `{mid}`\n   > {mem_content[:150]}...")
-                            else:
-                                results.append(f"❌ Failed: `{mid}` ({data.get('message', 'Unknown error')})")
-                        else:
-                            results.append(f"❌ API Error: `{mid}` (Status: {response.status_code})")
-
-                    return [TextContent(type="text", text="\n".join(results))]
-
-                else:
-                    return [TextContent(type="text", text="❌ Must provide either `memory_id`, `memory_ids` or `delete_all=true`")]
+                return [TextContent(type="text", text="\n".join(results))]
 
             else:
-                return [TextContent(type="text", text=f"Unknown tool: {name}")]
+                return [TextContent(type="text", text="❌ Must provide either `memory_id`, `memory_ids` or `delete_all=true`")]
 
-        except httpx.ConnectError:
-            return [TextContent(type="text", text=f"❌ Cannot connect to MemOS API at {MEMOS_URL}. Is the server running?")]
-        except Exception as e:
-            logger.exception("Tool call failed")
-            return [TextContent(type="text", text=f"Error: {str(e)}")]
+        else:
+            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+
+    except httpx.ConnectError:
+        return [TextContent(type="text", text=f"❌ Cannot connect to MemOS API at {MEMOS_URL}. Is the server running?")]
+    except Exception as e:
+        logger.exception("Tool call failed")
+        return [TextContent(type="text", text=f"Error: {str(e)}")]
 
 
 async def run_server():

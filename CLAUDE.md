@@ -12,6 +12,7 @@
 - **Neo4j Knowledge Graph**: Structured memory with relationships (tree_text mode)
 - **Qdrant Vector Database**: Semantic similarity search
 - **LLM Memory Extraction**: Auto-extract key, tags, background, confidence
+- **AI Graph Intelligence**: Path tracing, context-aware search, schema analysis
 
 ---
 
@@ -59,6 +60,76 @@
 
 ---
 
+## Advanced AI Graph Tools
+
+### Path Tracing (`memos_trace_path`)
+
+Trace reasoning paths between two memory nodes to understand causality and connections.
+
+**When to use:**
+- Understanding how one issue led to another
+- Finding the root cause chain of an error
+- Exploring indirect relationships between concepts
+
+**Example:**
+```
+memos_trace_path(
+  source_id="<memory-id-1>",
+  target_id="<memory-id-2>",
+  max_depth=5
+)
+```
+
+**Returns:** Path with nodes and relationship types (CAUSE, RELATE, CONFLICT, CONDITION)
+
+### Context-Aware Search (`memos_search_context`)
+
+Smart search that analyzes conversation context to understand intent.
+
+**When to use:**
+- Query is ambiguous (e.g., "what was the solution?")
+- Need to find related concepts, not just exact matches
+- Want better recall through automatic query expansion
+
+**Example:**
+```
+memos_search_context(
+  query="what was the solution?",
+  context=[
+    {"role": "user", "content": "I'm debugging the login module"},
+    {"role": "assistant", "content": "Let me help with that."}
+  ]
+)
+```
+
+### Graph Schema Export (`memos_export_schema`)
+
+Export knowledge graph structure and health statistics.
+
+**When to use:**
+- Understanding what kind of information has been stored
+- Checking graph health (orphan nodes, connectivity)
+- Reviewing relationship type distribution
+
+**Returns:**
+- Total nodes/edges
+- Edge type distribution (CAUSE, RELATE, etc.)
+- Memory type distribution
+- Top tags
+- Connectivity metrics
+- Health assessment
+
+### Graph Visualization (`memos_get_graph`)
+
+Get memory relationships for a specific topic.
+
+**When to use:**
+- Visualizing how memories connect
+- Understanding context around a topic
+- Finding related information
+
+---
+
 ## Auto-Registration
 
 The MCP server auto-registers the default cube on startup. If you see "MemCube not loaded" error:
@@ -91,6 +162,59 @@ curl -X POST "http://localhost:18000/mem_cubes" \
 | Qdrant | 6333 | http://localhost:6333/dashboard |
 | Neo4j | 7474/7687 | http://localhost:7474 |
 | Ollama | 11434 | http://localhost:11434 |
+
+### MCP Server Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API base URL |
+| `MEMOS_USER` | `dev_user` | Default user ID |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube ID |
+| `NEO4J_HTTP_URL` | `http://localhost:7474/db/neo4j/tx/commit` | Neo4j HTTP endpoint |
+| `NEO4J_USER` | `neo4j` | Neo4j username |
+| `NEO4J_PASSWORD` | `12345678` | Neo4j password |
+| `MEMOS_ENABLE_DELETE` | `false` | Enable delete functionality |
+
+---
+
+## API Endpoints
+
+### Graph API (New)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/product/graph/data` | POST | Export graph nodes and edges |
+| `/product/graph/trace_path` | POST | Trace paths between two nodes |
+| `/product/graph/schema` | POST | Export graph schema and statistics |
+| `/product/search` | POST | Search with optional `enable_context_analysis` |
+
+### Example: Trace Path API
+
+```json
+POST /product/graph/trace_path
+{
+  "user_id": "dev_user",
+  "source_id": "<uuid>",
+  "target_id": "<uuid>",
+  "max_depth": 5,
+  "include_all_paths": false
+}
+```
+
+### Example: Context-Aware Search
+
+```json
+POST /product/search
+{
+  "user_id": "dev_user",
+  "query": "what was the solution?",
+  "readable_cube_ids": ["dev_cube"],
+  "enable_context_analysis": true,
+  "chat_history": [
+    {"role": "user", "content": "I'm debugging login errors"}
+  ]
+}
+```
 
 ---
 

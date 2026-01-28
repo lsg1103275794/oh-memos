@@ -10,8 +10,17 @@ from fastapi.requests import Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from memos.api.middleware.request_context import RequestContextMiddleware
+from memos.api.product_models import (
+    APIGraphRequest,
+    GraphData,
+    GraphEdge,
+    GraphNode,
+    GraphResponse,
+)
+from memos.api.handlers.graph_handler import GraphHandler, HandlerDependencies
+
 from memos.api.config import APIConfig
+from memos.api.middleware.request_context import RequestContextMiddleware
 from memos.configs.mem_os import MOSConfig
 from memos.mem_os.main import MOS
 from memos.mem_user.user_manager import UserManager, UserRole
@@ -376,6 +385,64 @@ async def delete_all_memories(mem_cube_id: str, user_id: str | None = None):
     mos_instance = get_mos_instance()
     mos_instance.delete_all(mem_cube_id=mem_cube_id, user_id=user_id)
     return SimpleResponse(message="All memories deleted successfully")
+
+
+@app.post("/graph/data", summary="Get graph data", response_model=GraphResponse)
+async def get_graph_data(graph_req: APIGraphRequest):
+    """Fetch graph nodes and edges for visualization."""
+    mos_instance = get_mos_instance()
+
+    # Find the specified cube or search for one that has tree_text memory
+    graph_db = None
+    
+    if graph_req.mem_cube_id:
+        try:
+            cube = mos_instance.get_mem_cube(graph_req.mem_cube_id, user_id=graph_req.user_id)
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+        except Exception as e:
+            logger.warning(f"Could not get specified cube {graph_req.mem_cube_id}: {e}")
+
+    if not graph_db:
+        # Fallback: search across all active cubes in the instance
+        for cube in mos_instance.mem_cubes.values():
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+                break
+
+    if not graph_db:
+        # Try to get from a registered cube if none found in iteration
+        try:
+            for cube_id in mos_instance.list_mem_cubes(user_id=graph_req.user_id):
+                cube = mos_instance.get_mem_cube(cube_id, user_id=graph_req.user_id)
+                if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                    graph_db = cube.text_mem.graph_store
+                    break
+        except Exception:
+            pass
+
+    if not graph_db:
+        return GraphResponse(code=404, message="No graph database found in any memory cube", data=None)
+
+    try:
+        # Use the export_graph method from neo4j.py
+        graph_data_raw = graph_db.export_graph(
+            page=graph_req.page,
+            page_size=graph_req.page_size,
+            user_name=graph_req.user_id,
+            filter=graph_req.filter,
+        )
+
+        graph_data = GraphData(
+            nodes=graph_data_raw["nodes"],
+            edges=graph_data_raw["edges"],
+            total_nodes=graph_data_raw["total_nodes"],
+            total_edges=graph_data_raw["total_edges"],
+        )
+        return GraphResponse(code=200, message="Graph data fetched successfully", data=graph_data)
+    except Exception as e:
+        logger.error(f"Error fetching graph data: {e}", exc_info=True)
+        return GraphResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
 
 
 @app.post("/chat", summary="Chat with MemOS", response_model=ChatResponse)
