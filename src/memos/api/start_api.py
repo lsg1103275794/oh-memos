@@ -16,6 +16,16 @@ from memos.api.product_models import (
     GraphEdge,
     GraphNode,
     GraphResponse,
+    TracePathRequest,
+    TracePathResponse,
+    TracePathData,
+    PathNode,
+    PathEdge,
+    PathDetail,
+    GraphSchemaRequest,
+    GraphSchemaResponse,
+    GraphSchemaData,
+    SchemaRelationPattern,
 )
 from memos.api.handlers.graph_handler import GraphHandler, HandlerDependencies
 
@@ -139,10 +149,28 @@ class SearchRequest(BaseRequest):
         description="Search query.",
         json_schema_extra={"example": "How to implement a feature?"},
     )
+    user_id: str | None = Field(
+        None,
+        description="User ID for the search",
+        json_schema_extra={"example": "user123"},
+    )
     install_cube_ids: list[str] | None = Field(
         None,
         description="List of cube IDs to search in",
         json_schema_extra={"example": ["cube123", "cube456"]},
+    )
+    enable_context_analysis: bool = Field(
+        False,
+        description="Enable LLM-powered context analysis for smarter search",
+    )
+    chat_history: list[dict] | None = Field(
+        None,
+        description="Chat history for context-aware search",
+        json_schema_extra={"example": [{"role": "user", "content": "debugging login"}]},
+    )
+    top_k: int = Field(
+        10,
+        description="Number of results to return",
     )
 
 
@@ -342,13 +370,29 @@ async def get_memory(mem_cube_id: str, memory_id: str, user_id: str | None = Non
 
 @app.post("/search", summary="Search memories", response_model=SearchResponse)
 async def search_memories(search_req: SearchRequest):
-    """Search for memories across MemCubes."""
+    """Search for memories across MemCubes.
+
+    When enable_context_analysis=True, uses LLM to analyze search intent
+    from the query and chat_history for smarter results.
+    """
     mos_instance = get_mos_instance()
-    result = mos_instance.search(
-        query=search_req.query,
-        user_id=search_req.user_id,
-        install_cube_ids=search_req.install_cube_ids,
-    )
+
+    # Build search kwargs
+    search_kwargs = {
+        "query": search_req.query,
+        "user_id": search_req.user_id,
+        "install_cube_ids": search_req.install_cube_ids,
+    }
+
+    # Add context analysis parameters if enabled
+    if search_req.enable_context_analysis and search_req.chat_history:
+        search_kwargs["chat_history"] = search_req.chat_history
+        search_kwargs["enable_context_analysis"] = True
+
+    if search_req.top_k:
+        search_kwargs["top_k"] = search_req.top_k
+
+    result = mos_instance.search(**search_kwargs)
     return SearchResponse(message="Search completed successfully", data=result)
 
 
@@ -443,6 +487,182 @@ async def get_graph_data(graph_req: APIGraphRequest):
     except Exception as e:
         logger.error(f"Error fetching graph data: {e}", exc_info=True)
         return GraphResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+
+
+def _get_graph_db_for_cube(mos_instance, mem_cube_id: str | None, user_id: str):
+    """Helper to get graph_db from a cube."""
+    graph_db = None
+
+    if mem_cube_id:
+        try:
+            cube = mos_instance.get_mem_cube(mem_cube_id, user_id=user_id)
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+        except Exception as e:
+            logger.warning(f"Could not get specified cube {mem_cube_id}: {e}")
+
+    if not graph_db:
+        for cube in mos_instance.mem_cubes.values():
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+                break
+
+    if not graph_db:
+        try:
+            for cube_id in mos_instance.list_mem_cubes(user_id=user_id):
+                cube = mos_instance.get_mem_cube(cube_id, user_id=user_id)
+                if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                    graph_db = cube.text_mem.graph_store
+                    break
+        except Exception:
+            pass
+
+    return graph_db
+
+
+@app.post("/graph/trace_path", summary="Trace path between nodes", response_model=TracePathResponse)
+async def trace_path(trace_req: TracePathRequest):
+    """
+    Trace paths between two memory nodes in the knowledge graph.
+
+    This enables AI reasoning about how memories are connected:
+    - Understanding causality chains (A caused B caused C)
+    - Finding indirect relationships between concepts
+    - Exploring memory dependencies and influences
+    """
+    mos_instance = get_mos_instance()
+    graph_db = _get_graph_db_for_cube(mos_instance, trace_req.mem_cube_id, trace_req.user_id)
+
+    if not graph_db:
+        return TracePathResponse(code=404, message="No graph database found", data=None)
+
+    if not hasattr(graph_db, "trace_path"):
+        return TracePathResponse(code=501, message="trace_path not implemented", data=None)
+
+    try:
+        result = graph_db.trace_path(
+            source_id=trace_req.source_id,
+            target_id=trace_req.target_id,
+            max_depth=trace_req.max_depth,
+            user_name=trace_req.user_id,
+            include_all_paths=trace_req.include_all_paths,
+        )
+
+        paths = []
+        for path_data in result.get("paths", []):
+            nodes = [
+                PathNode(
+                    id=n["id"],
+                    memory=n.get("memory", ""),
+                    metadata=n.get("metadata", {}),
+                )
+                for n in path_data.get("nodes", [])
+            ]
+            edges = [
+                PathEdge(
+                    source=e["source"],
+                    target=e["target"],
+                    type=e["type"],
+                )
+                for e in path_data.get("edges", [])
+            ]
+            paths.append(PathDetail(length=path_data.get("length", 0), nodes=nodes, edges=edges))
+
+        source_node = None
+        if result.get("source"):
+            source_node = PathNode(id=result["source"]["id"], memory=result["source"].get("memory", ""))
+
+        target_node = None
+        if result.get("target"):
+            target_node = PathNode(id=result["target"]["id"], memory=result["target"].get("memory", ""))
+
+        trace_data = TracePathData(
+            found=result.get("found", False),
+            paths=paths,
+            source=source_node,
+            target=target_node,
+        )
+
+        return TracePathResponse(
+            code=200,
+            message="Path traced successfully" if trace_data.found else "No path found",
+            data=trace_data,
+        )
+    except Exception as e:
+        logger.error(f"Error tracing path: {e}", exc_info=True)
+        return TracePathResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+
+
+@app.post("/graph/schema", summary="Export graph schema", response_model=GraphSchemaResponse)
+async def get_graph_schema(schema_req: GraphSchemaRequest):
+    """
+    Export graph schema information for understanding the knowledge structure.
+
+    This provides:
+    - Statistics on relationship types and counts
+    - Common relationship patterns in the graph
+    - Total node and edge counts
+    """
+    mos_instance = get_mos_instance()
+    graph_db = _get_graph_db_for_cube(mos_instance, schema_req.mem_cube_id, schema_req.user_id)
+
+    if not graph_db:
+        return GraphSchemaResponse(code=404, message="No graph database found", data=None)
+
+    try:
+        if hasattr(graph_db, "get_schema_statistics"):
+            stats = graph_db.get_schema_statistics(
+                user_name=schema_req.user_id,
+                sample_size=schema_req.sample_size,
+            )
+        else:
+            # Fallback to basic export_graph
+            graph_data = graph_db.export_graph(
+                page=1,
+                page_size=schema_req.sample_size,
+                user_name=schema_req.user_id,
+            )
+            stats = {
+                "total_nodes": graph_data.get("total_nodes", 0),
+                "total_edges": graph_data.get("total_edges", 0),
+                "edge_type_distribution": {},
+                "memory_type_distribution": {},
+                "tag_frequency": {},
+                "avg_connections_per_node": 0.0,
+                "max_connections": 0,
+                "orphan_node_count": 0,
+                "time_range": {"earliest": None, "latest": None},
+            }
+            for edge in graph_data.get("edges", []):
+                edge_type = edge.get("type", "UNKNOWN")
+                stats["edge_type_distribution"][edge_type] = stats["edge_type_distribution"].get(edge_type, 0) + 1
+
+        patterns = []
+        for edge_type, count in sorted(stats.get("edge_type_distribution", {}).items(), key=lambda x: x[1], reverse=True):
+            frequency = "high" if count > 10 else "medium" if count > 3 else "low"
+            patterns.append(SchemaRelationPattern(pattern=f"Memory -[{edge_type}]-> Memory", frequency=frequency))
+
+        schema_data = GraphSchemaData(
+            entity_types=[],
+            relationship_patterns=patterns,
+            total_nodes=stats.get("total_nodes", 0),
+            total_edges=stats.get("total_edges", 0),
+            edge_type_distribution=stats.get("edge_type_distribution", {}),
+            memory_type_distribution=stats.get("memory_type_distribution", {}),
+            tag_frequency=stats.get("tag_frequency", {}),
+            avg_connections_per_node=stats.get("avg_connections_per_node", 0.0),
+            max_connections=stats.get("max_connections", 0),
+            orphan_node_count=stats.get("orphan_node_count", 0),
+            time_range={
+                "earliest": str(stats.get("time_range", {}).get("earliest")) if stats.get("time_range", {}).get("earliest") else None,
+                "latest": str(stats.get("time_range", {}).get("latest")) if stats.get("time_range", {}).get("latest") else None,
+            },
+        )
+
+        return GraphSchemaResponse(code=200, message="Graph schema exported successfully", data=schema_data)
+    except Exception as e:
+        logger.error(f"Error exporting schema: {e}", exc_info=True)
+        return GraphSchemaResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
 
 
 @app.post("/chat", summary="Chat with MemOS", response_model=ChatResponse)

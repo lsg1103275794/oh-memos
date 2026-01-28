@@ -1064,7 +1064,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     chat_history.append({"role": role, "content": content})
 
             response = await client.post(
-                f"{MEMOS_URL}/product/search",
+                f"{MEMOS_URL}/search",
                 json={
                     "user_id": MEMOS_USER,
                     "query": query,
@@ -1216,7 +1216,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             # Call the trace_path API endpoint
             try:
                 response = await client.post(
-                    f"{MEMOS_URL}/product/graph/trace_path",
+                    f"{MEMOS_URL}/graph/trace_path",
                     json={
                         "user_id": MEMOS_USER,
                         "source_id": source_id,
@@ -1460,7 +1460,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
             try:
                 response = await client.post(
-                    f"{MEMOS_URL}/product/graph/schema",
+                    f"{MEMOS_URL}/graph/schema",
                     json={
                         "user_id": MEMOS_USER,
                         "mem_cube_id": cube_id,

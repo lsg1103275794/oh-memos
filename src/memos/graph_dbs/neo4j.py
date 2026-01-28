@@ -1499,9 +1499,12 @@ class Neo4jGraphDB(BaseGraphDB):
                 result["memory_type_distribution"][mem_type] = record["count"]
 
             # 5. Tag frequency (top 20)
+            tag_where = "WHERE n.tags IS NOT NULL"
+            if user_clause:
+                tag_where = f"{user_clause} AND n.tags IS NOT NULL"
             tag_query = f"""
-                MATCH (n:Memory){user_clause}
-                WHERE n.tags IS NOT NULL
+                MATCH (n:Memory)
+                {tag_where}
                 UNWIND n.tags AS tag
                 RETURN tag, COUNT(*) AS count
                 ORDER BY count DESC
@@ -1529,9 +1532,12 @@ class Neo4jGraphDB(BaseGraphDB):
                 result["orphan_node_count"] = conn_record["orphans"] or 0
 
             # 7. Time range
+            time_where = "WHERE n.created_at IS NOT NULL"
+            if user_clause:
+                time_where = f"{user_clause} AND n.created_at IS NOT NULL"
             time_query = f"""
-                MATCH (n:Memory){user_clause}
-                WHERE n.created_at IS NOT NULL
+                MATCH (n:Memory)
+                {time_where}
                 RETURN MIN(n.created_at) AS earliest, MAX(n.created_at) AS latest
             """
             time_result = session.run(time_query, params)
