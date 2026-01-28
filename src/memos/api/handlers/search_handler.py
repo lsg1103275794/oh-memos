@@ -13,6 +13,10 @@ from memos.api.handlers.base_handler import BaseHandler, HandlerDependencies
 from memos.api.handlers.formatters_handler import rerank_knowledge_mem
 from memos.api.product_models import APISearchRequest, SearchResponse
 from memos.log import get_logger
+from memos.memories.textual.tree_text_memory.organize.context_aware_searcher import (
+    ContextAwareSearcher,
+    SearchIntent,
+)
 from memos.memories.textual.tree_text_memory.retrieve.retrieve_utils import (
     cosine_similarity_matrix,
 )
@@ -29,6 +33,7 @@ class SearchHandler(BaseHandler):
     Handler for memory search operations.
 
     Provides fast, fine-grained, and mixture-based search modes.
+    Now enhanced with context-aware search capabilities.
     """
 
     def __init__(self, dependencies: HandlerDependencies):
@@ -42,6 +47,15 @@ class SearchHandler(BaseHandler):
         self._validate_dependencies(
             "naive_mem_cube", "mem_scheduler", "searcher", "deepsearch_agent"
         )
+        # Lazy-initialized context-aware searcher
+        self._context_aware_searcher: ContextAwareSearcher | None = None
+
+    @property
+    def context_aware_searcher(self) -> ContextAwareSearcher | None:
+        """Get or create the context-aware searcher."""
+        if self._context_aware_searcher is None and self.llm is not None:
+            self._context_aware_searcher = ContextAwareSearcher(self.llm)
+        return self._context_aware_searcher
 
     def handle_search_memories(self, search_req: APISearchRequest) -> SearchResponse:
         """
@@ -220,3 +234,153 @@ class SearchHandler(BaseHandler):
                 for cube_id in cube_ids
             ]
             return CompositeCubeView(cube_views=single_views, logger=self.logger)
+
+    def handle_context_aware_search(
+        self,
+        search_req: APISearchRequest,
+        chat_context: list[dict[str, str]] | None = None,
+    ) -> SearchResponse:
+        """
+        Context-aware search that uses LLM to analyze intent and expand queries.
+
+        This enhanced search:
+        1. Analyzes the query + conversation context to understand intent
+        2. Extracts entities and generates expanded queries
+        3. Performs the standard search with enhanced parameters
+        4. Merges and deduplicates results from original + expanded queries
+
+        Args:
+            search_req: Standard search request
+            chat_context: Recent conversation messages for context
+
+        Returns:
+            SearchResponse with enhanced results
+        """
+        if not self.context_aware_searcher:
+            self.logger.warning(
+                "[SearchHandler] Context-aware searcher unavailable (no LLM), "
+                "falling back to standard search"
+            )
+            return self.handle_search_memories(search_req)
+
+        # Step 1: Analyze intent
+        start_time = time.time()
+        enhanced_params = self.context_aware_searcher.enhance_search_params(
+            query=search_req.query,
+            context=chat_context or (
+                [{"role": m.get("role", "user"), "content": m.get("content", "")}
+                 for m in search_req.chat_history]
+                if search_req.chat_history else None
+            ),
+            base_top_k=search_req.top_k,
+        )
+        intent_time = time.time() - start_time
+        self.logger.info(
+            f"[SearchHandler] Intent analysis took {intent_time:.2f}s: "
+            f"type={enhanced_params['intent'].intent_type}, "
+            f"entities={enhanced_params['core_entities']}, "
+            f"expansions={len(enhanced_params['expanded_queries'])}"
+        )
+
+        # Step 2: Perform primary search with original query
+        primary_results = self.handle_search_memories(search_req)
+
+        # Step 3: Perform expanded searches (limit to 2 extra queries)
+        expanded_queries = enhanced_params.get("expanded_queries", [])[:2]
+        if not expanded_queries:
+            # Add intent metadata to response
+            return self._enrich_response_with_intent(primary_results, enhanced_params)
+
+        all_memory_ids = self._extract_memory_ids(primary_results)
+
+        for exp_query in expanded_queries:
+            try:
+                exp_req = search_req.model_copy()
+                exp_req.query = exp_query
+                exp_req.top_k = max(3, search_req.top_k // 2)
+
+                exp_results = self.handle_search_memories(exp_req)
+
+                # Merge unique results
+                self._merge_results(primary_results, exp_results, all_memory_ids)
+
+            except Exception as e:
+                self.logger.warning(
+                    f"[SearchHandler] Expanded search failed for '{exp_query[:30]}...': {e}"
+                )
+
+        return self._enrich_response_with_intent(primary_results, enhanced_params)
+
+    def _extract_memory_ids(self, response: SearchResponse) -> set[str]:
+        """Extract all memory IDs from a search response."""
+        ids = set()
+        if not response.data:
+            return ids
+
+        data = response.data
+        if isinstance(data, dict):
+            for bucket in data.get("text_mem", []):
+                for mem in bucket.get("memories", []):
+                    mem_id = mem.get("id") or mem.get("metadata", {}).get("id")
+                    if mem_id:
+                        ids.add(mem_id)
+        return ids
+
+    def _merge_results(
+        self,
+        primary: SearchResponse,
+        expanded: SearchResponse,
+        seen_ids: set[str],
+    ) -> None:
+        """Merge expanded search results into primary results, avoiding duplicates."""
+        if not expanded.data or not primary.data:
+            return
+
+        primary_data = primary.data
+        expanded_data = expanded.data
+
+        if not isinstance(primary_data, dict) or not isinstance(expanded_data, dict):
+            return
+
+        primary_buckets = primary_data.get("text_mem", [])
+        expanded_buckets = expanded_data.get("text_mem", [])
+
+        # Match buckets by cube_id and append new memories
+        for exp_bucket in expanded_buckets:
+            exp_cube_id = exp_bucket.get("cube_id", "")
+
+            # Find matching primary bucket
+            matched_bucket = None
+            for p_bucket in primary_buckets:
+                if p_bucket.get("cube_id", "") == exp_cube_id:
+                    matched_bucket = p_bucket
+                    break
+
+            if matched_bucket is None and primary_buckets:
+                matched_bucket = primary_buckets[0]
+
+            if matched_bucket is None:
+                continue
+
+            for mem in exp_bucket.get("memories", []):
+                mem_id = mem.get("id") or mem.get("metadata", {}).get("id")
+                if mem_id and mem_id not in seen_ids:
+                    seen_ids.add(mem_id)
+                    matched_bucket.setdefault("memories", []).append(mem)
+
+    @staticmethod
+    def _enrich_response_with_intent(
+        response: SearchResponse,
+        enhanced_params: dict[str, Any],
+    ) -> SearchResponse:
+        """Add intent analysis metadata to the search response."""
+        # We don't modify the response model structure, but log the enhancement
+        intent = enhanced_params.get("intent")
+        if intent:
+            logger.info(
+                f"[SearchHandler] Context-aware search completed: "
+                f"intent={intent.intent_type}, "
+                f"entities={intent.core_entities}, "
+                f"expanded_queries={intent.expanded_queries}"
+            )
+        return response

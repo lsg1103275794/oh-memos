@@ -231,7 +231,154 @@ class ConfigResponse(BaseResponse[None]):
     """Response model for configuration endpoint."""
 
 
-class SearchResponse(BaseResponse[dict]):
+class APIGraphRequest(BaseRequest):
+    """Request model for fetching graph data."""
+
+    user_id: str = Field(..., description="User ID")
+    mem_cube_id: str | None = Field(None, description="Memory Cube ID")
+    page: int | None = Field(None, description="Page number for pagination")
+    page_size: int | None = Field(None, description="Page size for pagination")
+    filter: dict[str, Any] | None = Field(None, description="Filter for the memory")
+
+
+class GraphNode(BaseModel):
+    """Model for a graph node."""
+
+    id: str
+    memory: str
+    metadata: dict[str, Any]
+
+
+class GraphEdge(BaseModel):
+    """Model for a graph edge."""
+
+    source: str
+    target: str
+    type: str
+
+
+class GraphData(BaseModel):
+    """Model for the graph data payload."""
+
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+    total_nodes: int
+    total_edges: int
+
+
+class GraphResponse(BaseResponse[GraphData]):
+    """Response model for graph data."""
+
+
+# ─── Trace Path Models ─────────────────────────────────────────────────────────
+
+
+class TracePathRequest(BaseRequest):
+    """Request model for tracing paths between graph nodes."""
+
+    user_id: str = Field(..., description="User ID")
+    source_id: str = Field(..., description="Source node ID to start path from")
+    target_id: str = Field(..., description="Target node ID to find path to")
+    max_depth: int = Field(3, ge=1, le=10, description="Maximum path length (hops)")
+    include_all_paths: bool = Field(
+        False, description="Return all shortest paths (up to 10) instead of just one"
+    )
+    mem_cube_id: str | None = Field(None, description="Memory Cube ID (optional)")
+
+
+class PathNode(BaseModel):
+    """Model for a node in a path."""
+
+    id: str
+    memory: str
+    metadata: dict[str, Any] = {}
+
+
+class PathEdge(BaseModel):
+    """Model for an edge in a path."""
+
+    source: str
+    target: str
+    type: str
+
+
+class PathDetail(BaseModel):
+    """Model for a single path between source and target."""
+
+    length: int = Field(..., description="Number of edges in the path")
+    nodes: list[PathNode] = Field(..., description="Ordered list of nodes in the path")
+    edges: list[PathEdge] = Field(..., description="Ordered list of edges in the path")
+
+
+class TracePathData(BaseModel):
+    """Model for trace path response data."""
+
+    found: bool = Field(..., description="Whether a path was found")
+    paths: list[PathDetail] = Field(default_factory=list, description="List of paths found")
+    source: PathNode | None = Field(None, description="Source node details")
+    target: PathNode | None = Field(None, description="Target node details")
+
+
+class TracePathResponse(BaseResponse[TracePathData]):
+    """Response model for trace path operation."""
+
+
+# ─── Graph Schema Export Models ────────────────────────────────────────────────
+
+
+class SchemaEntityType(BaseModel):
+    """Model for an entity type in the schema."""
+
+    type: str
+    count: int
+    description: str = ""
+
+
+class SchemaRelationPattern(BaseModel):
+    """Model for a relationship pattern in the schema."""
+
+    pattern: str = Field(..., description="Pattern like 'Person -[WORKS_AT]-> Organization'")
+    frequency: str = Field(..., description="high, medium, or low")
+
+
+class GraphSchemaData(BaseModel):
+    """Model for graph schema export data."""
+
+    entity_types: list[SchemaEntityType] = Field(default_factory=list)
+    relationship_patterns: list[SchemaRelationPattern] = Field(default_factory=list)
+    total_nodes: int = 0
+    total_edges: int = 0
+    edge_type_distribution: dict[str, int] = Field(default_factory=dict)
+    memory_type_distribution: dict[str, int] = Field(
+        default_factory=dict, description="Distribution of memory types"
+    )
+    tag_frequency: dict[str, int] = Field(
+        default_factory=dict, description="Top 20 most frequent tags"
+    )
+    avg_connections_per_node: float = Field(
+        0.0, description="Average number of connections per node"
+    )
+    max_connections: int = Field(0, description="Maximum connections for any single node")
+    orphan_node_count: int = Field(0, description="Number of nodes with no connections")
+    time_range: dict[str, str | None] = Field(
+        default_factory=lambda: {"earliest": None, "latest": None},
+        description="Time range of data (earliest and latest created_at)"
+    )
+
+
+class GraphSchemaRequest(BaseRequest):
+    """Request model for graph schema export."""
+
+    user_id: str = Field(..., description="User ID")
+    mem_cube_id: str | None = Field(None, description="Memory Cube ID")
+    sample_size: int = Field(100, ge=10, le=1000, description="Sample size for schema inference")
+
+
+class GraphSchemaResponse(BaseResponse[GraphSchemaData]):
+    """Response model for graph schema export."""
+
+
+class SearchResponse(BaseResponse[list[dict]]):
     """Response model for search operations."""
 
 
@@ -379,6 +526,19 @@ class APISearchRequest(BaseRequest):
         description=(
             "Whether to enable internet search in addition to memory search. "
             "Primarily used by internal algorithms. Default: False."
+        ),
+    )
+
+    enable_context_analysis: bool = Field(
+        False,
+        description=(
+            "Whether to enable context-aware search using LLM intent analysis. "
+            "When enabled, the system analyzes the query and chat_history to: "
+            "1) Understand search intent (factual, relational, temporal, etc.) "
+            "2) Extract explicit and implied entities "
+            "3) Generate expanded queries for better recall "
+            "4) Apply suggested filters for precision. "
+            "Default: False."
         ),
     )
 

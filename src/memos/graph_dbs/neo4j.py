@@ -712,10 +712,177 @@ class Neo4jGraphDB(BaseGraphDB):
             source_id: Starting node ID.
             target_id: Target node ID.
             max_depth: Maximum path length to traverse.
+            user_name: Optional user filter.
         Returns:
-            Ordered list of node IDs along the path.
+            Ordered list of node IDs along the path, empty if no path found.
         """
-        raise NotImplementedError
+        user_name = user_name if user_name else self.config.user_name
+        with self.driver.session(database=self.db_name) as session:
+            params = {"source_id": source_id, "target_id": target_id, "max_depth": max_depth}
+            user_clause = ""
+
+            if not self.config.use_multi_db and user_name:
+                user_clause = " AND source.user_name = $user_name AND target.user_name = $user_name"
+                params["user_name"] = user_name
+
+            # Use shortestPath for efficient path finding
+            query = f"""
+                MATCH (source:Memory), (target:Memory)
+                WHERE source.id = $source_id AND target.id = $target_id{user_clause}
+                MATCH path = shortestPath((source)-[*1..{max_depth}]-(target))
+                RETURN [n IN nodes(path) | n.id] AS node_ids
+                LIMIT 1
+            """
+
+            result = session.run(query, params)
+            record = result.single()
+            if record:
+                return record["node_ids"]
+            return []
+
+    def trace_path(
+        self,
+        source_id: str,
+        target_id: str,
+        max_depth: int = 3,
+        user_name: str | None = None,
+        include_all_paths: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Trace paths between two nodes, returning full path details with nodes and edges.
+
+        This is an extended version of get_path that returns complete path information
+        suitable for visualization and reasoning.
+
+        Args:
+            source_id: Starting node ID.
+            target_id: Target node ID.
+            max_depth: Maximum path length to traverse.
+            user_name: Optional user filter.
+            include_all_paths: If True, return all shortest paths (up to 10).
+                              If False, return only the first shortest path.
+
+        Returns:
+            {
+                "found": bool,
+                "paths": [
+                    {
+                        "length": int,
+                        "nodes": [{"id": str, "memory": str, "metadata": dict}, ...],
+                        "edges": [{"source": str, "target": str, "type": str}, ...]
+                    }
+                ],
+                "source": {"id": str, "memory": str} or None,
+                "target": {"id": str, "memory": str} or None
+            }
+        """
+        user_name = user_name if user_name else self.config.user_name
+        result = {
+            "found": False,
+            "paths": [],
+            "source": None,
+            "target": None,
+        }
+
+        with self.driver.session(database=self.db_name) as session:
+            params = {"source_id": source_id, "target_id": target_id}
+            user_clause = ""
+
+            if not self.config.use_multi_db and user_name:
+                user_clause = " AND source.user_name = $user_name AND target.user_name = $user_name"
+                params["user_name"] = user_name
+
+            # First verify source and target exist
+            verify_query = f"""
+                MATCH (source:Memory), (target:Memory)
+                WHERE source.id = $source_id AND target.id = $target_id{user_clause}
+                RETURN source, target
+            """
+            verify_result = session.run(verify_query, params)
+            verify_record = verify_result.single()
+
+            if not verify_record:
+                logger.warning(
+                    f"[trace_path] Source {source_id[:8]} or target {target_id[:8]} not found"
+                )
+                return result
+
+            source_node = verify_record["source"]
+            target_node = verify_record["target"]
+            result["source"] = {
+                "id": source_node["id"],
+                "memory": source_node.get("memory", ""),
+            }
+            result["target"] = {
+                "id": target_node["id"],
+                "memory": target_node.get("memory", ""),
+            }
+
+            # Find paths using allShortestPaths or shortestPath
+            if include_all_paths:
+                path_query = f"""
+                    MATCH (source:Memory), (target:Memory)
+                    WHERE source.id = $source_id AND target.id = $target_id{user_clause}
+                    MATCH path = allShortestPaths((source)-[*1..{max_depth}]-(target))
+                    RETURN path
+                    LIMIT 10
+                """
+            else:
+                path_query = f"""
+                    MATCH (source:Memory), (target:Memory)
+                    WHERE source.id = $source_id AND target.id = $target_id{user_clause}
+                    MATCH path = shortestPath((source)-[*1..{max_depth}]-(target))
+                    RETURN path
+                    LIMIT 1
+                """
+
+            path_result = session.run(path_query, params)
+
+            for record in path_result:
+                path = record["path"]
+                nodes_in_path = []
+                edges_in_path = []
+
+                # Extract nodes
+                for node in path.nodes:
+                    node_dict = dict(node)
+                    nodes_in_path.append({
+                        "id": node_dict.get("id", ""),
+                        "memory": node_dict.get("memory", ""),
+                        "metadata": {
+                            k: v for k, v in node_dict.items()
+                            if k not in ("id", "memory", "embedding")
+                        },
+                    })
+
+                # Extract relationships
+                for rel in path.relationships:
+                    edges_in_path.append({
+                        "source": rel.start_node["id"],
+                        "target": rel.end_node["id"],
+                        "type": rel.type,
+                    })
+
+                result["paths"].append({
+                    "length": len(edges_in_path),
+                    "nodes": nodes_in_path,
+                    "edges": edges_in_path,
+                })
+
+            result["found"] = len(result["paths"]) > 0
+
+            if result["found"]:
+                logger.info(
+                    f"[trace_path] Found {len(result['paths'])} path(s) from "
+                    f"{source_id[:8]} to {target_id[:8]}"
+                )
+            else:
+                logger.info(
+                    f"[trace_path] No path found from {source_id[:8]} to {target_id[:8]} "
+                    f"within depth {max_depth}"
+                )
+
+            return result
 
     def get_subgraph(
         self,
@@ -1238,6 +1405,163 @@ class Neo4jGraphDB(BaseGraphDB):
                 "total_nodes": total_nodes,
                 "total_edges": total_edges,
             }
+
+    def get_schema_statistics(
+        self,
+        user_name: str | None = None,
+        sample_size: int = 100,
+    ) -> dict[str, Any]:
+        """
+        Get comprehensive schema statistics for the knowledge graph.
+
+        This method provides detailed analysis of the graph structure including:
+        - Node and edge counts
+        - Relationship type distribution
+        - Tag frequency distribution
+        - Memory type distribution
+        - Connectivity statistics
+        - Time range of data
+
+        Args:
+            user_name: Optional user filter for multi-tenant mode.
+            sample_size: Number of nodes to sample for detailed analysis.
+
+        Returns:
+            {
+                "total_nodes": int,
+                "total_edges": int,
+                "edge_type_distribution": {"CAUSE": 5, "RELATE": 10, ...},
+                "memory_type_distribution": {"LongTermMemory": 50, ...},
+                "tag_frequency": {"python": 10, "error": 8, ...},
+                "avg_connections_per_node": float,
+                "max_connections": int,
+                "time_range": {"earliest": "ISO date", "latest": "ISO date"},
+                "sample_nodes": [...],  # Sample for analysis
+                "orphan_node_count": int,  # Nodes with no connections
+            }
+        """
+        user_name = user_name if user_name else self.config.user_name
+        result = {
+            "total_nodes": 0,
+            "total_edges": 0,
+            "edge_type_distribution": {},
+            "memory_type_distribution": {},
+            "tag_frequency": {},
+            "avg_connections_per_node": 0.0,
+            "max_connections": 0,
+            "time_range": {"earliest": None, "latest": None},
+            "sample_nodes": [],
+            "orphan_node_count": 0,
+        }
+
+        with self.driver.session(database=self.db_name) as session:
+            params = {}
+            user_clause = ""
+            if not self.config.use_multi_db and user_name:
+                user_clause = " WHERE n.user_name = $user_name"
+                params["user_name"] = user_name
+
+            # 1. Total node count
+            node_count_query = f"MATCH (n:Memory){user_clause} RETURN COUNT(n) AS count"
+            node_count_result = session.run(node_count_query, params)
+            result["total_nodes"] = node_count_result.single()["count"]
+
+            # 2. Total edge count
+            edge_user_clause = ""
+            if not self.config.use_multi_db and user_name:
+                edge_user_clause = " WHERE a.user_name = $user_name"
+            edge_count_query = f"""
+                MATCH (a:Memory)-[r]->(b:Memory){edge_user_clause}
+                RETURN COUNT(r) AS count
+            """
+            edge_count_result = session.run(edge_count_query, params)
+            result["total_edges"] = edge_count_result.single()["count"]
+
+            # 3. Edge type distribution
+            edge_type_query = f"""
+                MATCH (a:Memory)-[r]->(b:Memory){edge_user_clause}
+                RETURN type(r) AS edge_type, COUNT(r) AS count
+                ORDER BY count DESC
+            """
+            edge_type_result = session.run(edge_type_query, params)
+            for record in edge_type_result:
+                result["edge_type_distribution"][record["edge_type"]] = record["count"]
+
+            # 4. Memory type distribution
+            memory_type_query = f"""
+                MATCH (n:Memory){user_clause}
+                RETURN n.memory_type AS memory_type, COUNT(n) AS count
+                ORDER BY count DESC
+            """
+            memory_type_result = session.run(memory_type_query, params)
+            for record in memory_type_result:
+                mem_type = record["memory_type"] or "Unknown"
+                result["memory_type_distribution"][mem_type] = record["count"]
+
+            # 5. Tag frequency (top 20)
+            tag_query = f"""
+                MATCH (n:Memory){user_clause}
+                WHERE n.tags IS NOT NULL
+                UNWIND n.tags AS tag
+                RETURN tag, COUNT(*) AS count
+                ORDER BY count DESC
+                LIMIT 20
+            """
+            tag_result = session.run(tag_query, params)
+            for record in tag_result:
+                result["tag_frequency"][record["tag"]] = record["count"]
+
+            # 6. Connection statistics
+            conn_query = f"""
+                MATCH (n:Memory){user_clause}
+                OPTIONAL MATCH (n)-[r]-()
+                WITH n, COUNT(r) AS connections
+                RETURN
+                    AVG(connections) AS avg_conn,
+                    MAX(connections) AS max_conn,
+                    SUM(CASE WHEN connections = 0 THEN 1 ELSE 0 END) AS orphans
+            """
+            conn_result = session.run(conn_query, params)
+            conn_record = conn_result.single()
+            if conn_record:
+                result["avg_connections_per_node"] = round(conn_record["avg_conn"] or 0, 2)
+                result["max_connections"] = conn_record["max_conn"] or 0
+                result["orphan_node_count"] = conn_record["orphans"] or 0
+
+            # 7. Time range
+            time_query = f"""
+                MATCH (n:Memory){user_clause}
+                WHERE n.created_at IS NOT NULL
+                RETURN MIN(n.created_at) AS earliest, MAX(n.created_at) AS latest
+            """
+            time_result = session.run(time_query, params)
+            time_record = time_result.single()
+            if time_record:
+                result["time_range"]["earliest"] = time_record["earliest"]
+                result["time_range"]["latest"] = time_record["latest"]
+
+            # 8. Sample nodes for detailed analysis
+            sample_query = f"""
+                MATCH (n:Memory){user_clause}
+                RETURN n.id AS id, n.memory AS memory, n.key AS key, n.tags AS tags
+                ORDER BY n.created_at DESC
+                LIMIT {sample_size}
+            """
+            sample_result = session.run(sample_query, params)
+            for record in sample_result:
+                result["sample_nodes"].append({
+                    "id": record["id"],
+                    "memory": (record["memory"] or "")[:200],  # Truncate for brevity
+                    "key": record["key"],
+                    "tags": record["tags"] or [],
+                })
+
+        logger.info(
+            f"[get_schema_statistics] nodes={result['total_nodes']}, "
+            f"edges={result['total_edges']}, "
+            f"edge_types={len(result['edge_type_distribution'])}"
+        )
+        return result
 
     def import_graph(self, data: dict[str, Any], user_name: str | None = None) -> None:
         """
