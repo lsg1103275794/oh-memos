@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **🔗 Graph API Endpoints** (start_api.py)
+  - **`/graph/trace_path`**: Trace causality paths between two memory nodes (supports max_depth up to 10 hops)
+  - **`/graph/schema`**: Export knowledge graph statistics including node/edge counts, relationship distribution, tag frequency, health metrics
+  - **`/search` enhancement**: Added `enable_context_analysis` and `chat_history` parameters for LLM-powered context-aware search
+
+- **🧠 New MCP Tools** (memos_mcp_server.py)
+  - **`memos_export_schema`**: Export graph structure with health assessment (orphan ratio, connectivity)
+  - **`memos_search_context`**: Context-aware search using conversation history for smarter results
+  - **`memos_trace_path`**: Trace reasoning paths between memories to understand causality chains
+
 - **🔒 智能项目感知 (Smart Project Awareness)** (project-memory/SKILL.md, memos_mcp_server.py)
   - **Auto-Derivation**: Claude skills now automatically derive `cube_id` from the project directory name (e.g., `MemOS` -> `memos_cube`).
   - **Zero-Config Isolation**: Users only need to copy the skill to `.claude/skills/` to enable isolated memory space for any project.
@@ -23,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Robust Registration**: Enhanced auto-registration logic with forced retry on tool call failure.
 
 ### Fixed
+
+- **🔧 Neo4j Cypher Query Syntax** (neo4j.py)
+  - **Issue**: `get_schema_statistics()` generated invalid Cypher with duplicate WHERE clauses
+  - **Root Cause**: When `user_clause` existed, queries like tag_query and time_query had `WHERE ... WHERE ...`
+  - **Fix**: Use conditional WHERE/AND logic to avoid duplicate WHERE clauses
+  - **Impact**: `memos_export_schema` now works correctly for multi-tenant mode
 
 - **🔧 MCP Server Robustness & Save Failures** (memos_mcp_server.py)
   - **Issue**: Encountered 502 (Bad Gateway) and 400 (Cube not loaded) errors during memory saving.
