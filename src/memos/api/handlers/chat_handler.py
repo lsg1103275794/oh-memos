@@ -27,12 +27,11 @@ from memos.api.product_models import (
     ChatRequest,
 )
 from memos.context.context import ContextThread
-from memos.mem_os.utils.format_utils import clean_json_response
 from memos.mem_os.utils.reference_utils import (
     prepare_reference_data,
     process_streaming_references_complete,
 )
-from memos.mem_reader.read_multi_modal.utils import detect_lang
+from memos.mem_reader.read_multi_modal.utils import detect_lang, parse_json_result
 from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
 from memos.mem_scheduler.schemas.task_schemas import (
     ANSWER_TASK_LABEL,
@@ -853,7 +852,7 @@ class ChatHandler(BaseHandler):
             memory_context += f"\n\n{pref_string}"
 
         if "{memories}" in base_prompt:
-            return base_prompt.format(memories=memory_context)
+            return base_prompt.replace("{memories}", memory_context)
         elif base_prompt and memories:
             # For backward compatibility, append memories if no placeholder is found
             memory_context_with_header = "\n\n## Fact Memories:\n" + memory_context
@@ -1011,12 +1010,11 @@ class ChatHandler(BaseHandler):
             dialogue_info = "\n".join(
                 [f"{msg['role']}: {msg['content']}" for msg in current_messages[-2:]]
             )
-            further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.format(dialogue=dialogue_info)
+            further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.replace("{dialogue}", dialogue_info)
             message_list = [{"role": "system", "content": further_suggestion_prompt}]
             response = self.llm.generate(message_list)
-            clean_response = clean_json_response(response)
-            response_json = json.loads(clean_response)
-            return response_json["query"]
+            response_json = parse_json_result(response)
+            return response_json.get("query", [])
         except Exception as e:
             self.logger.error(f"Error getting further suggestion: {e}", exc_info=True)
             return []

@@ -606,8 +606,10 @@ class BaseScheduler(RabbitMQSchedulerModule, RedisSchedulerModule, SchedulerLogg
                 logger.error("Not Implemented.")
                 return
 
-            new_text_memory = MEMORY_ASSEMBLY_TEMPLATE.format(
-                memory_text="".join(
+            # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+            new_text_memory = MEMORY_ASSEMBLY_TEMPLATE.replace(
+                "{memory_text}",
+                "".join(
                     [
                         f"{i + 1}. {sentence.strip()}\n"
                         for i, sentence in enumerate(new_text_memories)

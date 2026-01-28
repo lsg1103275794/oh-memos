@@ -11,6 +11,18 @@
 
 ## 快速开始
 
+### 💡 部署 Claude 技能 (Skills) - 推荐
+
+为了让 Claude **完全感知**你的项目并开启**主动记忆追踪**，建议部署 `project-memory` 技能：
+
+1. 在你的项目根目录下创建目录 `.claude/skills/project-memory/`。
+2. 将本仓库的 `project-memory/SKILL.md` 复制到该目录下。
+
+**部署优势：**
+- **零配置隔离**：根据项目文件夹名称自动推导 `cube_id`，无需手动指定。
+- **核心意识强化**：Claude 会意识到自己拥有“持久化记忆”，并主动记录里程碑、架构决策和 Bug 修复。
+- **智能触发**：当你问“记得吗？”或“上次怎么做的？”时，Claude 会自动调用 `memos_search`。
+
 ### 一键启动
 
 ```cmd
@@ -170,6 +182,15 @@ pause
 ```
 
 > **📸 演示效果**: 本项目提供的截图 (如 Cherry Studio 系列) 展示了在 **Cherry Studio** 客户端中使用 **GLM-4.7** 模型调用 MemOS MCP 工具的实际演示效果。MemOS 具有极佳的跨客户端适配性，支持所有遵循 MCP 协议的 AI 助手。
+
+### 💡 部署 Claude 技能 (Skills)
+
+如果你在 Claude 环境中使用，可以将 `project-memory/SKILL.md` 复制到项目的 `.claude/skills/project-memory/SKILL.md`。
+
+**优势**:
+- **智能感知**: Claude 会自动识别 `project-memory` 技能。
+- **核心意识**: 它会意识到自己拥有“持久化记忆”，并主动记录项目架构、决策和进度。
+- **自动隔离**: 根据项目目录自动推导 `cube_id`，实现零配置的项目记忆隔离。
 
 ## API 使用
 

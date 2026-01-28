@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_scheduler.schemas.message_schemas import (
     ScheduleMessageItem,
 )
@@ -55,6 +56,7 @@ def is_cloud_env() -> bool:
 def extract_json_obj(text: str):
     """
     Safely extracts JSON from LLM response text with robust error handling.
+    Uses parse_json_result for robust extraction.
 
     Args:
         text: Raw text response from LLM that may contain JSON
@@ -68,38 +70,29 @@ def extract_json_obj(text: str):
     if not text:
         raise ValueError("Empty input text")
 
-    # Normalize the text
-    text = text.strip()
+    try:
+        result = parse_json_result(text)
+        if result or (isinstance(result, list) and len(result) >= 0):
+            return result
+    except Exception as e:
+        logger.info(f"parse_json_result failed, trying fallback: {e}")
 
-    # Remove common code block markers
+    # Fallback for very simple cases or if parse_json_result returns empty dict
+    text = text.strip()
     patterns_to_remove = ["json```", "```python", "```json", "latex```", "```latex", "```"]
     for pattern in patterns_to_remove:
         text = text.replace(pattern, "")
 
-    # Try: direct JSON parse first
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError as e:
-        logger.info(f"Failed to parse JSON from text: {text}. Error: {e!s}", exc_info=True)
-
-    # Fallback 1: Extract JSON using regex
-    json_pattern = r"\{[\s\S]*\}|\[[\s\S]*\]"
-    matches = re.findall(json_pattern, text)
-    if matches:
+        # Final fallback: Try adding missing quotes around keys
         try:
-            return json.loads(matches[0])
-        except json.JSONDecodeError as e:
-            logger.info(f"Failed to parse JSON from text: {text}. Error: {e!s}", exc_info=True)
-
-    # Fallback 2: Handle malformed JSON (common LLM issues)
-    try:
-        # Try adding missing quotes around keys
-        text = re.sub(r"([\{\s,])(\w+)(:)", r'\1"\2"\3', text)
-        return json.loads(text)
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON from text: {text}. Error: {e!s}")
-        logger.error("Full traceback:\n" + traceback.format_exc())
-        raise ValueError(text) from e
+            fixed_text = re.sub(r"([\{\s,])(\w+)(:)", r'\1"\2"\3', text)
+            return json.loads(fixed_text)
+        except Exception:
+            logger.error(f"Failed to parse JSON from text: {text}. Error: {e!s}")
+            raise ValueError(f"Could not extract JSON from: {text}") from e
 
 
 def extract_list_items(text: str, bullet_prefixes: tuple[str, ...] = ("- ",)) -> list[str]:

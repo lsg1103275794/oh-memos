@@ -1,6 +1,7 @@
 import json
 import re
 
+from memos.mem_reader.read_multi_modal.utils import parse_json_result, detect_lang
 from memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
 
 
@@ -155,76 +156,78 @@ def make_mem_item(text: str, **kwargs) -> TextualMemoryItem:
 def extract_bracket_content(text):
     """
     Extract and parse JSON content enclosed in curly braces {} from text.
+    Uses parse_json_result for robust extraction.
     """
-    # Strategy 1: Greedy match to capture the outermost complete brace pair
-    greedy_match = re.search(r"\{.*\}", text, re.DOTALL)
-    if greedy_match is None:
-        error_msg = f"No curly brace content found in text: {text}"
+    try:
+        result = parse_json_result(text)
+        if result or (isinstance(result, list) and len(result) > 0):
+            if isinstance(result, dict):
+                return result
+            # If it's not a dict, try to find a dict in the result if it's a list
+            if isinstance(result, list):
+                for item in result:
+                    if isinstance(item, dict):
+                        return item
+            return result
+        
+        # If result is empty but text has content that should have been parsed
+        if "{" in text and "}" in text:
+             # Try manual fallback to see if we can get anything
+             greedy_match = re.search(r"\{.*\}", text, re.DOTALL)
+             if greedy_match:
+                 try:
+                     return json.loads(greedy_match.group(0))
+                 except json.JSONDecodeError:
+                     pass
+
+        raise ValueError(f"No valid JSON object found in text: {text[:200]}")
+    except Exception as e:
+        # Fallback to manual extraction if parse_json_result fails
+        # Strategy 1: Greedy match to capture the outermost complete brace pair
+        greedy_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if greedy_match:
+            try:
+                return json.loads(greedy_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        error_msg = f"Failed to parse JSON content from curly braces: {e}. Text preview: {text[:200]}"
         raise ValueError(error_msg)
-
-    greedy_content = greedy_match.group(0)
-
-    # Strategy 2: Non-greedy match to find all brace pairs, use the last one
-    non_greedy_matches = re.findall(r"\{.*?\}", text, re.DOTALL)
-    if not non_greedy_matches:
-        error_msg = f"No curly brace content found in text: {text}"
-        raise ValueError(error_msg)
-
-    non_greedy_content = non_greedy_matches[-1]
-
-    for content in [greedy_content, non_greedy_content]:
-        try:
-            parsed_data = json.loads(content)
-            return parsed_data
-        except json.JSONDecodeError:
-            continue
-
-    for content in [greedy_content, non_greedy_content]:
-        try:
-            fixed_content = content.replace("{{", "{").replace("}}", "}")
-            parsed_data = json.loads(fixed_content)
-            return parsed_data
-        except json.JSONDecodeError:
-            continue
-
-    error_msg = f"Failed to parse JSON content from curly braces. Text preview: {text}"
-    raise ValueError(error_msg)
 
 
 def extract_square_brackets_content(text):
     """
     Extract and parse JSON content enclosed in square brackets [] from text.
+    Uses parse_json_result for robust extraction.
     """
-    # Strategy 1: Greedy match to capture the outermost complete bracket pair
-    greedy_match = re.search(r"\[.*\]", text, re.DOTALL)
-    if greedy_match is None:
-        error_msg = f"No square bracket content found in text: {text}"
+    try:
+        result = parse_json_result(text)
+        if result or (isinstance(result, list) and len(result) >= 0):
+            if isinstance(result, list):
+                return result
+            # If it's a dict, maybe it's wrapped?
+            if isinstance(result, dict):
+                return [result]
+            return result
+        
+        # If result is empty but text has content that should have been parsed
+        if "[" in text and "]" in text:
+             greedy_match = re.search(r"\[.*\]", text, re.DOTALL)
+             if greedy_match:
+                 try:
+                     return json.loads(greedy_match.group(0))
+                 except json.JSONDecodeError:
+                     pass
+
+        raise ValueError(f"No valid JSON list found in text: {text[:200]}")
+    except Exception as e:
+        # Fallback to manual extraction
+        greedy_match = re.search(r"\[.*\]", text, re.DOTALL)
+        if greedy_match:
+            try:
+                return json.loads(greedy_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        error_msg = f"Failed to parse JSON content from square brackets: {e}. Text preview: {text[:200]}"
         raise ValueError(error_msg)
-
-    greedy_content = greedy_match.group(0)
-
-    # Strategy 2: Non-greedy match to find all bracket pairs, use the last one
-    non_greedy_matches = re.findall(r"\[.*?\]", text, re.DOTALL)
-    if not non_greedy_matches:
-        error_msg = f"No square bracket content found in text: {text}"
-        raise ValueError(error_msg)
-
-    non_greedy_content = non_greedy_matches[-1]
-
-    for content in [greedy_content, non_greedy_content]:
-        try:
-            parsed_data = json.loads(content)
-            return parsed_data
-        except json.JSONDecodeError:
-            continue
-
-    for content in [greedy_content, non_greedy_content]:
-        try:
-            fixed_content = content.replace("{{", "{").replace("}}", "}")
-            parsed_data = json.loads(fixed_content)
-            return parsed_data
-        except json.JSONDecodeError:
-            continue
-
-    error_msg = f"Failed to parse JSON content from square brackets. Text preview: {text}"
-    raise ValueError(error_msg)

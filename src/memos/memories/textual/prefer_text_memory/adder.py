@@ -8,6 +8,7 @@ from typing import Any
 
 from memos.context.context import ContextThreadPoolExecutor
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import TextualMemoryItem
 from memos.templates.prefer_complete_prompt import (
     NAIVE_JUDGE_DUP_WITH_TEXT_MEM_PROMPT,
@@ -59,8 +60,7 @@ class NaiveAdder(BaseAdder):
 
         try:
             response = self.llm_provider.generate([{"role": "user", "content": prompt}])
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
             response = result.get("is_same", False)
             return response if isinstance(response, bool) else response.lower() == "true"
         except Exception as e:
@@ -76,8 +76,7 @@ class NaiveAdder(BaseAdder):
         )
         try:
             response = self.llm_provider.generate([{"role": "user", "content": prompt}])
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
             return result
         except Exception as e:
             logger.error(f"Error in judge_update_or_add_fine: {e}")
@@ -113,8 +112,7 @@ class NaiveAdder(BaseAdder):
         ).replace("{retrieved_memories}", json.dumps(text_mem_recalls, ensure_ascii=False))
         try:
             response = self.llm_provider.generate([{"role": "user", "content": prompt}])
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
             exists = result.get("exists", False)
             return exists
         except Exception as e:
@@ -131,8 +129,7 @@ class NaiveAdder(BaseAdder):
         ).replace("{retrieved_memories}", retrieved_mems)
         try:
             response = self.llm_provider.generate([{"role": "user", "content": prompt}])
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
             return result
         except Exception as e:
             logger.error(f"Error in judge_update_or_add_trace_op: {e}")

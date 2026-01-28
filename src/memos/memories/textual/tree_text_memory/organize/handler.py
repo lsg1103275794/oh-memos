@@ -45,9 +45,9 @@ class NodeHandler:
             prompt = [
                 {
                     "role": "user",
-                    "content": MEMORY_RELATION_DETECTOR_PROMPT.format(
-                        statement_1=memory.memory, statement_2=embedding_candidate.memory
-                    ),
+                    "content": MEMORY_RELATION_DETECTOR_PROMPT.replace(
+                        "{statement_1}", memory.memory
+                    ).replace("{statement_2}", embedding_candidate.memory),
                 }
             ]
             result = self.llm.generate(prompt).strip()
@@ -85,21 +85,23 @@ class NodeHandler:
         prompt = [
             {
                 "role": "user",
-                "content": MEMORY_RELATION_RESOLVER_PROMPT.format(
-                    relation=relation,
-                    statement_1=memory_a.memory,
-                    metadata_1=metadata_1,
-                    statement_2=memory_b.memory,
-                    metadata_2=metadata_2,
-                ),
+                "content": MEMORY_RELATION_RESOLVER_PROMPT.replace("{relation}", relation)
+                .replace("{statement_1}", memory_a.memory)
+                .replace("{metadata_1}", metadata_1)
+                .replace("{statement_2}", memory_b.memory)
+                .replace("{metadata_2}", metadata_2),
             },
         ]
         response = self.llm.generate(prompt).strip()
 
         # ———————————— 2. Parse the response ————————————
         try:
-            answer = re.search(r"<answer>(.*?)</answer>", response, re.DOTALL)
-            answer = answer.group(1).strip()
+            answer_match = re.search(r"<answer>(.*?)</answer>", response, re.DOTALL)
+            if not answer_match:
+                logger.warning(f"No <answer> tag found in response: {response}")
+                return
+
+            answer = answer_match.group(1).strip()
             # —————— 2.1 Can't resolve conflict, hard update by comparing timestamp ————
             if len(answer) <= 10 and "no" in answer.lower():
                 logger.warning(
@@ -112,8 +114,8 @@ class NodeHandler:
                 merged_memory = TextualMemoryItem(memory=answer, metadata=fixed_metadata)
                 logger.info(f"Resolved result: {merged_memory}")
                 self._resolve_in_graph(memory_a, memory_b, merged_memory)
-        except json.decoder.JSONDecodeError:
-            logger.error(f"Failed to parse LLM response: {response}")
+        except Exception as e:
+            logger.error(f"Error processing resolution response: {e}\nResponse: {response}")
 
     def _hard_update(self, memory_a: TextualMemoryItem, memory_b: TextualMemoryItem):
         """

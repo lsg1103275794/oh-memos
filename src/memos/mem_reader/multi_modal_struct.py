@@ -566,10 +566,8 @@ class MultiModalStructMemReader(SimpleStructMemReader):
         )
 
         merge_prompt_template = MEMORY_MERGE_PROMPT_ZH if lang == "zh" else MEMORY_MERGE_PROMPT_EN
-        merge_prompt = merge_prompt_template.format(
-            new_memory=new_memory.memory,
-            similar_memories=similar_memories_text,
-        )
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        merge_prompt = merge_prompt_template.replace("{new_memory}", new_memory.memory).replace("{similar_memories}", similar_memories_text)
 
         try:
             response_text = self.llm.generate([{"role": "user", "content": merge_prompt}])
@@ -724,8 +722,7 @@ class MultiModalStructMemReader(SimpleStructMemReader):
             template = TOOL_TRAJECTORY_PROMPT_ZH if lang == "zh" else TOOL_TRAJECTORY_PROMPT_EN
             prompt = template.replace("{messages}", mem_str)
             rsp = self.llm.generate([{"role": "user", "content": prompt}])
-            rsp = rsp.replace("```json", "").replace("```", "")
-            return json.loads(rsp)
+            return parse_json_result(rsp)
         except Exception as e:
             logger.error(f"[MultiModalFine] Error calling LLM for tool trajectory: {e}")
             return []

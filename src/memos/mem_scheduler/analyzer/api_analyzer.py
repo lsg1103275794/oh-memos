@@ -17,6 +17,7 @@ from memos.api.product_models import APIADDRequest, APISearchRequest
 from memos.api.routers.server_router import add_memories, search_memories
 from memos.log import get_logger
 from memos.types import MessageDict, SearchMode, UserContext
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 
 
 logger = get_logger(__name__)
@@ -166,10 +167,7 @@ class APIAnalyzerForScheduler:
 
             logger.info(f"Search request completed with status: {response.status}")
 
-            try:
-                response_data = json.loads(response_text) if response_text else {}
-            except json.JSONDecodeError:
-                response_data = {}
+            response_data = parse_json_result(response_text) if response_text else {}
 
             return {
                 "success": True,
@@ -261,10 +259,7 @@ class APIAnalyzerForScheduler:
 
             logger.info(f"Add request completed with status: {response.status}")
 
-            try:
-                response_data = json.loads(response_text) if response_text else {}
-            except json.JSONDecodeError:
-                response_data = {}
+            response_data = parse_json_result(response_text) if response_text else {}
 
             return {
                 "success": True,

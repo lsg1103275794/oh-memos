@@ -19,6 +19,7 @@ from memos.mem_cube.utils import (
     path_exists,
 )
 from memos.mem_reader.factory import MemReaderFactory
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_scheduler.general_scheduler import GeneralScheduler
 from memos.mem_scheduler.scheduler_factory import SchedulerFactory
 from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
@@ -409,7 +410,7 @@ class MOSCore:
             memory_context = "\n".join(memory_list)
 
         if "{memories}" in base_prompt:
-            return base_prompt.format(memories=memory_context)
+            return base_prompt.replace("{memories}", memory_context)
         elif memories:
             # For backward compatibility, append memories if no placeholder is found
             memory_context_with_header = "\n\n## Memories:\n" + memory_context
@@ -1284,11 +1285,13 @@ class MOSCore:
         target_user_id = user_id if user_id is not None else self.user_id
         chat_history = self.chat_history_manager[target_user_id]
 
-        dialogue = "————{}".format("\n————".join(chat_history.chat_history))
-        user_prompt = QUERY_REWRITING_PROMPT.format(dialogue=dialogue, query=query)
+        dialogue_content = '\n————'.join(chat_history.chat_history)
+        dialogue = f"————{dialogue_content}"
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        user_prompt = QUERY_REWRITING_PROMPT.replace("{dialogue}", dialogue).replace("{query}", query)
         messages = {"role": "user", "content": user_prompt}
         rewritten_result = self.chat_llm.generate(messages=messages)
-        rewritten_result = json.loads(rewritten_result)
+        rewritten_result = parse_json_result(rewritten_result)
         if rewritten_result.get("former_dialogue_related", False):
             rewritten_query = rewritten_result.get("rewritten_question")
             return rewritten_query if len(rewritten_query) > 0 else query

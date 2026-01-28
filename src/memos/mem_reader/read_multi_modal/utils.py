@@ -65,7 +65,7 @@ def parse_json_result(response_text: str) -> dict:
     m = re.search(r"```(?:json)?\s*([\s\S]*?)```", s, flags=re.I)
     s = (m.group(1) if m else s.replace("```", "")).strip()
 
-    i = s.find("{")
+    i = min((s.find(c) for c in "{[" if s.find(c) != -1), default=-1)
     if i == -1:
         return {}
     s = s[i:].strip()
@@ -83,8 +83,20 @@ def parse_json_result(response_text: str) -> dict:
             pass
 
     def _cheap_close(t: str) -> str:
-        t += "}" * max(0, t.count("{") - t.count("}"))
-        t += "]" * max(0, t.count("[") - t.count("]"))
+        # Stack-based closer for more robust repair of truncated JSON
+        stack = []
+        for char in t:
+            if char == "{":
+                stack.append("}")
+            elif char == "[":
+                stack.append("]")
+            elif char == "}" and stack and stack[-1] == "}":
+                stack.pop()
+            elif char == "]" and stack and stack[-1] == "]":
+                stack.pop()
+
+        # Add closing brackets in reverse order
+        t += "".join(reversed(stack))
         return t
 
     t = _cheap_close(s)

@@ -8,6 +8,7 @@ from typing import Any
 
 from memos.context.context import ContextThreadPoolExecutor
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_reader.read_multi_modal import detect_lang
 from memos.memories.textual.item import (
     PreferenceTextualMemoryMetadata,
@@ -74,10 +75,12 @@ class NaiveExtractor(BaseExtractor):
                     f"[prefer_extractor]: (Error) LLM response content is {response} when extracting explicit preference"
                 )
                 return None
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
+            if not isinstance(result, list):
+                result = [result] if result else []
             for d in result:
-                d["preference"] = d.pop("explicit_preference")
+                if "explicit_preference" in d:
+                    d["preference"] = d.pop("explicit_preference")
             return result
         except Exception as e:
             logger.info(f"Error extracting explicit preference: {e}, return None")
@@ -102,10 +105,12 @@ class NaiveExtractor(BaseExtractor):
                     f"[prefer_extractor]: (Error) LLM response content is {response} when extracting implicit preference"
                 )
                 return None
-            response = response.strip().replace("```json", "").replace("```", "").strip()
-            result = json.loads(response)
+            result = parse_json_result(response)
+            if not isinstance(result, list):
+                result = [result] if result else []
             for d in result:
-                d["preference"] = d.pop("implicit_preference")
+                if "implicit_preference" in d:
+                    d["preference"] = d.pop("implicit_preference")
             return result
         except Exception as e:
             logger.info(f"Error extracting implicit preferences: {e}, return None")

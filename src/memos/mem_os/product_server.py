@@ -212,7 +212,7 @@ class MOSServer:
             memory_context = "\n".join(memory_list)
 
         if "{memories}" in base_prompt:
-            return base_prompt.format(memories=memory_context)
+            return base_prompt.replace("{memories}", memory_context)
         elif base_prompt and memories:
             # For backward compatibility, append memories if no placeholder is found
             memory_context_with_header = "\n\n## Memories:\n" + memory_context

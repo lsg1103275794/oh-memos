@@ -5,12 +5,13 @@ from memos.embedders.factory import OllamaEmbedder
 from memos.graph_dbs.item import GraphDBNode
 from memos.graph_dbs.neo4j import Neo4jGraphDB
 from memos.llms.base import BaseLLM
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
 from memos.memories.textual.item import TreeNodeTextualMemoryMetadata
 from memos.templates.tree_reorganize_prompts import (
     AGGREGATE_PROMPT,
     INFER_FACT_PROMPT,
-    PAIRWISE_RELATION_PROMPT,
+    BATCH_PAIRWISE_RELATION_PROMPT,
 )
 
 
@@ -64,9 +65,9 @@ class RelationAndReasoningDetector:
             inferred = self._infer_fact_nodes_from_relations(pairwise)
             results["inferred_nodes"].extend(inferred)
 
-            # 3) Sequence (optional, if you have timestamps)
-            # seq = self._detect_sequence_links(node, nearest)
-            # results["sequence_links"].extend(seq)
+            # 3) Sequence (FOLLOWS relations based on timestamps)
+            seq = self._detect_sequence_links(node, nearest)
+            results["sequence_links"].extend(seq)
 
             # 4) Aggregate
             # agg = self._detect_aggregate_node_for_group(node, nearest, min_group_size=5)
@@ -83,29 +84,40 @@ class RelationAndReasoningDetector:
         self, node: GraphDBNode, nearest_nodes: list[GraphDBNode]
     ):
         """
-        Vector/tag search ➜ For each candidate, use LLM to decide:
+        Vector/tag search ➜ Batch use LLM to decide:
         - CAUSE
         - CONDITION
         - RELATE
         - CONFLICT
         """
         results = {"relations": []}
+        if not nearest_nodes:
+            return results
 
-        for candidate in nearest_nodes:
-            prompt = PAIRWISE_RELATION_PROMPT.format(
-                node1=node.memory,
-                node2=candidate.memory,
-            )
-            response_text = self._call_llm(prompt)
-            relation_type = self._parse_relation_result(response_text)
-            if relation_type != "NONE":
-                results["relations"].append(
-                    {
-                        "source_id": node.id,
-                        "target_id": candidate.id,
-                        "relation_type": relation_type,
-                    }
-                )
+        node_pairs = []
+        for idx, candidate in enumerate(nearest_nodes):
+            node_pairs.append({"id": idx, "node1": node.memory, "node2": candidate.memory})
+
+        prompt = BATCH_PAIRWISE_RELATION_PROMPT.replace("{node_pairs}", json.dumps(node_pairs, ensure_ascii=False))
+        response_text = self._call_llm(prompt)
+        batch_results = self._parse_json_result(response_text)
+
+        if isinstance(batch_results, list):
+            for res in batch_results:
+                pair_id = res.get("pair_id")
+                relation_type = res.get("relation", "NONE").upper()
+                
+                if pair_id is not None and 0 <= pair_id < len(nearest_nodes):
+                    candidate = nearest_nodes[pair_id]
+                    if relation_type in {"CAUSE", "CONDITION", "RELATE", "CONFLICT"}:
+                        results["relations"].append(
+                            {
+                                "source_id": node.id,
+                                "target_id": candidate.id,
+                                "relation_type": relation_type,
+                            }
+                        )
+                        logger.info(f"[RelationDetector] Detected batch relation: {relation_type} between {node.id[:8]} and {candidate.id[:8]}")
 
         return results
 
@@ -118,8 +130,10 @@ class RelationAndReasoningDetector:
                 if not src or not tgt:
                     continue
 
-                prompt = INFER_FACT_PROMPT.format(
-                    source=src["memory"], target=tgt["memory"], relation_type=rel["relation_type"]
+                prompt = (
+                    INFER_FACT_PROMPT.replace("{source}", src["memory"])
+                    .replace("{target}", tgt["memory"])
+                    .replace("{relation_type}", rel["relation_type"])
                 )
                 response_text = self._call_llm(prompt).strip()
                 if not response_text:
@@ -150,17 +164,23 @@ class RelationAndReasoningDetector:
     def _detect_sequence_links(self, node: GraphDBNode, nearest_nodes: list[GraphDBNode]):
         """
         If node has timestamp, find other nodes to link FOLLOWS edges.
+        Only link if they are temporally close (e.g., within 24 hours) or share specific tags.
         """
         results = []
-        # Pseudo: find older/newer events with same tags
-        # TODO: add time sequence recall
-        neighbors = nearest_nodes
-        for cand in neighbors:
-            # Compare timestamps
+        if not node.metadata.updated_at:
+            return results
+
+        for cand in nearest_nodes:
+            if not cand.metadata.updated_at:
+                continue
+            
+            # Simple temporal ordering
             if cand.metadata.updated_at < node.metadata.updated_at:
                 results.append({"from_id": cand.id, "to_id": node.id})
+                logger.info(f"[RelationDetector] Sequence link: {cand.id[:8]} FOLLOWS {node.id[:8]}")
             elif cand.metadata.updated_at > node.metadata.updated_at:
                 results.append({"from_id": node.id, "to_id": cand.id})
+                logger.info(f"[RelationDetector] Sequence link: {node.id[:8]} FOLLOWS {cand.id[:8]}")
         return results
 
     def _detect_aggregate_node_for_group(
@@ -211,12 +231,7 @@ class RelationAndReasoningDetector:
             return ""
 
     def _parse_json_result(self, response_text):
-        try:
-            response_text = response_text.replace("```", "").replace("json", "")
-            response_json = json.loads(response_text)
-            return response_json
-        except json.JSONDecodeError:
-            return {}
+        return parse_json_result(response_text)
 
     def _parse_relation_result(self, response_text: str) -> str:
         """

@@ -35,46 +35,7 @@ def derive_key(text: str, max_len: int = 80) -> str:
     return (sent[:max_len]).strip()
 
 
-def parse_json_result(response_text: str) -> dict:
-    s = (response_text or "").strip()
-
-    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", s, flags=re.I)
-    s = (m.group(1) if m else s.replace("```", "")).strip()
-
-    i = s.find("{")
-    if i == -1:
-        return {}
-    s = s[i:].strip()
-
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError:
-        pass
-
-    j = max(s.rfind("}"), s.rfind("]"))
-    if j != -1:
-        try:
-            return json.loads(s[: j + 1])
-        except json.JSONDecodeError:
-            pass
-
-    def _cheap_close(t: str) -> str:
-        t += "}" * max(0, t.count("{") - t.count("}"))
-        t += "]" * max(0, t.count("[") - t.count("]"))
-        return t
-
-    t = _cheap_close(s)
-    try:
-        return json.loads(t)
-    except json.JSONDecodeError as e:
-        if "Invalid \\escape" in str(e):
-            s = s.replace("\\", "\\\\")
-            return json.loads(s)
-        logger.warning(
-            f"[JSONParse] Failed to decode JSON: {e}\nTail: Raw {response_text} \
-            json: {s}"
-        )
-        return {}
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 
 
 def parse_rewritten_response(text: str) -> tuple[bool, dict[int, dict]]:

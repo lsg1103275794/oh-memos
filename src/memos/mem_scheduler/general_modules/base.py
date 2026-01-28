@@ -28,7 +28,13 @@ class BaseSchedulerModule:
         template = self.load_template(template_name)
         if not template:
             raise FileNotFoundError(f"Prompt template `{template_name}` not found.")
-        return template.format(**kwargs)
+        
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = template
+        for key, value in kwargs.items():
+            placeholder = "{" + key + "}"
+            prompt = prompt.replace(placeholder, str(value))
+        return prompt
 
     def _build_system_prompt(self, memories: list | None = None) -> str:
         """Build system prompt with optional memories context."""

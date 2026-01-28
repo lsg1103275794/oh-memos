@@ -16,6 +16,7 @@ from memos.embedders.factory import EmbedderFactory, OllamaEmbedder
 from memos.graph_dbs.factory import GraphStoreFactory, PolarDBGraphDB
 from memos.llms.factory import AzureLLM, LLMFactory, OllamaLLM, OpenAILLM
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_feedback.base import BaseMemFeedback
 from memos.mem_feedback.utils import (
     extract_bracket_content,
@@ -180,8 +181,8 @@ class MemFeedback(BaseMemFeedback):
         """
         lang = detect_lang(feedback_content)
         template = FEEDBACK_PROMPT_DICT["if_kw_replace"][lang]
-        prompt = template.format(
-            user_feedback=feedback_content,
+        prompt = template.replace(
+            "{user_feedback}", feedback_content
         )
 
         judge_res = self._get_llm_response(prompt, load_type="bracket")
@@ -203,10 +204,10 @@ class MemFeedback(BaseMemFeedback):
         template = FEEDBACK_PROMPT_DICT["judge"][lang]
         chat_history_lis = [f"""{msg["role"]}: {msg["content"]}""" for msg in chat_history[-4:]]
         chat_history_str = "\n".join(chat_history_lis)
-        prompt = template.format(
-            chat_history=chat_history_str,
-            user_feedback=feedback_content,
-            feedback_time=feedback_time,
+        prompt = (
+            template.replace("{chat_history}", chat_history_str)
+            .replace("{user_feedback}", feedback_content)
+            .replace("{feedback_time}", feedback_time)
         )
 
         judge_res = self._get_llm_response(prompt, load_type="square_bracket")
@@ -470,11 +471,11 @@ class MemFeedback(BaseMemFeedback):
                             chunk_list.append(f"{item.id}: {item.memory}")
                     current_memories_str = "\n".join(chunk_list)
 
-                    prompt = template.format(
-                        now_time=now_time,
-                        current_memories=current_memories_str,
-                        new_facts=memory_item.memory,
-                        chat_history=history_str,
+                    prompt = (
+                        template.replace("{now_time}", now_time)
+                        .replace("{current_memories}", current_memories_str)
+                        .replace("{new_facts}", str(memory_item.memory))
+                        .replace("{chat_history}", history_str)
                     )
 
                     future = executor.submit(self._get_llm_response, prompt, load_type="bracket")
@@ -695,23 +696,20 @@ class MemFeedback(BaseMemFeedback):
             response_text = self.llm.generate(messages, temperature=0.3, timeout=60)
             if not dsl:
                 return response_text
-            try:
-                response_text = response_text.replace("```", "").replace("json", "")
-                cleaned_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", response_text)
-                response_json = json.loads(cleaned_text)
+
+            response_json = parse_json_result(response_text)
+            if response_json:
                 return response_json
-            except (json.JSONDecodeError, ValueError) as e:
-                if load_type == "bracket":
-                    response_json = extract_bracket_content(response_text)
-                    return response_json
-                elif load_type == "square_bracket":
-                    response_json = extract_square_brackets_content(response_text)
-                    return response_json
-                else:
-                    logger.error(
-                        f"[Feedback Core LLM Error] Exception during chat generation: {e} | response_text： {response_text}"
-                    )
-                    return None
+
+            if load_type == "bracket":
+                return extract_bracket_content(response_text)
+            elif load_type == "square_bracket":
+                return extract_square_brackets_content(response_text)
+            else:
+                logger.error(
+                    f"[Feedback Core LLM Error] Exception during chat generation: parse_json_result failed | response_text： {response_text}"
+                )
+                return None
 
         except Exception as e:
             logger.error(
@@ -734,7 +732,7 @@ class MemFeedback(BaseMemFeedback):
             future_to_chunk_idx = {}
             for chunk in operations_chunks:
                 raw_operations_str = {"operations": chunk}
-                prompt = template.format(raw_operations=str(raw_operations_str))
+                prompt = template.replace("{raw_operations}", str(raw_operations_str))
 
                 future = executor.submit(self._get_llm_response, prompt, load_type="bracket")
                 future_to_chunk_idx[future] = chunk
@@ -868,7 +866,9 @@ class MemFeedback(BaseMemFeedback):
             [f"{item['role']}: {item['content']}" for item in chat_history]
         )
         chat_history_str = chat_history_str if chat_history_str else "none"
-        prompt = template.format(chat_history=chat_history_str, question=feedback_content)
+        prompt = template.replace("{chat_history}", chat_history_str).replace(
+            "{question}", feedback_content
+        )
 
         return self._get_llm_response(prompt, dsl=False)
 

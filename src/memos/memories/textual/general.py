@@ -9,6 +9,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt
 from memos.configs.memory import GeneralTextMemoryConfig
 from memos.embedders.factory import ArkEmbedder, EmbedderFactory, OllamaEmbedder
 from memos.llms.factory import AzureLLM, LLMFactory, OllamaLLM, OpenAILLM
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
 from memos.memories.textual.base import BaseTextMemory
 from memos.memories.textual.item import TextualMemoryItem
@@ -61,7 +62,7 @@ class GeneralTextMemory(BaseTextMemory):
         )
         messages = [{"role": "user", "content": prompt}]
         response_text = self.extractor_llm.generate(messages)
-        response_json = self.parse_json_result(response_text)
+        response_json = parse_json_result(response_text)
 
         extracted_memories = [
             TextualMemoryItem(
@@ -219,18 +220,3 @@ class GeneralTextMemory(BaseTextMemory):
     def _embed_one_sentence(self, sentence: str) -> list[float]:
         """Embed a single sentence."""
         return self.embedder.embed([sentence])[0]
-
-    def parse_json_result(self, response_text):
-        try:
-            json_start = response_text.find("{")
-            response_text = response_text[json_start:]
-            response_text = response_text.replace("```", "").strip()
-            if response_text[-1] != "}":
-                response_text += "}"
-            response_json = json.loads(response_text)
-            return response_json
-        except json.JSONDecodeError as e:
-            logger.warning(
-                f"Failed to parse LLM response as JSON: {e}\nRaw response:\n{response_text}"
-            )
-            return {}

@@ -715,10 +715,9 @@ class SingleCubeView(MemCubeView):
         }
 
         candidates_inline = json.dumps(candidates_inline_dict, ensure_ascii=False, indent=2)
-
-        prompt = template.format(
-            messages_inline=messages_inline, candidates_inline=candidates_inline
-        )
+        
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = template.replace("{messages_inline}", messages_inline).replace("{candidates_inline}", candidates_inline)
 
         # 3. Call LLM
         try:

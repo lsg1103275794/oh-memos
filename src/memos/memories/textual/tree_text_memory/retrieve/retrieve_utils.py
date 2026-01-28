@@ -402,33 +402,7 @@ class FastTokenizer:
         return tokens
 
 
-def parse_json_result(response_text):
-    try:
-        json_start = response_text.find("{")
-        response_text = response_text[json_start:]
-        response_text = response_text.replace("```", "").strip()
-        if not response_text.endswith("}"):
-            response_text += "}"
-        return json.loads(response_text)
-    except json.JSONDecodeError as e:
-        logger.error(f"[JSONParse] Failed to decode JSON: {e}\nRaw:\n{response_text}")
-        return {}
-    except Exception as e:
-        logger.error(f"[JSONParse] Unexpected error: {e}")
-        return {}
-
-
-def detect_lang(text):
-    try:
-        if not text or not isinstance(text, str):
-            return "en"
-        chinese_pattern = r"[\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df\U0002a700-\U0002b73f\U0002b740-\U0002b81f\U0002b820-\U0002ceaf\uf900-\ufaff]"
-        chinese_chars = re.findall(chinese_pattern, text)
-        if len(chinese_chars) / len(re.sub(r"[\s\d\W]", "", text)) > 0.3:
-            return "zh"
-        return "en"
-    except Exception:
-        return "en"
+from memos.mem_reader.read_multi_modal.utils import parse_json_result, detect_lang
 
 
 def format_memory_item(memory_data: Any) -> dict[str, Any]:

@@ -82,6 +82,18 @@ MemOSLocal-SM is a complete **AI Project Memory Solution** that includes:
 | **🧠 project-memory** | Claude Code Skill | AI auto-save/search/track memories |
 | **🔌 mcp-server** | MCP Protocol Server | AI **proactively** uses memory tools |
 
+### 💡 Deploy Claude Skill (Recommended)
+
+To give Claude **full awareness** of your project and enable **proactive memory tracking**, deploy the `project-memory` skill:
+
+1. Create the directory `.claude/skills/project-memory/` in your project root.
+2. Copy `project-memory/SKILL.md` to `.claude/skills/project-memory/SKILL.md`.
+
+**Benefits:**
+- **Zero Config**: Automatically derives `cube_id` from your project folder name.
+- **Deep Awareness**: Claude will know it has "persistent memory" and proactively save milestones, architecture decisions, and bugfixes.
+- **Smart Triggers**: Claude will automatically call `memos_search` when you ask "remember?" or "how did we do X?".
+
 ### Two Memory Modes
 
 | Mode | Storage | Features | Best For |
@@ -1268,6 +1280,15 @@ memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CON
 | `memos_suggest` | 搜索建议 | 不确定搜什么 |
 | `memos_get_graph` | 查询知识图谱 | 用户问"为什么失败"、"依赖关系" |
 | `memos_delete` | 删除记忆 | 清理测试数据（需启用安全开关） |
+
+### 💡 部署 Claude 技能 (Skills)
+
+如果你在 Claude 环境中使用，可以将 `project-memory/SKILL.md` 复制到项目的 `.claude/skills/project-memory/SKILL.md`。
+
+**优势**:
+- **智能感知**: Claude 会自动识别 `project-memory` 技能。
+- **核心意识**: 它会意识到自己拥有“持久化记忆”，并主动记录项目架构、决策和进度。
+- **自动隔离**: 根据项目目录自动推导 `cube_id`，实现零配置的项目记忆隔离。
 
 ### MCP 配置示例
 

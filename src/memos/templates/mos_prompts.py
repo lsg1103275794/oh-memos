@@ -396,7 +396,9 @@ def get_memos_prompt(date, tone, verbosity, mode="base", lang="en"):
         enhance_prompt = MEMOS_PRODUCT_ENHANCE_PROMPT
 
     parts = [
-        base_prompt.format(date=date, tone=tone, verbosity=verbosity),
+        base_prompt.replace("{date}", date)
+        .replace("{tone}", tone)
+        .replace("{verbosity}", verbosity),
     ]
     if mode == "enhance":
         parts.append(enhance_prompt)

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from memos.configs.mem_agent import DeepSearchAgentConfig
 from memos.llms.base import BaseLLM
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
 from memos.mem_agent.base import BaseMemAgent
 from memos.memories.textual.item import TextualMemoryItem
@@ -35,17 +36,9 @@ class JSONResponseParser:
     @staticmethod
     def parse(response: str) -> dict[str, Any]:
         """Parse JSON response from LLM output with fallback strategies"""
-        # Clean response text by removing code block markers
-        cleaned = re.sub(r"^```(?:json)?\s*\n?|```\s*$", "", response.strip(), flags=re.IGNORECASE)
-
-        # Try parsing with multiple strategies
-        for text in [cleaned, re.search(r"\{.*\}", cleaned, re.DOTALL)]:
-            if not text:
-                continue
-            try:
-                return json.loads(text if isinstance(text, str) else text.group())
-            except json.JSONDecodeError:
-                continue
+        result = parse_json_result(response)
+        if result is not None:
+            return result
 
         raise ValueError(f"Cannot parse JSON response: {response[:100]}...")
 
@@ -62,7 +55,8 @@ class QueryRewriter(BaseMemAgent):
         history = history or []
         history_context = self._format_history(history)
 
-        prompt = QUERY_REWRITE_PROMPT.format(history=history_context, query=query)
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = QUERY_REWRITE_PROMPT.replace("{history}", history_context).replace("{query}", query)
         messages = [{"role": "user", "content": prompt}]
         try:
             response = self.llm.generate(messages)
@@ -89,8 +83,9 @@ class ReflectionAgent:
     def run(self, query: str, context: list[str]) -> dict[str, Any]:
         """Analyze whether retrieved context is sufficient to answer the query"""
         context_summary = self._format_context(context)
-        prompt = REFLECTION_PROMPT.format(query=query, context=context_summary)
-
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = REFLECTION_PROMPT.replace("{query}", query).replace("{context}", context_summary)
+        
         try:
             response = self.llm.generate([{"role": "user", "content": prompt}])
             logger.info(f"[{self.name}] Reflection response: {response}")
@@ -256,12 +251,8 @@ class DeepSearchMemAgent(BaseMemAgent):
         Generate the final answer.
         """
         context_str = "\n".join([f"- {ctx}" for ctx in context[:20]])
-        prompt = FINAL_GENERATION_PROMPT.format(
-            query=original_query,
-            sources=sources,
-            context=context_str if context_str else "No specific context retrieved",
-            missing_info=missing_info if missing_info else "None identified",
-        )
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = FINAL_GENERATION_PROMPT.replace("{query}", original_query).replace("{sources}", str(sources)).replace("{context}", context_str if context_str else "No specific context retrieved").replace("{missing_info}", missing_info if missing_info else "None identified")
         messages: MessageList = [{"role": "user", "content": prompt}]
         response = self.llm.generate(messages)
         return response.strip()
@@ -375,11 +366,11 @@ class DeepSearchMemAgent(BaseMemAgent):
             else "No specific sources"
         )
 
-        prompt = FINAL_GENERATION_PROMPT.format(
-            query=original_query,
-            sources=sources,
-            context=context_str if context_str else "No specific context retrieved",
-            missing_info=missing_info if missing_info else "None identified",
+        prompt = (
+            FINAL_GENERATION_PROMPT.replace("{query}", original_query)
+            .replace("{sources}", sources)
+            .replace("{context}", context_str if context_str else "No specific context retrieved")
+            .replace("{missing_info}", missing_info if missing_info else "None identified")
         )
         messages: MessageList = [{"role": "user", "content": prompt}]
 

@@ -66,7 +66,13 @@ class AdvancedSearcher(Searcher):
         template = self.load_template(template_name)
         if not template:
             raise FileNotFoundError(f"Prompt template `{template_name}` not found.")
-        return template.format(**kwargs)
+        
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = template
+        for key, value in kwargs.items():
+            placeholder = "{" + key + "}"
+            prompt = prompt.replace(placeholder, str(value))
+        return prompt
 
     def stage_retrieve(
         self,

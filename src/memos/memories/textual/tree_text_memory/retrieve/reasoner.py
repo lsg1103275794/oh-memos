@@ -5,6 +5,7 @@ from string import Template
 
 from memos.memories.textual.item import TextualMemoryItem
 from memos.memories.textual.tree_text_memory.retrieve.retrieval_mid_structs import ParsedTaskGoal
+from memos.memories.textual.tree_text_memory.retrieve.retrieve_utils import parse_json_result
 from memos.memories.textual.tree_text_memory.retrieve.utils import REASON_PROMPT
 
 
@@ -51,11 +52,10 @@ class MemoryReasoner:
         """
         Extracts memory IDs from model response. Supports both simple text list and JSON.
         """
-        try:
-            parsed = json.loads(response_text)
-            if isinstance(parsed, dict) and "selected_ids" in parsed:
-                return parsed["selected_ids"]
-        except json.JSONDecodeError:
-            pass
+        parsed = parse_json_result(response_text)
+        if isinstance(parsed, dict) and "selected_ids" in parsed:
+            return parsed["selected_ids"]
+        elif isinstance(parsed, list):
+            return [str(item) for item in parsed if isinstance(item, (str, int))]
 
         return re.findall(r"[a-f0-9\-]{36}", response_text)  # UUID pattern fallback

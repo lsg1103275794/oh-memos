@@ -108,36 +108,40 @@ Memory items:
 {joined_scene}
 """
 
-PAIRWISE_RELATION_PROMPT = """
+BATCH_PAIRWISE_RELATION_PROMPT = """
 You are a reasoning assistant.
 
-Given two memory units:
-- Node 1: "{node1}"
-- Node 2: "{node2}"
-
-Your task:
-- Determine their relationship ONLY if it reveals NEW usable reasoning or retrieval knowledge that is NOT already explicit in either unit.
-- Focus on whether combining them adds new temporal, causal, conditional, or conflict information.
+You are given a list of memory node pairs. For each pair, determine their relationship.
+Focus on whether combining them reveals NEW usable reasoning or retrieval knowledge that is NOT already explicit.
 
 Valid options:
-- CAUSE: One clearly leads to the other.
-- CONDITION: One happens only if the other condition holds.
-- RELATE: They are semantically related by shared people, time, place, or event, but neither causes the other.
+- CAUSE: Node A clearly leads to Node B.
+- CONDITION: Node B happens only if Node A holds.
+- RELATE: They are semantically related (shared people, time, place, event), but no direct causality.
 - CONFLICT: They logically contradict each other.
 - NONE: No clear useful connection.
 
-Example:
-- Node 1: "The marketing campaign ended in June."
-- Node 2: "Product sales dropped in July."
-Answer: CAUSE
+Return a JSON list of objects, where each object contains "pair_id" and "relation".
+The "pair_id" should correspond to the ID provided in the input list.
 
-Another Example:
-- Node 1: "The conference was postponed to August due to the venue being unavailable."
-- Node 2: "The venue was booked for a wedding in August."
-Answer: CONFLICT
+Example Input:
+[
+  {"id": 1, "node1": "The marketing campaign ended in June.", "node2": "Product sales dropped in July."},
+  {"id": 2, "node1": "Conference was postponed.", "node2": "Venue was booked for a wedding."}
+]
 
-Always respond with ONE word, no matter what language is for the input nodes: [CAUSE | CONDITION | RELATE | CONFLICT | NONE]
+Example Output:
+[
+  {"pair_id": 1, "relation": "CAUSE"},
+  {"pair_id": 2, "relation": "CONFLICT"}
+]
+
+Node pairs to analyze:
+{node_pairs}
+
+Return ONLY valid JSON.
 """
+
 
 INFER_FACT_PROMPT = """
 You are an inference expert.

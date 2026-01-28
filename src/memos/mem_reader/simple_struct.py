@@ -493,7 +493,11 @@ class SimpleStructMemReader(BaseMemReader, ABC):
                 indent=2,
             ),
         }
-        prompt = template.format(**prompt_args)
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = template
+        for key, value in prompt_args.items():
+            placeholder = "{" + key + "}"
+            prompt = prompt.replace(placeholder, str(value))
 
         # Optionally run filter and parse the output
         try:
@@ -553,7 +557,11 @@ class SimpleStructMemReader(BaseMemReader, ABC):
                 indent=2,
             ),
         }
-        prompt = template.format(**prompt_args)
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        prompt = template
+        for key, value in prompt_args.items():
+            placeholder = "{" + key + "}"
+            prompt = prompt.replace(placeholder, str(value))
 
         # Optionally run filter and parse the output
         try:

@@ -6,6 +6,7 @@ from typing import Any
 
 from memos.configs.memory import NaiveTextMemoryConfig
 from memos.llms.factory import LLMFactory
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
 from memos.memories.textual.base import BaseTextMemory
 from memos.memories.textual.item import TextualMemoryItem, TextualMemoryMetadata
@@ -70,11 +71,14 @@ class NaiveTextMemory(BaseTextMemory):
     def extract(self, messages: MessageList) -> list[TextualMemoryItem]:
         """Extract memories based on the messages."""
         str_messages = json.dumps(messages)
-        user_query = EXTRACTION_PROMPT_PART_1 + EXTRACTION_PROMPT_PART_2.format(
-            messages=str_messages
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        user_query = EXTRACTION_PROMPT_PART_1 + EXTRACTION_PROMPT_PART_2.replace(
+            "{messages}", str_messages
         )
         response = self.extractor_llm.generate([{"role": "user", "content": user_query}])
-        raw_extracted_memories = json.loads(response)
+        raw_extracted_memories = parse_json_result(response)
+        if not isinstance(raw_extracted_memories, list):
+            raw_extracted_memories = []
 
         # Convert raw dictionaries to TextualMemoryItem objects
         extracted_memories = []

@@ -22,8 +22,8 @@ from memos.mem_cube.utils import (
     normalize_path,
 )
 from memos.mem_os.core import MOSCore
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_os.utils.format_utils import (
-    clean_json_response,
     convert_graph_to_tree_forworkmem,
     ensure_unique_tree_ids,
     filter_nodes_by_tree_ids,
@@ -1043,12 +1043,12 @@ class MOSProduct(MOSCore):
         """Get further suggestion prompt."""
         try:
             dialogue_info = "\n".join([f"{msg['role']}: {msg['content']}" for msg in message[-2:]])
-            further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.format(dialogue=dialogue_info)
+            # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+            further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.replace("{dialogue}", dialogue_info)
             message_list = [{"role": "system", "content": further_suggestion_prompt}]
             response = self.chat_llm.generate(message_list)
-            clean_response = clean_json_response(response)
-            response_json = json.loads(clean_response)
-            return response_json["query"]
+            response_json = parse_json_result(response)
+            return response_json.get("query", [])
         except Exception as e:
             logger.error(f"Error getting further suggestion: {e}", exc_info=True)
             return []
@@ -1078,11 +1078,11 @@ class MOSProduct(MOSCore):
             memories = "\n".join([m.memory[:200] for m in text_mem_result[0]["memories"]])
         else:
             memories = ""
-        message_list = [{"role": "system", "content": suggestion_prompt.format(memories=memories)}]
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        message_list = [{"role": "system", "content": suggestion_prompt.replace("{memories}", memories)}]
         response = self.chat_llm.generate(message_list)
-        clean_response = clean_json_response(response)
-        response_json = json.loads(clean_response)
-        return response_json["query"]
+        response_json = parse_json_result(response)
+        return response_json.get("query", [])
 
     def chat(
         self,

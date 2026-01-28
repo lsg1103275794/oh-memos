@@ -1388,16 +1388,3 @@ def ensure_unique_tree_ids(tree_result: dict[str, Any]) -> dict[str, Any]:
             logger.info(f"   - {error}")
 
     return fixed_tree
-
-
-def clean_json_response(response: str) -> str:
-    """
-    Remove markdown JSON code block formatting from LLM response.
-
-    Args:
-        response: Raw response string that may contain ```json and ```
-
-    Returns:
-        str: Clean JSON string without markdown formatting
-    """
-    return response.replace("```json", "").replace("```", "").strip()

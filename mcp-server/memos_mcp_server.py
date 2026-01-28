@@ -77,6 +77,23 @@ _last_registration_attempt: dict[str, float] = {}  # cube_id -> timestamp
 REGISTRATION_RETRY_INTERVAL = 5.0  # seconds
 
 
+def get_default_cube_id() -> str:
+    """Derive default cube_id from current working directory if not set."""
+    try:
+        cwd = os.getcwd()
+        folder_name = os.path.basename(cwd)
+        if not folder_name:  # Root directory case
+            return MEMOS_DEFAULT_CUBE
+        
+        # Rule: lowercase, replace hyphens/dots/spaces with underscores, append '_cube'
+        cube_id = folder_name.lower()
+        cube_id = re.sub(r"[\-\.\s]+", "_", cube_id)
+        return f"{cube_id}_cube"
+    except Exception as e:
+        logger.debug(f"Failed to derive cube_id from CWD: {e}")
+        return MEMOS_DEFAULT_CUBE
+
+
 async def verify_cube_loaded(client: httpx.AsyncClient, cube_id: str) -> bool:
     """Verify cube is actually loaded in API (not just registered)."""
     try:
@@ -124,7 +141,16 @@ async def ensure_cube_registered(client: httpx.AsyncClient, cube_id: str, force:
             return True
 
         # Try to register the cube
-        cube_path = f"{MEMOS_CUBES_DIR}/{cube_id}"
+        # If cube_id is the default cube, use its configured full path
+        if cube_id == MEMOS_DEFAULT_CUBE:
+            # Check if MEMOS_CUBES_DIR is already a full path to the default cube
+            if MEMOS_CUBES_DIR.endswith(MEMOS_DEFAULT_CUBE):
+                cube_path = MEMOS_CUBES_DIR
+            else:
+                cube_path = f"{MEMOS_CUBES_DIR}/{MEMOS_DEFAULT_CUBE}"
+        else:
+            cube_path = f"{MEMOS_CUBES_DIR}/{cube_id}"
+
         response = await client.post(
             f"{MEMOS_URL}/mem_cubes",
             json={
@@ -456,7 +482,7 @@ The tool returns relevant memories that can help you:
                     },
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
@@ -501,7 +527,7 @@ Memory types:
                     },
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
@@ -516,7 +542,7 @@ Memory types:
                 "properties": {
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     },
                     "limit": {
@@ -544,7 +570,7 @@ You can filter by memory type to find specific categories like decisions or erro
                 "properties": {
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID (project name)",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     },
                     "memory_type": {
@@ -621,7 +647,7 @@ This helps you understand the full context and dependencies.""",
                     },
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID (project name). Defaults to current project.",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
@@ -665,7 +691,7 @@ Before deleting, always:
                         },
                         "cube_id": {
                             "type": "string",
-                            "description": "Memory cube ID (project name). Defaults to current project.",
+                            "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'",
                             "default": MEMOS_DEFAULT_CUBE
                         },
                         "delete_all": {
@@ -689,9 +715,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     async with httpx.AsyncClient(timeout=MEMOS_TIMEOUT_TOOL) as client:
         try:
+            # Determine target cube_id (explicit > derived > default)
+            arg_cube_id = arguments.get("cube_id")
+            cube_id = arg_cube_id if arg_cube_id else get_default_cube_id()
+
             if name == "memos_search":
                 query = arguments.get("query", "")
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
 
                 # Auto-register cube if needed (with force retry on first call)
                 if not await ensure_cube_registered(client, cube_id):
@@ -713,6 +742,22 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                         formatted = format_memories_for_display(data.get("data", {}))
                         return [TextContent(type="text", text=formatted)]
                     else:
+                        # Force re-register and retry
+                        _registered_cubes.discard(cube_id)
+                        if await ensure_cube_registered(client, cube_id, force=True):
+                            retry_response = await client.post(
+                                f"{MEMOS_URL}/search",
+                                json={
+                                    "user_id": MEMOS_USER,
+                                    "query": query,
+                                    "install_cube_ids": [cube_id]
+                                }
+                            )
+                            if retry_response.status_code == 200:
+                                retry_data = retry_response.json()
+                                if retry_data.get("code") == 200:
+                                    formatted = format_memories_for_display(retry_data.get("data", {}))
+                                    return [TextContent(type="text", text=formatted)]
                         return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
                 else:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
@@ -720,7 +765,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             elif name == "memos_save":
                 content = arguments.get("content", "")
                 memory_type = arguments.get("memory_type") or detect_memory_type(content)
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
 
                 # Prepend memory type if not already present
                 if not content.startswith(f"[{memory_type}]"):
@@ -781,7 +825,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
             elif name in ("memos_list", "memos_list_v2"):
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
                 limit = arguments.get("limit", 20)
                 memory_type = arguments.get("memory_type")
 
@@ -837,7 +880,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
 
             elif name == "memos_get_stats":
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
                 
                 # Auto-register cube if needed
                 if not await ensure_cube_registered(client, cube_id):
@@ -882,13 +924,42 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                         
                         return [TextContent(type="text", text="\n".join(result))]
                     else:
+                        # Force re-register and retry
+                        _registered_cubes.discard(cube_id)
+                        if await ensure_cube_registered(client, cube_id, force=True):
+                            retry_response = await client.get(
+                                f"{MEMOS_URL}/memories",
+                                params={"user_id": MEMOS_USER, "mem_cube_id": cube_id}
+                            )
+                            if retry_response.status_code == 200:
+                                retry_data = retry_response.json()
+                                if retry_data.get("code") == 200:
+                                    # Process retry data (re-use the same logic or extract)
+                                    text_mems = retry_data.get("data", {}).get("text_mem", [])
+                                    stats = {}
+                                    total = 0
+                                    for cube_data in text_mems:
+                                        mem_data = cube_data.get("memories", [])
+                                        memories = mem_data.get("nodes", []) if isinstance(mem_data, dict) else mem_data
+                                        for mem in memories:
+                                            memory_text = mem.get("memory", "")
+                                            total += 1
+                                            type_match = re.match(r"^\[([A-Z_]+)\]", memory_text)
+                                            mem_type = type_match.group(1) if type_match else "PROGRESS"
+                                            stats[mem_type] = stats.get(mem_type, 0) + 1
+                                    if stats:
+                                        result = [f"## 📊 Memory Stats: {cube_id} (Retried)"]
+                                        result.append(f"Total Memories: **{total}**\n")
+                                        for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
+                                            percentage = (count / total) * 100
+                                            result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
+                                        return [TextContent(type="text", text="\n".join(result))]
                         return [TextContent(type="text", text=f"Stats failed: {data.get('message', 'Unknown error')}")]
                 else:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
             elif name == "memos_get_graph":
                 query = arguments.get("query", "")
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
 
                 # Auto-register cube if needed
                 await ensure_cube_registered(client, cube_id)
@@ -914,6 +985,24 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                         text_mems = data.get("data", {}).get("text_mem", [])
                         for cube_data in text_mems:
                             memories.extend(cube_data.get("memories", []))
+                    else:
+                        # Try to re-register and search again
+                        _registered_cubes.discard(cube_id)
+                        if await ensure_cube_registered(client, cube_id, force=True):
+                            retry_search = await client.post(
+                                f"{MEMOS_URL}/search",
+                                json={
+                                    "user_id": MEMOS_USER,
+                                    "query": query,
+                                    "install_cube_ids": [cube_id]
+                                }
+                            )
+                            if retry_search.status_code == 200:
+                                retry_data = retry_search.json()
+                                if retry_data.get("code") == 200:
+                                    text_mems = retry_data.get("data", {}).get("text_mem", [])
+                                    for cube_data in text_mems:
+                                        memories.extend(cube_data.get("memories", []))
 
                 # Query Neo4j for all CAUSE/RELATE/CONFLICT relationships
                 cypher_query = """
@@ -994,7 +1083,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
                 memory_id = arguments.get("memory_id")
                 memory_ids = arguments.get("memory_ids", [])
-                cube_id = arguments.get("cube_id", MEMOS_DEFAULT_CUBE)
                 delete_all = arguments.get("delete_all", False)
 
                 # Collect all IDs to delete

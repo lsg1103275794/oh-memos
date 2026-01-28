@@ -841,7 +841,7 @@ class Searcher:
                 return [query]
             else:
                 assert "sub_questions" in response_json
-                logger.info("Query: {} COT: {}".format(query, response_json["sub_questions"]))
+                logger.info(f"Query: {query} COT: {response_json['sub_questions']}")
                 return response_json["sub_questions"][:split_num]
         except Exception as e:
             logger.error(f"[LLM] Exception during chat generation: {e}")

@@ -18,6 +18,7 @@ from memos.graph_dbs.neo4j import Neo4jGraphDB
 from memos.llms.base import BaseLLM
 from memos.log import get_logger
 from memos.memories.textual.item import SourceMessage, TreeNodeTextualMemoryMetadata
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.tree_text_memory.organize.handler import NodeHandler
 from memos.memories.textual.tree_text_memory.organize.relation_reason_detector import (
     RelationAndReasoningDetector,
@@ -69,13 +70,7 @@ class QueueMessage:
         return op_priority[self.op] < op_priority[other.op]
 
 
-def extract_first_to_last_brace(text: str):
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        return "", None
-    json_str = text[start : end + 1]
-    return json_str, json.loads(json_str)
+
 
 
 class GraphStructureReorganizer:
@@ -599,15 +594,7 @@ class GraphStructureReorganizer:
         return parent_node
 
     def _parse_json_result(self, response_text):
-        try:
-            response_text = response_text.replace("```", "").replace("json", "")
-            response_json = extract_first_to_last_brace(response_text)[1]
-            return response_json
-        except json.JSONDecodeError as e:
-            logger.warning(
-                f"Failed to parse LLM response as JSON: {e}\nRaw response:\n{response_text}"
-            )
-            return {}
+        return parse_json_result(response_text)
 
     def _create_parent_node(self, parent_node: GraphDBNode) -> None:
         """

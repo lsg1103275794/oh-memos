@@ -11,7 +11,7 @@ from typing import Any
 
 from memos.api.product_models import SuggestionResponse
 from memos.log import get_logger
-from memos.mem_os.utils.format_utils import clean_json_response
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.templates.mos_prompts import (
     FURTHER_SUGGESTION_PROMPT,
     SUGGESTION_QUERY_PROMPT_EN,
@@ -39,12 +39,11 @@ def _get_further_suggestion(
     """
     try:
         dialogue_info = "\n".join([f"{msg['role']}: {msg['content']}" for msg in message[-2:]])
-        further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.format(dialogue=dialogue_info)
+        further_suggestion_prompt = FURTHER_SUGGESTION_PROMPT.replace("{dialogue}", dialogue_info)
         message_list = [{"role": "system", "content": further_suggestion_prompt}]
         response = llm.generate(message_list)
-        clean_response = clean_json_response(response)
-        response_json = json.loads(clean_response)
-        return response_json["query"]
+        response_json = parse_json_result(response)
+        return response_json.get("query", [])
     except Exception as e:
         logger.error(f"Error getting further suggestion: {e}", exc_info=True)
         return []
@@ -102,14 +101,12 @@ def handle_get_suggestion_queries(
             memories = "\n".join([m.memory[:200] for m in text_mem_results])
 
         # Generate suggestions using LLM
-        message_list = [{"role": "system", "content": suggestion_prompt.format(memories=memories)}]
+        message_list = [{"role": "system", "content": suggestion_prompt.replace("{memories}", memories)}]
         response = llm.generate(message_list)
-        clean_response = clean_json_response(response)
-        response_json = json.loads(clean_response)
-
+        response_json = parse_json_result(response)
         return SuggestionResponse(
             message="Suggestions retrieved successfully",
-            data={"query": response_json["query"]},
+            data={"query": response_json.get("query", [])},
         )
 
     except Exception as e:

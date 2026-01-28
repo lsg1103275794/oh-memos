@@ -9,6 +9,7 @@ from memos.context.context import ContextThreadPoolExecutor
 from memos.llms.factory import LLMFactory
 from memos.log import get_logger
 from memos.mem_os.core import MOSCore
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_os.utils.default_config import get_default
 from memos.memories.textual.base import BaseTextMemory
 from memos.templates.mos_prompts import (
@@ -299,7 +300,10 @@ class MOS(MOSCore):
         else:
             system_prompt = self._build_system_prompt(base_prompt=base_prompt)
         current_messages = [
-            {"role": "system", "content": system_prompt + SYNTHESIS_PROMPT.format(qa_text=qa_text)},
+            {
+                "role": "system",
+                "content": system_prompt + SYNTHESIS_PROMPT.replace("{qa_text}", qa_text),
+            },
             *chat_history.chat_history,
             {
                 "role": "user",
@@ -366,34 +370,17 @@ class MOS(MOSCore):
             llm = LLMFactory.from_config(llm_config)
 
         # System prompt for CoT decomposition with complexity analysis
-        system_prompt = COT_DECOMPOSE_PROMPT.format(query=query)
+        # Use replace instead of format to avoid KeyError if there are extra curly braces in prompt
+        system_prompt = COT_DECOMPOSE_PROMPT.replace("{query}", query)
 
         messages = [{"role": "system", "content": system_prompt}]
 
         try:
             response = llm.generate(messages)
-            # Try to parse JSON response
-            result = json.loads(response)
+            result = parse_json_result(response)
+            if not result:
+                return {"is_complex": False, "sub_questions": []}
             return result
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse JSON response from LLM: {e}")
-            logger.warning(f"Raw response: {response}")
-
-            # Try to extract JSON-like content from the response
-            try:
-                # Look for JSON-like content between curly braces
-                import re
-
-                json_match = re.search(r"\{.*\}", response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                    result = json.loads(json_str)
-                    return result
-            except Exception:
-                pass
-
-            # If all parsing attempts fail, return default
-            return {"is_complex": False, "sub_questions": []}
         except Exception as e:
             logger.error(f"Unexpected error in cot_decompose: {e}")
             return {"is_complex": False, "sub_questions": []}
