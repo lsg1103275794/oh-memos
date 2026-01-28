@@ -1271,33 +1271,37 @@ memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CON
 
 ### MCP 配置示例
 
-**Windows 全局配置** (`C:\Users\用户名\.claude.json`):
+本部分展示了适用于通用 IDE (如 Claude Desktop, Cursor, VS Code 等) 的标准 MCP 服务器配置。
+
+**通用 MCP 客户端配置示例** (如各项IDE的 `mcp.json`):
+
 ```json
 {
   "mcpServers": {
     "memos": {
-      "type": "stdio",
       "command": "C:/path/to/MemOS/conda_venv/python.exe",
-      "args": ["C:/path/to/MemOS/mcp-server/memos_mcp_server.py"],
+      "args": [
+        "-u",
+        "C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
+      ],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes"
-      },
-      "alwaysAllow": [
-        "memos_search",
-        "memos_save",
-        "memos_list",
-        "memos_suggest",
-        "memos_get_graph"
-      ]
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes",
+        "MEMOS_TIMEOUT_TOOL": "120.0",
+        "MEMOS_TIMEOUT_STARTUP": "30.0",
+        "MEMOS_TIMEOUT_HEALTH": "5.0",
+        "MEMOS_API_WAIT_MAX": "60.0",
+        "MEMOS_ENABLE_DELETE": "true",
+        "PYTHONIOENCODING": "utf-8"
+      }
     }
   }
 }
 ```
 
-> **提示**: `alwaysAllow` 允许 AI 自动使用这些工具，无需每次确认。
+> **📸 演示效果**: 本项目提供的截图 (如 Cherry Studio 系列) 展示了在 **Cherry Studio** 客户端中使用 **GLM-4.7** 模型调用 MemOS MCP 工具的实际演示效果。MemOS 具有极佳的跨客户端适配性，支持所有遵循 MCP 协议的 AI 助手。
 
 ### 🚀 使用 CLAUDE.md 增强 (推荐)
 

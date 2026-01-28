@@ -15,9 +15,9 @@
 | `ScreenShot_2026-01-26_071212_222.png` | **MCP 记忆搜索结果展示** | 展示 AI 检索到的历史决策、代码模式以及环境配置信息。 |
 | `ScreenShot_2026-01-26_072404_067.png` | **跨项目记忆检索 (Part 1)** | 在项目 A (DDSP-SVC) 中向 AI 询问项目 B (MemOS) 的配置问题。 |
 | `ScreenShot_2026-01-26_072809_934.png` | **跨项目记忆检索 (Part 2)** | AI 成功跨项目命中记忆，实现无感知的知识迁移。 |
-| `ScreenShot_2026-01-28_091319_520.png` | **记忆删除同步优化 - 验证运行** | 运行 `verify_mems.py` 脚本验证删除操作在多数据库间的同步性。 |
-| `ScreenShot_2026-01-28_091723_892.png` | **Qdrant 向量库删除确认** | 截图证实记忆删除后，Qdrant 向量索引已同步清除。 |
-| `ScreenShot_2026-01-28_091739_975.png` | **Neo4j 节点删除确认** | 截图证实 Neo4j 中的图节点及关联边已通过 `DETACH DELETE` 物理移除。 |
+| `ScreenShot_2026-01-28_091319_520.png` | **Cherry Studio + GLM-4.7 演示 (Part 1)** | 展示在 **Cherry Studio** 客户端下，使用 **GLM-4.7** 模型调用 MemOS MCP 工具进行项目分析。 |
+| `ScreenShot_2026-01-28_091723_892.png` | **Cherry Studio + GLM-4.7 演示 (Part 2)** | 演示 AI 如何通过 `memos_get_graph` 自动检索并梳理项目依赖关系图。 |
+| `ScreenShot_2026-01-28_091739_975.png` | **Cherry Studio + GLM-4.7 演示 (Part 3)** | 展示 AI 基于记忆生成的项目核心组件层级图，体现了极佳的跨客户端适配性。 |
 
 ---
 

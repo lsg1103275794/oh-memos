@@ -139,25 +139,37 @@ pause
 > 📖 **完整配置导航**: 针对 **Trae, Cursor, Windsurf, Claude Desktop, Roo Code** 等主流平台的详细配置，请直接查阅：
 > 👉 **[MCP Server 详细配置指南](docs/MCP_GUIDE.md)**
 
-**Claude Code 配置示例 (`~/.claude.json`)**:
+本部分展示了适用于通用 IDE (如 Claude Desktop, Cursor, VS Code 等) 的标准 MCP 服务器配置。
+
+**通用 MCP 客户端配置示例** (如 `~/.claude.json`):
 
 ```json
 {
   "mcpServers": {
     "memos": {
-      "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
-      "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
+      "command": "C:/path/to/MemOS/conda_venv/python.exe",
+      "args": [
+        "-u",
+        "C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
+      ],
       "env": {
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "C:/path/to/MemOS/data/memos_cubes",
+        "MEMOS_TIMEOUT_TOOL": "120.0",
+        "MEMOS_TIMEOUT_STARTUP": "30.0",
+        "MEMOS_TIMEOUT_HEALTH": "5.0",
+        "MEMOS_API_WAIT_MAX": "60.0",
+        "MEMOS_ENABLE_DELETE": "true",
+        "PYTHONIOENCODING": "utf-8"
       }
     }
   }
 }
 ```
+
+> **📸 演示效果**: 本项目提供的截图 (如 Cherry Studio 系列) 展示了在 **Cherry Studio** 客户端中使用 **GLM-4.7** 模型调用 MemOS MCP 工具的实际演示效果。MemOS 具有极佳的跨客户端适配性，支持所有遵循 MCP 协议的 AI 助手。
 
 ## API 使用
 
