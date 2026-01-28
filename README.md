@@ -846,7 +846,7 @@ Key Points:
 
 **🧠 One Memory System, All Your Projects**
 
-*Screenshots: [docs/ScreenShot/](docs/ScreenShot/)*
+*Screenshots: [docs/ScreenShot/README.md](docs/ScreenShot/README.md)*
 
 </div>
 
