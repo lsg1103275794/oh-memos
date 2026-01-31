@@ -497,28 +497,110 @@ def format_graph_for_display(data: list) -> str:
     return "\n".join(results)
 
 
-def detect_memory_type(content: str) -> str:
-    """Automatically detect memory type from content."""
+def detect_memory_type(content: str) -> tuple[str, float]:
+    """
+    自动检测记忆类型，返回 (类型, 置信度)。
+
+    置信度说明:
+    - 1.0: 显式指定类型
+    - 0.85-0.95: 强特征匹配（如 traceback、决定采用）
+    - 0.7-0.84: 中等特征匹配
+    - 0.3: 默认 PROGRESS（无特征匹配）
+
+    当置信度 < 0.6 时，建议显式指定 memory_type 参数。
+    """
     content_lower = content.lower()
 
-    # Pattern matching for memory types (Chinese + English)
-    patterns = {
-        "ERROR_PATTERN": [r"error", r"exception", r"bug", r"fix", r"解决", r"错误", r"报错", r"失败"],
-        "DECISION": [r"decision", r"decided", r"decide", r"决策", r"选择", r"方案", r"architecture", r"chose", r"选用", r"优化方案", r"optimization"],
-        "MILESTONE": [r"milestone", r"完成", r"release", r"发布", r"achieved", r"里程碑", r"搞定"],
-        "BUGFIX": [r"bugfix", r"fixed", r"修复", r"patch", r"修好"],
-        "FEATURE": [r"feature", r"新增", r"implement", r"add", r"功能", r"新功能"],
-        "CONFIG": [r"config", r"配置", r"setting", r"environment", r"环境变量", r"\.env"],
-        "CODE_PATTERN": [r"pattern", r"模式", r"template", r"snippet", r"代码模板"],
-        "GOTCHA": [r"gotcha", r"注意", r"warning", r"caveat", r"陷阱", r"小心", r"坑", r"当心"],
+    # 强特征检测模式 (pattern, confidence)
+    # 按类型分组，每个模式带有置信度权重
+    strong_patterns: dict[str, list[tuple[str, float]]] = {
+        "ERROR_PATTERN": [
+            (r"error[:\s]", 0.9),
+            (r"exception[:\s]", 0.9),
+            (r"traceback", 0.95),
+            (r"报错[：:]", 0.9),
+            (r"错误原因", 0.85),
+            (r"stack\s*trace", 0.9),
+            (r"异常[：:]", 0.85),
+        ],
+        "BUGFIX": [
+            (r"修复了", 0.9),
+            (r"fixed\s+(the\s+)?bug", 0.9),
+            (r"根本原因.*解决", 0.85),
+            (r"bug\s*fix", 0.9),
+            (r"修好了", 0.85),
+            (r"patch(ed)?", 0.8),
+        ],
+        "DECISION": [
+            (r"决定采用", 0.9),
+            (r"技术选型", 0.9),
+            (r"架构方案", 0.85),
+            (r"options?\s+considered", 0.85),
+            (r"选择了.*而不是", 0.9),
+            (r"权衡.*之后", 0.85),
+            (r"decided\s+to\s+use", 0.9),
+            (r"chose\s+.*\s+over", 0.85),
+        ],
+        "GOTCHA": [
+            (r"注意[：:!]", 0.85),
+            (r"陷阱", 0.9),
+            (r"gotcha", 0.9),
+            (r"小心", 0.8),
+            (r"踩坑", 0.9),
+            (r"坑[：:]", 0.85),
+            (r"caveat", 0.85),
+            (r"watch\s+out", 0.85),
+            (r"警告[：:]", 0.8),
+        ],
+        "CODE_PATTERN": [
+            (r"代码模板", 0.9),
+            (r"code\s+template", 0.9),
+            (r"可复用.*模式", 0.85),
+            (r"reusable\s+pattern", 0.85),
+            (r"snippet[：:]", 0.8),
+        ],
+        "CONFIG": [
+            (r"环境变量", 0.9),
+            (r"配置文件", 0.85),
+            (r"\.env\b", 0.8),
+            (r"config\s+(file|change)", 0.85),
+            (r"设置.*参数", 0.8),
+        ],
+        "FEATURE": [
+            (r"新增功能", 0.9),
+            (r"implemented?\s+new", 0.85),
+            (r"added\s+feature", 0.85),
+            (r"新功能[：:]", 0.9),
+            (r"feature\s+complete", 0.85),
+        ],
+        "MILESTONE": [
+            (r"里程碑", 0.9),
+            (r"完成了.*项目", 0.8),
+            (r"release\s+v?\d", 0.85),
+            (r"发布.*版本", 0.85),
+            (r"milestone\s+achieved", 0.9),
+            (r"项目完成", 0.85),
+        ],
     }
 
-    for mem_type, keywords in patterns.items():
-        for keyword in keywords:
-            if re.search(keyword, content_lower):
-                return mem_type
+    best_match: tuple[str, float] = ("PROGRESS", 0.3)  # 默认低置信度
 
-    return "PROGRESS"
+    for mem_type, patterns in strong_patterns.items():
+        for pattern, confidence in patterns:
+            if re.search(pattern, content_lower):
+                if confidence > best_match[1]:
+                    best_match = (mem_type, confidence)
+
+    return best_match
+
+
+def detect_memory_type_simple(content: str) -> str:
+    """
+    简化版类型检测，仅返回类型字符串。
+    用于向后兼容。
+    """
+    mem_type, _ = detect_memory_type(content)
+    return mem_type
 
 
 def suggest_search_queries(context: str) -> list[str]:
@@ -807,24 +889,29 @@ Best used when:
             name="memos_save",
             description="""Save important information to project memory.
 
-USE THIS TOOL when:
-- You've solved a bug or error (save as ERROR_PATTERN with solution)
-- A significant decision was made (save as DECISION with rationale)
-- You've completed a major task (save as MILESTONE)
-- You discovered a non-obvious gotcha (save as GOTCHA)
-- You created a reusable code pattern (save as CODE_PATTERN)
-- Configuration was changed (save as CONFIG)
+🚨 **MUST: 显式指定 memory_type 参数** - 不要依赖自动检测！
 
-Memory types:
-- ERROR_PATTERN: Error signature + solution for future reference
+USE THIS TOOL when:
+- You've solved a bug or error → **MUST use BUGFIX or ERROR_PATTERN**
+- A significant decision was made → **MUST use DECISION** with rationale
+- You've completed a major task → **MUST use MILESTONE**
+- You discovered a non-obvious gotcha → **MUST use GOTCHA**
+- You created a reusable code pattern → **MUST use CODE_PATTERN**
+- Configuration was changed → **MUST use CONFIG**
+
+Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
+- ERROR_PATTERN: Error signature + solution (有通用复用价值)
+- BUGFIX: Bug fix with cause and solution (一次性修复)
 - DECISION: Architectural or design choice with rationale
-- MILESTONE: Significant project achievement
-- BUGFIX: Bug fix with cause and solution
-- FEATURE: New functionality added
-- CONFIG: Environment or configuration change
-- CODE_PATTERN: Reusable code template
 - GOTCHA: Non-obvious issue or workaround
-- PROGRESS: General progress update""",
+- CODE_PATTERN: Reusable code template
+- CONFIG: Environment or configuration change
+- FEATURE: New functionality added
+- MILESTONE: Significant project achievement
+- PROGRESS: **仅用于纯进度更新，禁止包含错误解决方案、技术决策、陷阱警告**
+
+❌ 错误: memos_save(content="修复了模型路径问题") → 默认 PROGRESS
+✅ 正确: memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -834,7 +921,7 @@ Memory types:
                     },
                     "memory_type": {
                         "type": "string",
-                        "description": "Type of memory (auto-detected if not specified)",
+                        "description": "**MUST specify explicitly!** Type of memory. Do NOT rely on auto-detection. Use the decision tree: Bug fix → BUGFIX/ERROR_PATTERN, Technical decision → DECISION, Gotcha → GOTCHA, etc.",
                         "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
                                 "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"],
                         "default": "PROGRESS"
@@ -1274,7 +1361,23 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         elif name == "memos_save":
             content = arguments.get("content", "")
-            memory_type = arguments.get("memory_type") or detect_memory_type(content)
+            explicit_type = arguments.get("memory_type")
+
+            # 检测类型和置信度
+            if explicit_type:
+                memory_type = explicit_type
+                confidence = 1.0
+            else:
+                memory_type, confidence = detect_memory_type(content)
+
+            # 低置信度警告
+            warning = ""
+            if confidence < 0.6 and memory_type == "PROGRESS":
+                warning = (
+                    "\n\n⚠️ **类型检测置信度低** (confidence: {:.0%}) - "
+                    "建议显式指定 `memory_type` 参数以提高图谱质量。\n"
+                    "可选类型: ERROR_PATTERN, BUGFIX, DECISION, GOTCHA, CODE_PATTERN, CONFIG, FEATURE, MILESTONE"
+                ).format(confidence)
 
             # Prepend memory type if not already present
             if not content.startswith(f"[{memory_type}]"):
@@ -1295,7 +1398,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             )
 
             if success:
-                return [TextContent(type="text", text=f"✅ Memory saved successfully as [{memory_type}]")]
+                return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}] (confidence: {confidence:.0%}){warning}")]
             elif data:
                 return [TextContent(type="text", text=f"Save failed: {data.get('message', 'Unknown error')}")]
             else:
@@ -1367,6 +1470,23 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
                     percentage = (count / total) * 100
                     result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
+
+                # 健康检查: PROGRESS 占比过高警告
+                progress_count = stats.get("PROGRESS", 0)
+                if total > 0 and progress_count / total > 0.7:
+                    result.append("")
+                    result.append("---")
+                    result.append("")
+                    result.append("⚠️ **健康警告**: PROGRESS 类型占比过高 (>{:.0%})".format(progress_count / total))
+                    result.append("")
+                    result.append("这可能导致 Neo4j 知识图谱无法建立有效关系。建议:")
+                    result.append("1. 保存记忆时**显式指定** `memory_type` 参数")
+                    result.append("2. 参考类型选择决策树:")
+                    result.append("   - 修复 Bug → `BUGFIX` 或 `ERROR_PATTERN`")
+                    result.append("   - 技术决策 → `DECISION`")
+                    result.append("   - 发现陷阱 → `GOTCHA`")
+                    result.append("   - 新功能 → `FEATURE`")
+                    result.append("   - 配置变更 → `CONFIG`")
 
                 return [TextContent(type="text", text="\n".join(result))]
             elif data:

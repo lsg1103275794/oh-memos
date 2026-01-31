@@ -9,6 +9,56 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ---
 
+## 🚨 强制规则 (MUST/MUST NOT)
+
+### MUST (必须遵守)
+
+1. **修复 Bug 后必须保存为 `BUGFIX` 或 `ERROR_PATTERN`**，不得使用 PROGRESS
+2. **做出技术决策后必须保存为 `DECISION`**，包含理由和备选方案
+3. **发现非显而易见的陷阱必须保存为 `GOTCHA`**
+4. **保存时必须显式指定 `memory_type` 参数**，不依赖自动检测
+
+### MUST NOT (禁止)
+
+1. **禁止将 PROGRESS 作为默认/万能类型**
+2. **禁止省略 memory_type 参数** (除非是纯进度汇报)
+3. **禁止在 PROGRESS 中包含错误解决方案、技术决策、陷阱警告**
+
+### 类型选择决策树
+
+```
+是否解决了一个错误/Bug？
+├─ 是 → 是否有通用价值？
+│       ├─ 是 → ERROR_PATTERN (错误模式，可复用)
+│       └─ 否 → BUGFIX (一次性修复)
+└─ 否 → 是否做出了技术选择？
+        ├─ 是 → DECISION
+        └─ 否 → 是否发现了非显而易见的问题？
+                ├─ 是 → GOTCHA
+                └─ 否 → 是否是可复用的代码模板？
+                        ├─ 是 → CODE_PATTERN
+                        └─ 否 → 是否修改了配置？
+                                ├─ 是 → CONFIG
+                                └─ 否 → 是否完成了重大里程碑？
+                                        ├─ 是 → MILESTONE
+                                        └─ 否 → 是否新增了功能？
+                                                ├─ 是 → FEATURE
+                                                └─ 否 → PROGRESS (仅限纯进度)
+```
+
+### 错误示范 vs 正确示范
+
+❌ **错误**: `memos_save(content="修复了模型路径问题")` → 默认 PROGRESS
+✅ **正确**: `memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")`
+
+❌ **错误**: `memos_save(content="决定采用三轨架构")` → 可能被误检测
+✅ **正确**: `memos_save(content="决定采用三轨架构...", memory_type="DECISION")`
+
+❌ **错误**: `memos_save(content="注意: fallbacks会自动切换")` → 可能落入 PROGRESS
+✅ **正确**: `memos_save(content="注意: fallbacks会自动切换...", memory_type="GOTCHA")`
+
+---
+
 ## Quick Reference: MCP Tools
 
 | Tool | When to Use | Example |
