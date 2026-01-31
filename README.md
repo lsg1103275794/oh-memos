@@ -420,43 +420,6 @@ RETURN cause.memory AS root_cause
 
 👉 **[Full Knowledge Graph Guide](docs/MCP_GUIDE.md#-advanced-neo4j-knowledge-graph-mode--高级-neo4j-知识图谱模式)**
 
-### AI Graph Intelligence (New in v0.5.0)
-
-> **Advanced AI capabilities for deeper knowledge graph understanding**
-
-| Feature | Description | MCP Tool |
-|---------|-------------|----------|
-| **Triple Extraction** | Auto-extract (subject, predicate, object) from text | Integrated in save flow |
-| **Path Tracing** | Find relationship paths between any two memories | `memos_trace_path` |
-| **Context-Aware Search** | LLM analyzes search intent from conversation | `memos_search_context` |
-| **Schema Export** | Graph statistics, health metrics, edge distribution | `memos_export_schema` |
-
-**Path Tracing Example:**
-```python
-# Find how "login bug" relates to "JWT config"
-memos_trace_path(source_query="login bug", target_query="JWT config", max_depth=5)
-
-# Returns: paths with nodes and edges showing the relationship chain
-```
-
-**Context-Aware Search:**
-```python
-# Search with conversation history for better understanding
-memos_search_context(
-    query="Why did it fail?",
-    context="We were discussing Neo4j startup issues",
-    top_k=10
-)
-```
-
-**Schema Health Check:**
-```python
-# Get graph health metrics
-memos_export_schema(sample_size=100)
-
-# Returns: total_nodes, orphan_ratio, avg_connections, edge_type_distribution
-```
-
 ---
 
 ## 🔒 Privacy-First Architecture
@@ -963,9 +926,6 @@ With MCP configured, AI uses these tools **automatically**:
 | `memos_get_stats` | Memory statistics | Overview of memory distribution |
 | `memos_suggest` | Get search hints | Unsure what to search |
 | `memos_get_graph` | Query knowledge graph | User asks "why failed", "dependencies" |
-| `memos_trace_path` | Trace path between nodes | Find relationships between two memories |
-| `memos_search_context` | Context-aware search | Search with conversation history analysis |
-| `memos_export_schema` | Export graph schema | Get graph structure, health metrics |
 | `memos_delete` | Delete memories | Cleanup test data (requires safety switch) |
 
 ```
@@ -1319,9 +1279,6 @@ memos_get_graph(query="Neo4j")  # 返回所有与Neo4j相关的 CAUSE/RELATE/CON
 | `memos_get_stats` | 记忆统计 | 查看记忆分布概况 |
 | `memos_suggest` | 搜索建议 | 不确定搜什么 |
 | `memos_get_graph` | 查询知识图谱 | 用户问"为什么失败"、"依赖关系" |
-| `memos_trace_path` | 追踪节点路径 | 查找两个记忆之间的关系路径 |
-| `memos_search_context` | 上下文感知搜索 | 带对话历史分析的智能搜索 |
-| `memos_export_schema` | 导出图谱Schema | 获取图谱结构和健康度指标 |
 | `memos_delete` | 删除记忆 | 清理测试数据（需启用安全开关） |
 
 ### 💡 部署 Claude 技能 (Skills)

@@ -82,6 +82,68 @@ _last_registration_attempt: dict[str, float] = {}  # cube_id -> timestamp
 REGISTRATION_RETRY_INTERVAL = 5.0  # seconds
 
 
+def list_available_cubes() -> list[dict[str, str]]:
+    """
+    Scan the cubes directory to find all available cubes.
+
+    Returns:
+        List of dicts with 'id' and 'path' keys for each available cube.
+    """
+    available = []
+    cubes_dir = MEMOS_CUBES_DIR
+
+    # Handle case where MEMOS_CUBES_DIR is a full path to a specific cube
+    if cubes_dir.endswith(MEMOS_DEFAULT_CUBE):
+        cubes_dir = os.path.dirname(cubes_dir)
+
+    if not os.path.isdir(cubes_dir):
+        logger.warning(f"Cubes directory does not exist: {cubes_dir}")
+        return available
+
+    try:
+        for item in os.listdir(cubes_dir):
+            item_path = os.path.join(cubes_dir, item)
+            config_path = os.path.join(item_path, "config.json")
+            # A valid cube has a config.json file
+            if os.path.isdir(item_path) and os.path.isfile(config_path):
+                available.append({
+                    "id": item,
+                    "path": item_path
+                })
+    except Exception as e:
+        logger.warning(f"Error scanning cubes directory: {e}")
+
+    return available
+
+
+def get_cube_path(cube_id: str) -> str | None:
+    """
+    Get the full path for a cube ID, checking if it exists.
+
+    Returns:
+        Full path if cube exists, None otherwise.
+    """
+    # If cube_id is the default cube, use its configured full path
+    if cube_id == MEMOS_DEFAULT_CUBE:
+        if MEMOS_CUBES_DIR.endswith(MEMOS_DEFAULT_CUBE):
+            cube_path = MEMOS_CUBES_DIR
+        else:
+            cube_path = f"{MEMOS_CUBES_DIR}/{MEMOS_DEFAULT_CUBE}"
+    else:
+        # For other cubes, derive path from cubes directory
+        cubes_dir = MEMOS_CUBES_DIR
+        if cubes_dir.endswith(MEMOS_DEFAULT_CUBE):
+            cubes_dir = os.path.dirname(cubes_dir)
+        cube_path = f"{cubes_dir}/{cube_id}"
+
+    # Check if the path exists with a config.json
+    config_path = os.path.join(cube_path, "config.json")
+    if os.path.isdir(cube_path) and os.path.isfile(config_path):
+        return cube_path
+
+    return None
+
+
 def get_default_cube_id() -> str:
     """Derive default cube_id from current working directory if not set."""
     try:
@@ -115,26 +177,36 @@ async def verify_cube_loaded(client: httpx.AsyncClient, cube_id: str) -> bool:
     return False
 
 
-async def ensure_cube_registered(client: httpx.AsyncClient, cube_id: str, force: bool = False) -> bool:
-    """Ensure cube is registered and loaded. Returns True if successful.
+async def ensure_cube_registered(
+    client: httpx.AsyncClient,
+    cube_id: str,
+    force: bool = False
+) -> tuple[bool, str | None]:
+    """Ensure cube is registered and loaded.
 
     Args:
         client: HTTP client
         cube_id: Cube ID to register
         force: If True, skip cache and always try to register
+
+    Returns:
+        Tuple of (success: bool, error_message: str | None).
+        If success is False, error_message contains helpful guidance.
     """
     import time
     now = time.time()
 
     # Check cache (unless forced)
     if not force and cube_id in _registered_cubes:
-        return True
+        return True, None
 
     # Rate limit registration attempts (unless forced)
     if not force:
         last_attempt = _last_registration_attempt.get(cube_id, 0)
         if now - last_attempt < REGISTRATION_RETRY_INTERVAL:
-            return cube_id in _registered_cubes
+            if cube_id in _registered_cubes:
+                return True, None
+            # Don't return error yet, let it try again
 
     _last_registration_attempt[cube_id] = now
 
@@ -143,19 +215,32 @@ async def ensure_cube_registered(client: httpx.AsyncClient, cube_id: str, force:
         if await verify_cube_loaded(client, cube_id):
             _registered_cubes.add(cube_id)
             logger.info(f"Cube '{cube_id}' already loaded")
-            return True
+            return True, None
+
+        # Check if the cube path exists before trying to register
+        cube_path = get_cube_path(cube_id)
+        if cube_path is None:
+            # Cube doesn't exist - provide helpful message with available cubes
+            available = list_available_cubes()
+            available_ids = [c["id"] for c in available]
+
+            if available_ids:
+                error_msg = (
+                    f"Cube '{cube_id}' not found. Available cubes: {available_ids}. "
+                    f"Use memos_list_cubes to see all available cubes, or check the cube ID."
+                )
+            else:
+                cubes_dir = MEMOS_CUBES_DIR
+                if cubes_dir.endswith(MEMOS_DEFAULT_CUBE):
+                    cubes_dir = os.path.dirname(cubes_dir)
+                error_msg = (
+                    f"Cube '{cube_id}' not found and no cubes available in '{cubes_dir}'. "
+                    f"Please create a cube first using the MemOS web interface or CLI."
+                )
+            logger.warning(error_msg)
+            return False, error_msg
 
         # Try to register the cube
-        # If cube_id is the default cube, use its configured full path
-        if cube_id == MEMOS_DEFAULT_CUBE:
-            # Check if MEMOS_CUBES_DIR is already a full path to the default cube
-            if MEMOS_CUBES_DIR.endswith(MEMOS_DEFAULT_CUBE):
-                cube_path = MEMOS_CUBES_DIR
-            else:
-                cube_path = f"{MEMOS_CUBES_DIR}/{MEMOS_DEFAULT_CUBE}"
-        else:
-            cube_path = f"{MEMOS_CUBES_DIR}/{cube_id}"
-
         response = await client.post(
             f"{MEMOS_URL}/mem_cubes",
             json={
@@ -169,19 +254,32 @@ async def ensure_cube_registered(client: httpx.AsyncClient, cube_id: str, force:
             if data.get("code") == 200:
                 _registered_cubes.add(cube_id)
                 logger.info(f"Auto-registered cube: {cube_id}")
-                return True
+                return True, None
             # Already registered is also success
             if "already" in data.get("message", "").lower():
                 _registered_cubes.add(cube_id)
-                return True
-            # Registration failed - don't cache
-            logger.warning(f"Cube registration returned: {data.get('message')}")
-    except httpx.ConnectError:
-        logger.warning(f"API not available, cannot register cube {cube_id}")
-    except Exception as e:
-        logger.warning(f"Failed to auto-register cube {cube_id}: {e}")
+                return True, None
+            # Registration failed - provide helpful message
+            api_msg = data.get("message", "Unknown error")
+            available = list_available_cubes()
+            available_ids = [c["id"] for c in available]
+            error_msg = (
+                f"Failed to register cube '{cube_id}': {api_msg}. "
+                f"Available cubes: {available_ids if available_ids else 'none'}."
+            )
+            logger.warning(error_msg)
+            return False, error_msg
 
-    return False
+    except httpx.ConnectError:
+        error_msg = f"Cannot connect to MemOS API at {MEMOS_URL}. Is the server running?"
+        logger.warning(error_msg)
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"Failed to register cube '{cube_id}': {e}"
+        logger.warning(error_msg)
+        return False, error_msg
+
+    return False, f"Unknown error registering cube '{cube_id}'"
 
 
 async def wait_for_api_ready(max_wait: float | None = None, interval: float = 2.0) -> bool:
@@ -515,7 +613,8 @@ async def api_call_with_retry(
 
         # API returned error code - try re-registration
         _registered_cubes.discard(cube_id)
-        if await ensure_cube_registered(client, cube_id, force=True):
+        reg_success, _ = await ensure_cube_registered(client, cube_id, force=True)
+        if reg_success:
             # Retry
             if method.upper() == "GET":
                 retry_response = await client.get(url, **kwargs)
@@ -535,7 +634,8 @@ async def api_call_with_retry(
     elif response.status_code == 400:
         # 400 often means cube not loaded - force re-register and retry
         _registered_cubes.discard(cube_id)
-        if await ensure_cube_registered(client, cube_id, force=True):
+        reg_success, _ = await ensure_cube_registered(client, cube_id, force=True)
+        if reg_success:
             if method.upper() == "GET":
                 retry_response = await client.get(url, **kwargs)
             elif method.upper() == "POST":
@@ -819,6 +919,32 @@ Use this when you're unsure what to search for. Provide the current context
             }
         ),
         Tool(
+            name="memos_list_cubes",
+            description="""List all available memory cubes in the system.
+
+USE THIS TOOL when:
+- You encounter "cube not found" errors
+- User asks which cubes are available
+- You need to verify a cube exists before using it
+- Starting a new project and want to see existing cubes
+
+Returns:
+- List of available cube IDs with their paths
+- Registration status for each cube
+- Helpful guidance if no cubes are found""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "include_status": {
+                        "type": "boolean",
+                        "description": "Include registration status for each cube (requires API call)",
+                        "default": False
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
             name="memos_get_stats",
             description="""Get statistics about memories in a project cube.
             
@@ -1019,6 +1145,42 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     client = await get_http_client()
 
     try:
+        # Handle memos_list_cubes first (doesn't need cube_id)
+        if name == "memos_list_cubes":
+            include_status = arguments.get("include_status", False)
+            available = list_available_cubes()
+
+            if not available:
+                cubes_dir = MEMOS_CUBES_DIR
+                if cubes_dir.endswith(MEMOS_DEFAULT_CUBE):
+                    cubes_dir = os.path.dirname(cubes_dir)
+                return [TextContent(
+                    type="text",
+                    text=f"## No cubes found\n\n"
+                         f"Cubes directory: `{cubes_dir}`\n\n"
+                         f"To create a new cube, use the MemOS web interface at {MEMOS_URL}/docs "
+                         f"or create a cube directory with a config.json file."
+                )]
+
+            result = ["## Available Memory Cubes\n"]
+            result.append(f"Cubes directory: `{MEMOS_CUBES_DIR}`\n")
+
+            for cube in available:
+                cube_id = cube["id"]
+                cube_path = cube["path"]
+
+                if include_status:
+                    # Check if cube is loaded
+                    is_loaded = await verify_cube_loaded(client, cube_id)
+                    status = "loaded" if is_loaded else "not loaded"
+                    result.append(f"- **{cube_id}**: `{cube_path}` ({status})")
+                else:
+                    result.append(f"- **{cube_id}**: `{cube_path}`")
+
+            result.append(f"\n**Default cube**: `{MEMOS_DEFAULT_CUBE}`")
+            result.append(f"\n*Use `memos_list_cubes(include_status=True)` to check registration status.*")
+            return [TextContent(type="text", text="\n".join(result))]
+
         # Determine target cube_id (explicit > derived > default)
         arg_cube_id = arguments.get("cube_id")
         cube_id = arg_cube_id if arg_cube_id else get_default_cube_id()
@@ -1027,8 +1189,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             query = arguments.get("query", "")
             top_k = arguments.get("top_k", 10)
 
-            # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            # Auto-register cube if needed (with helpful error message)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             success, data, status = await api_call_with_retry(
                 client, "POST", f"{MEMOS_URL}/search", cube_id,
@@ -1053,7 +1217,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             context = arguments.get("context", [])
 
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             # Format context as chat_history for the API
             chat_history = []
@@ -1115,7 +1281,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 content = f"[{memory_type}] {content}"
 
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             success, data, status = await api_call_with_retry(
                 client, "POST", f"{MEMOS_URL}/memories", cube_id,
@@ -1138,7 +1306,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             memory_type = arguments.get("memory_type")
 
             # Auto-register cube
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             params = {
                 "user_id": MEMOS_USER,
@@ -1176,7 +1346,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         elif name == "memos_get_stats":
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             success, data, status = await api_call_with_retry(
                 client, "GET", f"{MEMOS_URL}/memories", cube_id,
@@ -1211,7 +1383,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 return [TextContent(type="text", text="❌ Both source_id and target_id are required.")]
 
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             # Call the trace_path API endpoint
             try:
@@ -1342,7 +1516,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             query = arguments.get("query", "")
 
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             # Use configured Neo4j credentials
             neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
@@ -1366,7 +1542,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 else:
                     # Try to re-register and search again
                     _registered_cubes.discard(cube_id)
-                    if await ensure_cube_registered(client, cube_id, force=True):
+                    retry_success, _ = await ensure_cube_registered(client, cube_id, force=True)
+                    if retry_success:
                         retry_search = await client.post(
                             f"{MEMOS_URL}/search",
                             json={
@@ -1456,7 +1633,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             sample_size = min(max(arguments.get("sample_size", 100), 10), 1000)
 
             # Auto-register cube if needed
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             try:
                 response = await client.post(
@@ -1567,7 +1746,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 ids_to_delete.extend(memory_ids)
 
             # Auto-register cube
-            await ensure_cube_registered(client, cube_id)
+            reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+            if not reg_success:
+                return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
             if delete_all:
                 # Delete ALL memories - very dangerous!
@@ -1648,11 +1829,12 @@ async def run_server():
         async with httpx.AsyncClient(timeout=MEMOS_TIMEOUT_STARTUP) as client:
             for attempt in range(3):
                 try:
-                    if await ensure_cube_registered(client, MEMOS_DEFAULT_CUBE, force=True):
+                    reg_success, reg_error = await ensure_cube_registered(client, MEMOS_DEFAULT_CUBE, force=True)
+                    if reg_success:
                         logger.info(f"Startup: Default cube '{MEMOS_DEFAULT_CUBE}' ready")
                         break
                     else:
-                        logger.warning(f"Startup: Cube registration attempt {attempt + 1} failed, retrying...")
+                        logger.warning(f"Startup: Cube registration attempt {attempt + 1} failed: {reg_error}")
                         await asyncio.sleep(2.0)
                 except Exception as e:
                     logger.warning(f"Startup: Registration attempt {attempt + 1} error: {e}")

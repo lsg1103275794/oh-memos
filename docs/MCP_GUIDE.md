@@ -53,7 +53,12 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
         "MEMOS_URL": "http://localhost:18000",
         "MEMOS_USER": "dev_user",
         "MEMOS_DEFAULT_CUBE": "dev_cube",
-        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes"
+        "MEMOS_CUBES_DIR": "G:/test/MemOS/data/memos_cubes",
+        "MEMOS_TIMEOUT_TOOL": "120.0",
+        "MEMOS_TIMEOUT_STARTUP": "30.0",
+        "MEMOS_TIMEOUT_HEALTH": "5.0",
+        "MEMOS_API_WAIT_MAX": "60.0",
+        "MEMOS_ENABLE_DELETE": "false"
       },
       "alwaysAllow": [
         "memos_search",
@@ -61,7 +66,10 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
         "memos_list",
         "memos_suggest",
         "memos_get_graph",
-        "memos_get_stats"
+        "memos_get_stats",
+        "memos_trace_path",
+        "memos_search_context",
+        "memos_export_schema"
       ]
     }
   }

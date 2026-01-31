@@ -8,11 +8,12 @@
 
 **MemOS** is a persistent project memory solution for AI assistants, featuring:
 
-- **MCP Server**: Proactive memory tools (memos_search, memos_save, memos_list, memos_suggest)
+- **MCP Server**: Proactive memory tools (memos_search, memos_save, memos_list, memos_suggest, memos_list_cubes)
 - **Neo4j Knowledge Graph**: Structured memory with relationships (tree_text mode)
 - **Qdrant Vector Database**: Semantic similarity search
 - **LLM Memory Extraction**: Auto-extract key, tags, background, confidence
 - **AI Graph Intelligence**: Path tracing, context-aware search, schema analysis
+- **Smart Cube Management**: Auto-register cubes, path verification, helpful error messages
 
 ---
 
@@ -128,11 +129,42 @@ Get memory relationships for a specific topic.
 - Understanding context around a topic
 - Finding related information
 
+### Cube Discovery (`memos_list_cubes`)
+
+List all available memory cubes in the system.
+
+**When to use:**
+- Encountering "cube not found" errors
+- User asks which cubes are available
+- Verifying a cube exists before using it
+- Starting a new project and want to see existing cubes
+
+**Example:**
+```
+memos_list_cubes()
+memos_list_cubes(include_status=True)  # Check registration status
+```
+
+**Returns:**
+- List of available cube IDs with their paths
+- Registration status for each cube (if requested)
+- Helpful guidance if no cubes are found
+
 ---
 
 ## Auto-Registration
 
-The MCP server auto-registers the default cube on startup. If you see "MemCube not loaded" error:
+The MCP server now includes **smart cube management**:
+
+1. **Automatic Registration**: Cubes are auto-registered on first use
+2. **Path Verification**: Checks if cube directory exists before registration
+3. **Helpful Error Messages**: If a cube is not found, shows available cubes
+4. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+
+If you see "Cube Registration Failed" error:
+1. Use `memos_list_cubes()` to see available cubes
+2. Verify the cube directory exists with config.json
+3. Create a new cube if needed via MemOS API
 
 ```bash
 # Manual registration (fallback)

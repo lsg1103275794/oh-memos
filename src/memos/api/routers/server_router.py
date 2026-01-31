@@ -30,7 +30,9 @@ from memos.api.product_models import (
     APIChatCompleteRequest,
     APIFeedbackRequest,
     APIGraphRequest,
+    APISchemaRequest,
     APISearchRequest,
+    APITracePathRequest,
     ChatPlaygroundRequest,
     ChatRequest,
     DeleteMemoryRequest,
@@ -43,15 +45,13 @@ from memos.api.product_models import (
     GetUserNamesByMemoryIdsRequest,
     GetUserNamesByMemoryIdsResponse,
     GraphResponse,
-    GraphSchemaRequest,
-    GraphSchemaResponse,
     MemoryResponse,
+    SchemaResponse,
     SearchResponse,
     StatusResponse,
     SuggestionRequest,
     SuggestionResponse,
     TaskQueueResponse,
-    TracePathRequest,
     TracePathResponse,
 )
 from memos.graph_dbs.polardb import PolarDBGraphDB
@@ -109,15 +109,8 @@ vector_db = components["vector_db"]
 def search_memories(search_req: APISearchRequest):
     """
     Unified search endpoint that supports both semantic search and full-text search.
-
-    When `enable_context_analysis=True`, uses LLM to analyze search intent
-    from the query and chat_history, extracting entities and expanding queries
-    for improved recall.
     """
-    if search_req.enable_context_analysis:
-        search_results = search_handler.handle_context_aware_search(search_req)
-    else:
-        search_results = search_handler.handle_search_memories(search_req)
+    search_results = search_handler.handle_search_memories(search_req)
     return search_results
 
 
@@ -131,33 +124,21 @@ def get_graph_data(graph_req: APIGraphRequest):
 
 
 @router.post("/graph/trace_path", summary="Trace path between nodes", response_model=TracePathResponse)
-def trace_path(trace_req: TracePathRequest):
+def trace_path(req: APITracePathRequest):
     """
-    Trace paths between two memory nodes in the knowledge graph.
-
-    This enables AI reasoning about how memories are connected:
-    - Understanding causality chains (A caused B caused C)
-    - Finding indirect relationships between concepts
-    - Exploring memory dependencies and influences
-
-    Returns the shortest path(s) with full node and edge details.
+    Trace reasoning paths between two memory nodes.
+    Returns the shortest path and relationship types along the way.
     """
-    return graph_handler.handle_trace_path(trace_req)
+    return graph_handler.handle_trace_path(req)
 
 
-@router.post("/graph/schema", summary="Export graph schema", response_model=GraphSchemaResponse)
-def get_graph_schema(schema_req: GraphSchemaRequest):
+@router.post("/graph/schema", summary="Export graph schema", response_model=SchemaResponse)
+def export_schema(req: APISchemaRequest):
     """
-    Export graph schema information for understanding the knowledge structure.
-
-    This provides:
-    - Statistics on relationship types and counts
-    - Common relationship patterns in the graph
-    - Total node and edge counts
-
-    Useful for AI to understand the shape of the knowledge graph.
+    Export knowledge graph schema and statistics.
+    Includes node/edge counts, type distributions, connectivity metrics.
     """
-    return graph_handler.handle_get_schema(schema_req)
+    return graph_handler.handle_export_schema(req)
 
 
 # =============================================================================

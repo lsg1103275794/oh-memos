@@ -1,18 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. **智能项目感知 (Smart Project Awareness)**: 当你进入一个新项目或目录时，MemOS 会自动为你创建隔离的记忆空间。你必须根据当前项目路径自动推导 `cube_id`。
-**推导规则**: 提取项目文件夹名称 -> 转小写 -> 将 `-`, `.`, 空格替换为 `_` -> 后缀加上 `_cube`。
-示例: `/mnt/g/test/AudioCraft` -> `audiocraft_cube`, `~/projects/my-app` -> `my_app_cube`。
-**核心意识**: 你拥有持久化记忆能力。你应该像一个长期合作伙伴一样，通过 MemOS 记录和检索：
-1. **项目进度 (Milestones)**: 任务完成后的阶段性总结。
-2. **技术架构 (Architecture/Decisions)**: 为什么选择某个库，架构设计思路。
-3. **实现细节 (Details/Code Patterns)**: 核心算法逻辑，复杂的正则，复用代码段。
-4. **异常排查 (Bugfixes/Patterns)**: 遇到的坑 (Gotchas) 及其解决方案。
-**强制触发场景**:
-- 查找/找寻/搜索/find/search/记得吗/之前/上次 -> **必须先**调用 `memos_search`。
-- 知识图谱/关系/KG/dependency/因果 -> **必须**调用 `memos_get_graph` 梳理逻辑。
-- 开始工作 -> 调用 `memos_search` 获取上下文。
-- 修复 Bug/完成任务/做出决策/发现陷阱 -> **必须实时**调用 `memos_save` 记录记忆。"
+description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph or memos_trace_path for relationships, (8) Cube not found - memos_list_cubes to discover available cubes. Available MCP tools: memos_search, memos_search_context, memos_save, memos_list, memos_suggest, memos_list_cubes, memos_get_graph, memos_trace_path, memos_export_schema."
 ---
 
 # Project Memory (MCP Powered)
@@ -21,54 +9,19 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ---
 
-## 🔒 Auto Project Isolation (IMPORTANT!)
-
-**Every project gets its own isolated memory cube automatically.**
-
-### Cube ID Derivation Rule
-
-```
-Project Path → cube_id
-─────────────────────────────────────────────────────
-/mnt/g/test/MemOS        → memos_cube
-/home/user/my-awesome-app → my_awesome_app_cube
-~/projects/WebApp.v2      → webapp_v2_cube
-C:\Users\dev\todo-list    → todo_list_cube
-```
-
-**Algorithm:**
-1. Extract project folder name from working directory
-2. Convert to lowercase
-3. Replace `-`, `.`, spaces with `_`
-4. Append `_cube`
-
-### Usage
-
-**ALWAYS pass the derived `cube_id` to ALL memos_* tools:**
-
-```python
-# Working in /mnt/g/test/MemOS
-memos_search(query="error", cube_id="memos_cube")
-memos_save(content="...", cube_id="memos_cube")
-
-# Working in ~/projects/my-app
-memos_search(query="config", cube_id="my_app_cube")
-```
-
----
-
 ## Quick Reference: MCP Tools
 
 | Tool | When to Use | Example |
 |------|-------------|---------|
-| `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN xxx", cube_id: "{project}_cube"` |
-| `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX", cube_id: "{project}_cube"` |
-| `memos_list` | See all memories in project | `cube_id: "{project}_cube", limit: 10` |
-| `memos_list_v2` | List with improved formatting | `cube_id: "{project}_cube"` |
+| `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN ModuleNotFoundError"` |
+| `memos_search_context` | **Smart search with conversation context** | `query: "what was the solution?"` |
+| `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |
+| `memos_list` | See all memories in project | `cube_id: "dev_cube", limit: 10` |
+| `memos_list_cubes` | **Discover available cubes** | `include_status: true` |
 | `memos_suggest` | Get search suggestions | `context: "Connection refused error"` |
-| `memos_get_graph` | **知识图谱 - View CAUSE/RELATE/CONFLICT** | `query: "Neo4j", cube_id: "{project}_cube"` |
-| `memos_get_stats` | Memory statistics by type | `cube_id: "{project}_cube"` |
-| `memos_delete` | ⚠️ Delete memories (use with caution) | `memory_id: "uuid", cube_id: "{project}_cube"` |
+| `memos_get_graph` | View dependency/causal relationships | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
+| `memos_trace_path` | **Trace paths between memories** | `source_id: "...", target_id: "..."` |
+| `memos_export_schema` | **View graph structure and health** | Shows node/edge counts, types, connectivity |
 
 ---
 
@@ -76,40 +29,24 @@ memos_search(query="config", cube_id="my_app_cube")
 
 ### When to Search (`memos_search`)
 
-**IMPORTANT: When the user uses ANY of these keywords, you MUST proactively call `memos_search` to check the memory database BEFORE responding.**
-
 | User Says / Context | Search Query |
 |---------------------|--------------|
-| "找", "找一下", "找找", "找寻", "查找", "搜索", "搜一下" | `{topic}` - search for the mentioned topic |
-| "find", "search", "look up", "look for", "check if" | `{topic}` - search for the mentioned topic |
-| "有没有", "是否有", "有记录吗", "记得吗" | `{topic}` - check if memory exists |
-| "之前", "上次", "以前", "previously", "last time" | `{topic} history` |
-| "为什么", "why did we", "当时为什么" | `DECISION {topic}` |
-| "怎么解决", "how to fix", "怎么修", error message | `ERROR_PATTERN {error_type}` |
-| "类似", "similar", "像...一样" | `CODE_PATTERN {pattern}` |
-| "什么时候", "when did", "哪次" | `{topic}` - search timeline |
-| "谁", "who", "哪个项目" | `{topic}` - search context |
+| "之前", "上次", "previously" | `{topic} history` |
+| "为什么", "why did we" | `DECISION {topic}` |
+| "怎么解决", "how to fix", error message | `ERROR_PATTERN {error_type}` |
+| "类似", "similar" | `CODE_PATTERN {pattern}` |
 | Working with config file | `CONFIG {filename}` |
 | Opening file for editing | `{filename} gotcha` |
-| "RAG", "rag", "检索增强", "retrieval" | `{topic}` - search with RAG context |
-| "向量", "vector", "embedding", "嵌入" | `{topic}` - semantic vector search |
-| "语义搜索", "semantic search", "智能搜索" | `{topic}` - meaning-based search |
 
-### When to Get Graph (`memos_get_graph`) - Knowledge Graph & Dependencies
-
-**IMPORTANT: When the user mentions knowledge graph, dependencies, or causal relationships, you MUST call `memos_get_graph` to retrieve relationship data.**
+### When to Get Graph (`memos_get_graph`) - NEW!
 
 | User Says / Context | Query | Returns |
 |---------------------|-------|---------|
-| "知识图谱", "knowledge graph", "KG" | `{topic}` | Full knowledge graph for topic |
-| "依赖关系", "dependency", "dependencies", "依赖" | `{component}` | CAUSE/RELATE relationships |
-| "关系图", "relationship graph", "关联图" | `{topic}` | Visual relationship mapping |
-| "为什么失败", "why failed", "root cause", "根因" | `{error/feature}` | Causal chain (A→B→C) |
-| "相关的", "related to", "关联", "有关系" | `{topic}` | RELATE relationships |
-| "冲突", "conflict", "矛盾", "冲突检测" | `{topic}` | CONFLICT relationships |
-| "影响", "impact", "会影响什么", "影响范围" | `{change}` | What depends on this |
-| "因果", "cause", "causation", "因果链" | `{topic}` | CAUSE chain analysis |
-| "上下游", "upstream", "downstream" | `{component}` | Dependency flow |
+| "依赖关系", "dependencies" | `{component}` | CAUSE/RELATE relationships |
+| "为什么失败", "why failed", "root cause" | `{error/feature}` | Causal chain (A→B→C) |
+| "相关的", "related to", "关联" | `{topic}` | RELATE relationships |
+| "冲突", "conflict", "矛盾" | `{topic}` | CONFLICT relationships |
+| "影响", "impact", "会影响什么" | `{change}` | What depends on this |
 | Debugging complex issues | `{error_keyword}` | Full context graph |
 
 **Example Output:**
@@ -118,6 +55,36 @@ memos_search(query="config", cube_id="my_app_cube")
     ──CAUSE──>
 [Neo4j启动失败, JAVA_HOME not set]
 ```
+
+### When to Trace Path (`memos_trace_path`) - NEW!
+
+| Scenario | Use Case |
+|----------|----------|
+| 追溯根因 | `source_id: "症状ID", target_id: "根因ID"` → 显示完整因果链 |
+| 理解影响 | 从决策A到结果B的路径 |
+| 调试复杂问题 | 找到错误之间的关联 |
+
+**Example:**
+```
+memos_trace_path(source_id="uuid1", target_id="uuid2", max_depth=5)
+→ [决策A] ──CAUSE──> [变更B] ──CAUSE──> [问题C]
+```
+
+### When to List Cubes (`memos_list_cubes`) - NEW!
+
+| Scenario | Action |
+|----------|--------|
+| 遇到 "cube not found" 错误 | `memos_list_cubes()` 查看可用 cubes |
+| 切换项目 | `memos_list_cubes(include_status=true)` 查看注册状态 |
+| 初始化项目 | 确认 cube 是否存在 |
+
+### When to Export Schema (`memos_export_schema`) - NEW!
+
+| Scenario | What You Get |
+|----------|--------------|
+| 理解知识库结构 | 节点/边总数, 类型分布 |
+| 检查健康状态 | 孤立节点数, 连接度 |
+| 查看常用标签 | Top 20 tags |
 
 ### When to Save (`memos_save`)
 
@@ -240,51 +207,41 @@ Tags: gotcha, {category}
 │                    PROJECT MEMORY WORKFLOW (MCP)                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ⚡ FIRST: Derive cube_id from project path!                    │
-│     /mnt/g/test/MemOS → cube_id = "memos_cube"                 │
-│                                                                 │
 │  TRIGGER              MCP TOOL              ACTION              │
 │  ───────              ────────              ──────              │
 │                                                                 │
 │  Start working   ───> memos_search    ───> Get project context  │
-│                       cube_id: "{project}_cube"                 │
 │                                                                 │
 │  Hit error       ───> memos_search    ───> Find ERROR_PATTERN   │
 │                       query: "ERROR_PATTERN {type}"             │
-│                       cube_id: "{project}_cube"                 │
+│                                                                 │
+│  Need context    ───> memos_search_context ─> Smart search      │
+│                       with conversation history                 │
 │                                                                 │
 │  Need root cause ───> memos_get_graph ───> View CAUSE chain     │
 │                       query: "{error_keyword}"                  │
-│                       cube_id: "{project}_cube"                 │
+│                                                                 │
+│  Trace path      ───> memos_trace_path ──> A→B→C chain          │
+│                       source_id, target_id                      │
 │                                                                 │
 │  Check deps      ───> memos_get_graph ───> View relationships   │
-│  "依赖关系"            query: "{component}"                      │
-│  "dependency"          cube_id: "{project}_cube"                │
+│                       query: "{component}"                      │
 │                                                                 │
-│  知识图谱/KG     ───> memos_get_graph ───> Full knowledge graph  │
-│  knowledge graph       query: "{topic}"                         │
-│                       cube_id: "{project}_cube"                 │
+│  Cube not found  ───> memos_list_cubes ──> Discover cubes       │
+│                       include_status: true                      │
+│                                                                 │
+│  Graph health    ───> memos_export_schema > Stats & structure   │
 │                                                                 │
 │  Solved error    ───> memos_save      ───> Save ERROR_PATTERN   │
 │                       memory_type: "ERROR_PATTERN"              │
-│                       cube_id: "{project}_cube"                 │
 │                                                                 │
 │  Make decision   ───> memos_save      ───> Save DECISION        │
 │                       memory_type: "DECISION"                   │
-│                       cube_id: "{project}_cube"                 │
 │                                                                 │
 │  Complete task   ───> memos_save      ───> Save MILESTONE       │
 │                       memory_type: "MILESTONE"                  │
-│                       cube_id: "{project}_cube"                 │
 │                                                                 │
 │  "之前/上次"     ───> memos_search    ───> Find history         │
-│                       cube_id: "{project}_cube"                 │
-│                                                                 │
-│  "找/查找/搜索"  ───> memos_search    ───> Search memory DB     │
-│  "find/search"                                                  │
-│                                                                 │
-│  RAG/rag/检索    ───> memos_search    ───> RAG-enhanced search  │
-│  向量/语义搜索         query: "{topic}"                         │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │
@@ -300,52 +257,6 @@ Tags: gotcha, {category}
 3. **Include Why** - Don't just record what, explain the reasoning
 4. **Tag Consistently** - Use standard tags for searchability
 5. **Save Immediately** - Record while context is fresh
-6. **Robust Prompting** - ALWAYS use `.replace("{var}", val)` instead of `.format()` for prompt templates to avoid `KeyError` with content containing `{}`.
-7. **Robust JSON Parsing** - ALWAYS use `parse_json_result(text)` for LLM outputs. It handles markdown, lists, and auto-fixes truncated JSON via stack-based logic.
-8. **F-String Limit** - Avoid backslashes `\` in f-string expressions (e.g., `f"{'\n'.join(list)}"` is invalid). Use intermediate variables.
-
----
-
-## Core Coding Patterns (CODE_PATTERN)
-
-### 1. Robust Prompt Substitution
-```python
-# GOOD: Use replace to avoid KeyError
-user_prompt = PROMPT_TEMPLATE.replace("{query}", query).replace("{context}", context)
-
-# BAD: May cause KeyError if query/context contains { or }
-# user_prompt = PROMPT_TEMPLATE.format(query=query, context=context)
-```
-
-### 2. Standardized JSON Parsing
-```python
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
-
-# Parse LLM response safely
-result_dict = parse_json_result(llm_response)
-```
-
----
-
-## Common Traps (GOTCHA)
-
-### 1. F-String Backslash SyntaxError
-**Issue:** Python f-strings cannot contain backslashes `\` inside the expression part (the `{}` part).
-**Context:** Common when using `'\n'.join()` or regex inside an f-string.
-**Workaround:** Assign the expression to an intermediate variable first.
-```python
-# BAD
-# dialogue = f"————{'\n————'.join(history)}"  # SyntaxError
-
-# GOOD
-dialogue_content = '\n————'.join(history)
-dialogue = f"————{dialogue_content}"
-```
-
-### 2. Prompt Template KeyError
-**Issue:** Using `.format()` on templates containing JSON or code blocks.
-**Context:** Prompt templates often contain `{}` for JSON schemas.
-**Workaround:** Use `.replace("{placeholder}", value)`.
 
 ---
 
@@ -369,14 +280,19 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 |----------|---------|-------------|
 | `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
 | `MEMOS_USER` | `dev_user` | User ID |
-| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Fallback cube (used only if auto-derivation fails) |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
 | `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage (for auto-registration) |
-
-> **Note**: With Auto Project Isolation, `MEMOS_DEFAULT_CUBE` is rarely used. The AI automatically derives `cube_id` from the project path.
 
 ---
 
 ## Troubleshooting
+
+### Cube Not Found Error
+
+1. **Use `memos_list_cubes()` to see available cubes**
+2. Check if the cube directory exists with `config.json`
+3. Verify correct `cube_id` is being used
+4. MCP will show available cubes in error message
 
 ### MCP Tool Returns Error
 
@@ -387,11 +303,12 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 ### Memory Not Found
 
 1. Use `memos_list` to see what's in the cube
-2. Try broader search terms
-3. Check if searching correct `cube_id`
+2. Try `memos_search_context` with conversation context for smarter search
+3. Try broader search terms
+4. Check if searching correct `cube_id`
 
 ### Save Failed
 
 1. Check API is running
-2. MCP auto-registers cubes, but verify with `memos_list`
+2. MCP auto-registers cubes, but verify with `memos_list_cubes`
 3. Check error message for details

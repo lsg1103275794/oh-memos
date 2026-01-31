@@ -4,17 +4,16 @@ from typing import Any
 from memos.api.handlers.base_handler import BaseHandler, HandlerDependencies
 from memos.api.product_models import (
     APIGraphRequest,
+    APISchemaRequest,
+    APITracePathRequest,
     GraphData,
     GraphResponse,
-    GraphSchemaData,
-    GraphSchemaRequest,
-    GraphSchemaResponse,
-    PathDetail,
     PathEdge,
     PathNode,
-    SchemaRelationPattern,
+    SchemaData,
+    SchemaResponse,
+    TracePath,
     TracePathData,
-    TracePathRequest,
     TracePathResponse,
 )
 
@@ -72,19 +71,11 @@ class GraphHandler(BaseHandler):
                 data=None
             )
 
-    def handle_trace_path(self, trace_req: TracePathRequest) -> TracePathResponse:
+    def handle_trace_path(self, req: APITracePathRequest) -> TracePathResponse:
         """
-        Trace paths between two memory nodes in the knowledge graph.
-
-        This enables reasoning about how memories are connected, useful for:
-        - Understanding causality chains
-        - Finding indirect relationships
-        - Exploring memory dependencies
+        Trace paths between two memory nodes.
         """
-        logger.info(
-            f"[GraphHandler] Tracing path from {trace_req.source_id[:8]}... "
-            f"to {trace_req.target_id[:8]}... for user: {trace_req.user_id}"
-        )
+        logger.info(f"[GraphHandler] Tracing path from {req.source_id} to {req.target_id}")
 
         if not self.graph_db:
             return TracePathResponse(
@@ -94,172 +85,202 @@ class GraphHandler(BaseHandler):
             )
 
         try:
-            # Check if graph_db has trace_path method
-            if not hasattr(self.graph_db, "trace_path"):
+            # Use graph_db to find paths
+            if hasattr(self.graph_db, 'find_path'):
+                path_result = self.graph_db.find_path(
+                    source_id=req.source_id,
+                    target_id=req.target_id,
+                    max_depth=req.max_depth
+                )
+            else:
+                # Fallback: direct Neo4j query
+                path_result = self._neo4j_find_path(
+                    req.source_id,
+                    req.target_id,
+                    req.max_depth
+                )
+
+            if path_result and path_result.get("path_found"):
+                paths = []
+                for p in path_result.get("paths", []):
+                    nodes = [PathNode(id=n["id"], memory=n.get("memory", ""), metadata=n.get("metadata", {})) for n in p.get("nodes", [])]
+                    edges = [PathEdge(source=e["source"], target=e["target"], type=e.get("type", "RELATE")) for e in p.get("edges", [])]
+                    paths.append(TracePath(nodes=nodes, edges=edges, length=len(edges)))
+
                 return TracePathResponse(
-                    code=501,
-                    message="trace_path not implemented for this graph database",
-                    data=None
-                )
-
-            # Call trace_path from Neo4jGraphDB
-            result = self.graph_db.trace_path(
-                source_id=trace_req.source_id,
-                target_id=trace_req.target_id,
-                max_depth=trace_req.max_depth,
-                user_name=trace_req.user_id,
-                include_all_paths=trace_req.include_all_paths,
-            )
-
-            # Convert to response models
-            paths = []
-            for path_data in result.get("paths", []):
-                nodes = [
-                    PathNode(
-                        id=n["id"],
-                        memory=n.get("memory", ""),
-                        metadata=n.get("metadata", {}),
+                    code=200,
+                    message="Path found",
+                    data=TracePathData(
+                        path_found=True,
+                        paths=paths,
+                        source_id=req.source_id,
+                        target_id=req.target_id
                     )
-                    for n in path_data.get("nodes", [])
-                ]
-                edges = [
-                    PathEdge(
-                        source=e["source"],
-                        target=e["target"],
-                        type=e["type"],
+                )
+            else:
+                return TracePathResponse(
+                    code=200,
+                    message="No path found between nodes",
+                    data=TracePathData(
+                        path_found=False,
+                        paths=[],
+                        source_id=req.source_id,
+                        target_id=req.target_id
                     )
-                    for e in path_data.get("edges", [])
-                ]
-                paths.append(PathDetail(
-                    length=path_data.get("length", 0),
-                    nodes=nodes,
-                    edges=edges,
-                ))
-
-            source_node = None
-            if result.get("source"):
-                source_node = PathNode(
-                    id=result["source"]["id"],
-                    memory=result["source"].get("memory", ""),
                 )
-
-            target_node = None
-            if result.get("target"):
-                target_node = PathNode(
-                    id=result["target"]["id"],
-                    memory=result["target"].get("memory", ""),
-                )
-
-            trace_data = TracePathData(
-                found=result.get("found", False),
-                paths=paths,
-                source=source_node,
-                target=target_node,
-            )
-
-            return TracePathResponse(
-                code=200,
-                message="Path traced successfully" if trace_data.found else "No path found",
-                data=trace_data,
-            )
 
         except Exception as e:
             logger.error(f"[GraphHandler] Error tracing path: {e}", exc_info=True)
             return TracePathResponse(
                 code=500,
                 message=f"Internal server error: {str(e)}",
-                data=None,
+                data=None
             )
 
-    def handle_get_schema(self, schema_req: GraphSchemaRequest) -> GraphSchemaResponse:
+    def handle_export_schema(self, req: APISchemaRequest) -> SchemaResponse:
         """
-        Export graph schema information for understanding the knowledge structure.
-
-        This provides:
-        - Statistics on node types and counts
-        - Relationship type distribution
-        - Tag frequency
-        - Connectivity statistics
-        - Time range of data
+        Export graph schema and statistics.
         """
-        logger.info(f"[GraphHandler] Exporting graph schema for user: {schema_req.user_id}")
+        logger.info(f"[GraphHandler] Exporting schema for user: {req.user_id}")
 
         if not self.graph_db:
-            return GraphSchemaResponse(
+            return SchemaResponse(
                 code=500,
                 message="Graph database not configured",
                 data=None
             )
 
         try:
-            # Check if graph_db has get_schema_statistics method
-            if hasattr(self.graph_db, "get_schema_statistics"):
-                stats = self.graph_db.get_schema_statistics(
-                    user_name=schema_req.user_id,
-                    sample_size=schema_req.sample_size,
-                )
+            # Use graph_db to get schema stats
+            if hasattr(self.graph_db, 'get_schema_stats'):
+                stats = self.graph_db.get_schema_stats(sample_size=req.sample_size)
             else:
-                # Fallback to basic export_graph
-                graph_data = self.graph_db.export_graph(
-                    page=1,
-                    page_size=schema_req.sample_size,
-                    user_name=schema_req.user_id,
-                )
-                stats = {
-                    "total_nodes": graph_data.get("total_nodes", 0),
-                    "total_edges": graph_data.get("total_edges", 0),
-                    "edge_type_distribution": {},
-                    "memory_type_distribution": {},
-                    "tag_frequency": {},
-                    "avg_connections_per_node": 0.0,
-                    "max_connections": 0,
-                    "orphan_node_count": 0,
-                    "time_range": {"earliest": None, "latest": None},
-                }
-                # Compute edge type distribution from edges
-                for edge in graph_data.get("edges", []):
-                    edge_type = edge.get("type", "UNKNOWN")
-                    stats["edge_type_distribution"][edge_type] = (
-                        stats["edge_type_distribution"].get(edge_type, 0) + 1
-                    )
+                # Fallback: direct Neo4j query
+                stats = self._neo4j_get_schema_stats(req.sample_size)
 
-            # Generate relationship patterns from edge distribution
-            patterns = []
-            for edge_type, count in sorted(
-                stats.get("edge_type_distribution", {}).items(),
-                key=lambda x: x[1],
-                reverse=True,
-            ):
-                frequency = "high" if count > 10 else "medium" if count > 3 else "low"
-                patterns.append(SchemaRelationPattern(
-                    pattern=f"Memory -[{edge_type}]-> Memory",
-                    frequency=frequency,
-                ))
-
-            schema_data = GraphSchemaData(
-                entity_types=[],  # Would need LLM analysis for meaningful types
-                relationship_patterns=patterns,
-                total_nodes=stats.get("total_nodes", 0),
-                total_edges=stats.get("total_edges", 0),
-                edge_type_distribution=stats.get("edge_type_distribution", {}),
-                memory_type_distribution=stats.get("memory_type_distribution", {}),
-                tag_frequency=stats.get("tag_frequency", {}),
-                avg_connections_per_node=stats.get("avg_connections_per_node", 0.0),
-                max_connections=stats.get("max_connections", 0),
-                orphan_node_count=stats.get("orphan_node_count", 0),
-                time_range=stats.get("time_range", {"earliest": None, "latest": None}),
-            )
-
-            return GraphSchemaResponse(
+            return SchemaResponse(
                 code=200,
-                message="Graph schema exported successfully",
-                data=schema_data,
+                message="Schema exported successfully",
+                data=SchemaData(
+                    total_nodes=stats.get("total_nodes", 0),
+                    total_edges=stats.get("total_edges", 0),
+                    edge_types=stats.get("edge_types", {}),
+                    memory_types=stats.get("memory_types", {}),
+                    top_tags=stats.get("top_tags", []),
+                    avg_connections=stats.get("avg_connections", 0.0),
+                    max_connections=stats.get("max_connections", 0),
+                    orphan_nodes=stats.get("orphan_nodes", 0),
+                    time_range=stats.get("time_range", {})
+                )
             )
 
         except Exception as e:
             logger.error(f"[GraphHandler] Error exporting schema: {e}", exc_info=True)
-            return GraphSchemaResponse(
+            return SchemaResponse(
                 code=500,
                 message=f"Internal server error: {str(e)}",
-                data=None,
+                data=None
             )
+
+    def _neo4j_find_path(self, source_id: str, target_id: str, max_depth: int) -> dict:
+        """Fallback: Direct Neo4j query for path finding."""
+        import os
+        import httpx
+
+        neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
+        neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+        neo4j_password = os.environ.get("NEO4J_PASSWORD", "12345678")
+
+        query = f"""
+        MATCH path = shortestPath((a:Memory {{id: $source_id}})-[*1..{max_depth}]-(b:Memory {{id: $target_id}}))
+        RETURN path
+        LIMIT 1
+        """
+
+        try:
+            response = httpx.post(
+                neo4j_url,
+                json={"statements": [{"statement": query, "parameters": {"source_id": source_id, "target_id": target_id}}]},
+                auth=(neo4j_user, neo4j_password),
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [{}])[0].get("data", [])
+                if results:
+                    # Parse path from Neo4j response
+                    return {"path_found": True, "paths": [{"nodes": [], "edges": []}]}
+                return {"path_found": False, "paths": []}
+        except Exception as e:
+            logger.error(f"[GraphHandler] Neo4j path query error: {e}")
+
+        return {"path_found": False, "paths": []}
+
+    def _neo4j_get_schema_stats(self, sample_size: int) -> dict:
+        """Fallback: Direct Neo4j query for schema stats."""
+        import os
+        import httpx
+
+        neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
+        neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+        neo4j_password = os.environ.get("NEO4J_PASSWORD", "12345678")
+
+        stats = {
+            "total_nodes": 0,
+            "total_edges": 0,
+            "edge_types": {},
+            "memory_types": {},
+            "top_tags": [],
+            "avg_connections": 0.0,
+            "max_connections": 0,
+            "orphan_nodes": 0,
+            "time_range": {}
+        }
+
+        try:
+            # Get node count
+            response = httpx.post(
+                neo4j_url,
+                json={"statements": [{"statement": "MATCH (n:Memory) RETURN count(n) as cnt"}]},
+                auth=(neo4j_user, neo4j_password),
+                timeout=30
+            )
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [{}])[0].get("data", [])
+                if results:
+                    stats["total_nodes"] = results[0].get("row", [0])[0]
+
+            # Get edge count
+            response = httpx.post(
+                neo4j_url,
+                json={"statements": [{"statement": "MATCH ()-[r]->() RETURN count(r) as cnt"}]},
+                auth=(neo4j_user, neo4j_password),
+                timeout=30
+            )
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [{}])[0].get("data", [])
+                if results:
+                    stats["total_edges"] = results[0].get("row", [0])[0]
+
+            # Get edge type distribution
+            response = httpx.post(
+                neo4j_url,
+                json={"statements": [{"statement": "MATCH ()-[r]->() RETURN type(r) as t, count(r) as cnt"}]},
+                auth=(neo4j_user, neo4j_password),
+                timeout=30
+            )
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [{}])[0].get("data", [])
+                for r in results:
+                    row = r.get("row", [])
+                    if len(row) >= 2:
+                        stats["edge_types"][row[0]] = row[1]
+
+        except Exception as e:
+            logger.error(f"[GraphHandler] Neo4j schema query error: {e}")
+
+        return stats

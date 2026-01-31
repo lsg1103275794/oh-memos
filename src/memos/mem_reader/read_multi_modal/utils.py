@@ -53,6 +53,7 @@ def parse_json_result(response_text: str) -> dict:
     - JSON wrapped in markdown code blocks
     - Raw JSON
     - Incomplete JSON (attempts to fix)
+    - Missing quotes (LLM output errors)
 
     Args:
         response_text: Raw response text from LLM
@@ -70,22 +71,86 @@ def parse_json_result(response_text: str) -> dict:
         return {}
     s = s[i:].strip()
 
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError:
-        pass
+    def _try_parse(text: str) -> dict | None:
+        """Try to parse JSON, return None on failure."""
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return None
 
+    # Try direct parse first
+    result = _try_parse(s)
+    if result is not None:
+        return result
+
+    # Try truncating after last bracket
     j = max(s.rfind("}"), s.rfind("]"))
     if j != -1:
-        try:
-            return json.loads(s[: j + 1])
-        except json.JSONDecodeError:
-            pass
+        result = _try_parse(s[: j + 1])
+        if result is not None:
+            return result
+
+    def _fix_missing_quotes(t: str) -> str:
+        """Fix missing quotes in JSON values (common LLM error).
+
+        Fixes patterns like:
+          "key": value"  ->  "key": "value"
+          "key": 中文内容"  ->  "key": "中文内容"
+        """
+        lines = t.split('\n')
+        fixed_lines = []
+
+        for line in lines:
+            # Extract: prefix ("key": ) and the rest of the value
+            m = re.match(r'^(\s*"[^"]+"\s*:\s)(.*)', line)
+            if not m:
+                fixed_lines.append(line)
+                continue
+
+            prefix = m.group(1)
+            rest = m.group(2)
+
+            # Check if value is already properly formatted
+            stripped = rest.lstrip()
+            if not stripped or stripped[0] in ('"', '{', '['):
+                fixed_lines.append(line)
+                continue
+            if re.match(r'^-?\d', stripped):
+                fixed_lines.append(line)
+                continue
+            if re.match(r'^(true|false|null)\b', stripped):
+                fixed_lines.append(line)
+                continue
+
+            # Value is unquoted - check if it ends with a quote (missing opening quote)
+            quote_pos = rest.rfind('"')
+            if quote_pos > 0:
+                value_content = rest[:quote_pos]
+                after_quote = rest[quote_pos + 1:]
+                fixed_lines.append(f'{prefix}"{value_content}"{after_quote}')
+            else:
+                fixed_lines.append(line)
+
+        return '\n'.join(fixed_lines)
 
     def _cheap_close(t: str) -> str:
-        # Stack-based closer for more robust repair of truncated JSON
+        """Stack-based closer for truncated JSON."""
         stack = []
+        in_string = False
+        escape_next = False
+
         for char in t:
+            if escape_next:
+                escape_next = False
+                continue
+            if char == '\\':
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
             if char == "{":
                 stack.append("}")
             elif char == "[":
@@ -95,22 +160,85 @@ def parse_json_result(response_text: str) -> dict:
             elif char == "]" and stack and stack[-1] == "]":
                 stack.pop()
 
-        # Add closing brackets in reverse order
         t += "".join(reversed(stack))
         return t
 
+    # Try fixing missing quotes
+    fixed = _fix_missing_quotes(s)
+    if fixed != s:
+        result = _try_parse(fixed)
+        if result is not None:
+            logger.debug("[JSONParse] Fixed missing quotes")
+            return result
+
+    # Try closing brackets
     t = _cheap_close(s)
+    result = _try_parse(t)
+    if result is not None:
+        return result
+
+    # Try fixing missing quotes on closed version
+    fixed = _fix_missing_quotes(t)
+    result = _try_parse(fixed)
+    if result is not None:
+        logger.debug("[JSONParse] Fixed missing quotes after closing")
+        return result
+
+    # Try fixing escape sequences
+    if "Invalid \\escape" in str(_get_json_error(t)):
+        escaped = t.replace("\\", "\\\\")
+        result = _try_parse(escaped)
+        if result is not None:
+            return result
+
+    # Last resort: try to extract key-value pairs manually
+    result = _extract_json_fields(s)
+    if result:
+        logger.debug("[JSONParse] Extracted fields manually")
+        return result
+
+    logger.warning(f"[JSONParse] Failed to decode JSON after all attempts\nRaw: {response_text[:500]}...")
+    return {}
+
+
+def _get_json_error(text: str) -> str:
+    """Get JSON decode error message."""
     try:
-        return json.loads(t)
+        json.loads(text)
+        return ""
     except json.JSONDecodeError as e:
-        if "Invalid \\escape" in str(e):
-            s = s.replace("\\", "\\\\")
-            try:
-                return json.loads(s)
-            except json.JSONDecodeError:
-                pass
-        logger.warning(f"[JSONParse] Failed to decode JSON: {e}\nRaw: {response_text}")
-        return {}
+        return str(e)
+
+
+def _extract_json_fields(text: str) -> dict:
+    """
+    Last resort: manually extract common fields from malformed JSON.
+    Extracts: key, value, tags, summary, memory_type
+    """
+    result = {}
+
+    # Extract common string fields
+    for field in ["key", "value", "summary", "memory_type"]:
+        # Pattern: "field": "value" or "field": value"
+        pattern = rf'"{field}"\s*:\s*"?([^"]*(?:"[^"]*"[^"]*)*)"?\s*[,\}}]'
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            val = match.group(1).strip()
+            # Clean up the value
+            if val.endswith('"'):
+                val = val[:-1]
+            if val:
+                result[field] = val
+
+    # Extract tags array
+    tags_match = re.search(r'"tags"\s*:\s*\[(.*?)\]', text, re.DOTALL)
+    if tags_match:
+        tags_str = tags_match.group(1)
+        tags = re.findall(r'"([^"]+)"', tags_str)
+        if tags:
+            result["tags"] = tags
+
+    return result
 
 
 # Default configuration for parser and text splitter

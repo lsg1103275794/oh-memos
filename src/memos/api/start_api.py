@@ -12,20 +12,19 @@ from pydantic import BaseModel, Field
 
 from memos.api.product_models import (
     APIGraphRequest,
+    APISchemaRequest,
+    APITracePathRequest,
     GraphData,
     GraphEdge,
     GraphNode,
     GraphResponse,
-    TracePathRequest,
-    TracePathResponse,
-    TracePathData,
-    PathNode,
     PathEdge,
-    PathDetail,
-    GraphSchemaRequest,
-    GraphSchemaResponse,
-    GraphSchemaData,
-    SchemaRelationPattern,
+    PathNode,
+    SchemaData,
+    SchemaResponse,
+    TracePath,
+    TracePathData,
+    TracePathResponse,
 )
 from memos.api.handlers.graph_handler import GraphHandler, HandlerDependencies
 
@@ -91,6 +90,54 @@ app = FastAPI(
 app.add_middleware(RequestContextMiddleware)
 
 
+# Auto-register default cube on startup
+@app.on_event("startup")
+async def startup_auto_register():
+    """Auto-register the default memory cube on API startup."""
+    default_cube_id = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
+    cubes_dir = os.environ.get(
+        "MEMOS_CUBES_DIR",
+        os.environ.get("MOS_CUBES_DIR", "")
+    )
+
+    if not cubes_dir:
+        logger.info("Startup: No MEMOS_CUBES_DIR set, skipping auto-registration")
+        return
+
+    # Derive cube path
+    if cubes_dir.endswith(default_cube_id):
+        cube_path = cubes_dir
+    else:
+        cube_path = os.path.join(cubes_dir, default_cube_id)
+
+    config_path = os.path.join(cube_path, "config.json")
+    if not os.path.isfile(config_path):
+        logger.warning(f"Startup: Cube config not found at {config_path}, skipping auto-registration")
+        return
+
+    try:
+        mos_instance = get_mos_instance()
+        default_user = os.environ.get("MEMOS_USER", "dev_user")
+
+        # Check if already loaded
+        try:
+            mos_instance.get_mem_cube(default_cube_id, user_id=default_user)
+            logger.info(f"Startup: Default cube '{default_cube_id}' already loaded")
+            return
+        except Exception:
+            pass
+
+        # Register the cube
+        mos_instance.register_mem_cube(
+            mem_cube_name_or_path=cube_path,
+            mem_cube_id=default_cube_id,
+            user_id=default_user,
+        )
+        logger.info(f"Startup: Auto-registered default cube '{default_cube_id}' from {cube_path}")
+    except Exception as e:
+        logger.warning(f"Startup: Failed to auto-register cube '{default_cube_id}': {e}")
+
+
 class BaseRequest(BaseModel):
     """Base model for all requests."""
 
@@ -149,28 +196,10 @@ class SearchRequest(BaseRequest):
         description="Search query.",
         json_schema_extra={"example": "How to implement a feature?"},
     )
-    user_id: str | None = Field(
-        None,
-        description="User ID for the search",
-        json_schema_extra={"example": "user123"},
-    )
     install_cube_ids: list[str] | None = Field(
         None,
         description="List of cube IDs to search in",
         json_schema_extra={"example": ["cube123", "cube456"]},
-    )
-    enable_context_analysis: bool = Field(
-        False,
-        description="Enable LLM-powered context analysis for smarter search",
-    )
-    chat_history: list[dict] | None = Field(
-        None,
-        description="Chat history for context-aware search",
-        json_schema_extra={"example": [{"role": "user", "content": "debugging login"}]},
-    )
-    top_k: int = Field(
-        10,
-        description="Number of results to return",
     )
 
 
@@ -370,29 +399,13 @@ async def get_memory(mem_cube_id: str, memory_id: str, user_id: str | None = Non
 
 @app.post("/search", summary="Search memories", response_model=SearchResponse)
 async def search_memories(search_req: SearchRequest):
-    """Search for memories across MemCubes.
-
-    When enable_context_analysis=True, uses LLM to analyze search intent
-    from the query and chat_history for smarter results.
-    """
+    """Search for memories across MemCubes."""
     mos_instance = get_mos_instance()
-
-    # Build search kwargs
-    search_kwargs = {
-        "query": search_req.query,
-        "user_id": search_req.user_id,
-        "install_cube_ids": search_req.install_cube_ids,
-    }
-
-    # Add context analysis parameters if enabled
-    if search_req.enable_context_analysis and search_req.chat_history:
-        search_kwargs["chat_history"] = search_req.chat_history
-        search_kwargs["enable_context_analysis"] = True
-
-    if search_req.top_k:
-        search_kwargs["top_k"] = search_req.top_k
-
-    result = mos_instance.search(**search_kwargs)
+    result = mos_instance.search(
+        query=search_req.query,
+        user_id=search_req.user_id,
+        install_cube_ids=search_req.install_cube_ids,
+    )
     return SearchResponse(message="Search completed successfully", data=result)
 
 
@@ -438,7 +451,7 @@ async def get_graph_data(graph_req: APIGraphRequest):
 
     # Find the specified cube or search for one that has tree_text memory
     graph_db = None
-    
+
     if graph_req.mem_cube_id:
         try:
             cube = mos_instance.get_mem_cube(graph_req.mem_cube_id, user_id=graph_req.user_id)
@@ -489,8 +502,8 @@ async def get_graph_data(graph_req: APIGraphRequest):
         return GraphResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
 
 
-def _get_graph_db_for_cube(mos_instance, mem_cube_id: str | None, user_id: str):
-    """Helper to get graph_db from a cube."""
+def _get_graph_db(mos_instance, user_id: str | None = None, mem_cube_id: str | None = None):
+    """Helper to get graph database from MOS instance."""
     graph_db = None
 
     if mem_cube_id:
@@ -521,148 +534,198 @@ def _get_graph_db_for_cube(mos_instance, mem_cube_id: str | None, user_id: str):
 
 
 @app.post("/graph/trace_path", summary="Trace path between nodes", response_model=TracePathResponse)
-async def trace_path(trace_req: TracePathRequest):
-    """
-    Trace paths between two memory nodes in the knowledge graph.
-
-    This enables AI reasoning about how memories are connected:
-    - Understanding causality chains (A caused B caused C)
-    - Finding indirect relationships between concepts
-    - Exploring memory dependencies and influences
-    """
+async def trace_path(req: APITracePathRequest):
+    """Trace reasoning paths between two memory nodes."""
     mos_instance = get_mos_instance()
-    graph_db = _get_graph_db_for_cube(mos_instance, trace_req.mem_cube_id, trace_req.user_id)
+    graph_db = _get_graph_db(mos_instance, req.user_id, req.mem_cube_id)
 
     if not graph_db:
         return TracePathResponse(code=404, message="No graph database found", data=None)
 
-    if not hasattr(graph_db, "trace_path"):
-        return TracePathResponse(code=501, message="trace_path not implemented", data=None)
-
     try:
-        result = graph_db.trace_path(
-            source_id=trace_req.source_id,
-            target_id=trace_req.target_id,
-            max_depth=trace_req.max_depth,
-            user_name=trace_req.user_id,
-            include_all_paths=trace_req.include_all_paths,
-        )
+        # Use graph_db to find paths
+        if hasattr(graph_db, 'find_path'):
+            path_result = graph_db.find_path(
+                source_id=req.source_id,
+                target_id=req.target_id,
+                max_depth=req.max_depth
+            )
+        else:
+            # Fallback: direct Neo4j query
+            path_result = _neo4j_find_path(req.source_id, req.target_id, req.max_depth)
 
-        paths = []
-        for path_data in result.get("paths", []):
-            nodes = [
-                PathNode(
-                    id=n["id"],
-                    memory=n.get("memory", ""),
-                    metadata=n.get("metadata", {}),
+        if path_result and path_result.get("path_found"):
+            paths = []
+            for p in path_result.get("paths", []):
+                nodes = [PathNode(id=n["id"], memory=n.get("memory", ""), metadata=n.get("metadata", {})) for n in p.get("nodes", [])]
+                edges = [PathEdge(source=e["source"], target=e["target"], type=e.get("type", "RELATE")) for e in p.get("edges", [])]
+                paths.append(TracePath(nodes=nodes, edges=edges, length=len(edges)))
+
+            return TracePathResponse(
+                code=200,
+                message="Path found",
+                data=TracePathData(
+                    path_found=True,
+                    paths=paths,
+                    source_id=req.source_id,
+                    target_id=req.target_id
                 )
-                for n in path_data.get("nodes", [])
-            ]
-            edges = [
-                PathEdge(
-                    source=e["source"],
-                    target=e["target"],
-                    type=e["type"],
+            )
+        else:
+            return TracePathResponse(
+                code=200,
+                message="No path found between nodes",
+                data=TracePathData(
+                    path_found=False,
+                    paths=[],
+                    source_id=req.source_id,
+                    target_id=req.target_id
                 )
-                for e in path_data.get("edges", [])
-            ]
-            paths.append(PathDetail(length=path_data.get("length", 0), nodes=nodes, edges=edges))
+            )
 
-        source_node = None
-        if result.get("source"):
-            source_node = PathNode(id=result["source"]["id"], memory=result["source"].get("memory", ""))
-
-        target_node = None
-        if result.get("target"):
-            target_node = PathNode(id=result["target"]["id"], memory=result["target"].get("memory", ""))
-
-        trace_data = TracePathData(
-            found=result.get("found", False),
-            paths=paths,
-            source=source_node,
-            target=target_node,
-        )
-
-        return TracePathResponse(
-            code=200,
-            message="Path traced successfully" if trace_data.found else "No path found",
-            data=trace_data,
-        )
     except Exception as e:
         logger.error(f"Error tracing path: {e}", exc_info=True)
         return TracePathResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
 
 
-@app.post("/graph/schema", summary="Export graph schema", response_model=GraphSchemaResponse)
-async def get_graph_schema(schema_req: GraphSchemaRequest):
-    """
-    Export graph schema information for understanding the knowledge structure.
-
-    This provides:
-    - Statistics on relationship types and counts
-    - Common relationship patterns in the graph
-    - Total node and edge counts
-    """
+@app.post("/graph/schema", summary="Export graph schema", response_model=SchemaResponse)
+async def export_schema(req: APISchemaRequest):
+    """Export knowledge graph schema and statistics."""
     mos_instance = get_mos_instance()
-    graph_db = _get_graph_db_for_cube(mos_instance, schema_req.mem_cube_id, schema_req.user_id)
+    graph_db = _get_graph_db(mos_instance, req.user_id, req.mem_cube_id)
 
     if not graph_db:
-        return GraphSchemaResponse(code=404, message="No graph database found", data=None)
+        return SchemaResponse(code=404, message="No graph database found", data=None)
 
     try:
-        if hasattr(graph_db, "get_schema_statistics"):
-            stats = graph_db.get_schema_statistics(
-                user_name=schema_req.user_id,
-                sample_size=schema_req.sample_size,
-            )
+        # Use graph_db to get schema stats
+        if hasattr(graph_db, 'get_schema_stats'):
+            stats = graph_db.get_schema_stats(sample_size=req.sample_size)
         else:
-            # Fallback to basic export_graph
-            graph_data = graph_db.export_graph(
-                page=1,
-                page_size=schema_req.sample_size,
-                user_name=schema_req.user_id,
+            # Fallback: direct Neo4j query
+            stats = _neo4j_get_schema_stats(req.sample_size)
+
+        return SchemaResponse(
+            code=200,
+            message="Schema exported successfully",
+            data=SchemaData(
+                total_nodes=stats.get("total_nodes", 0),
+                total_edges=stats.get("total_edges", 0),
+                edge_types=stats.get("edge_types", {}),
+                memory_types=stats.get("memory_types", {}),
+                top_tags=stats.get("top_tags", []),
+                avg_connections=stats.get("avg_connections", 0.0),
+                max_connections=stats.get("max_connections", 0),
+                orphan_nodes=stats.get("orphan_nodes", 0),
+                time_range=stats.get("time_range", {})
             )
-            stats = {
-                "total_nodes": graph_data.get("total_nodes", 0),
-                "total_edges": graph_data.get("total_edges", 0),
-                "edge_type_distribution": {},
-                "memory_type_distribution": {},
-                "tag_frequency": {},
-                "avg_connections_per_node": 0.0,
-                "max_connections": 0,
-                "orphan_node_count": 0,
-                "time_range": {"earliest": None, "latest": None},
-            }
-            for edge in graph_data.get("edges", []):
-                edge_type = edge.get("type", "UNKNOWN")
-                stats["edge_type_distribution"][edge_type] = stats["edge_type_distribution"].get(edge_type, 0) + 1
-
-        patterns = []
-        for edge_type, count in sorted(stats.get("edge_type_distribution", {}).items(), key=lambda x: x[1], reverse=True):
-            frequency = "high" if count > 10 else "medium" if count > 3 else "low"
-            patterns.append(SchemaRelationPattern(pattern=f"Memory -[{edge_type}]-> Memory", frequency=frequency))
-
-        schema_data = GraphSchemaData(
-            entity_types=[],
-            relationship_patterns=patterns,
-            total_nodes=stats.get("total_nodes", 0),
-            total_edges=stats.get("total_edges", 0),
-            edge_type_distribution=stats.get("edge_type_distribution", {}),
-            memory_type_distribution=stats.get("memory_type_distribution", {}),
-            tag_frequency=stats.get("tag_frequency", {}),
-            avg_connections_per_node=stats.get("avg_connections_per_node", 0.0),
-            max_connections=stats.get("max_connections", 0),
-            orphan_node_count=stats.get("orphan_node_count", 0),
-            time_range={
-                "earliest": str(stats.get("time_range", {}).get("earliest")) if stats.get("time_range", {}).get("earliest") else None,
-                "latest": str(stats.get("time_range", {}).get("latest")) if stats.get("time_range", {}).get("latest") else None,
-            },
         )
 
-        return GraphSchemaResponse(code=200, message="Graph schema exported successfully", data=schema_data)
     except Exception as e:
         logger.error(f"Error exporting schema: {e}", exc_info=True)
-        return GraphSchemaResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+        return SchemaResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+
+
+def _neo4j_find_path(source_id: str, target_id: str, max_depth: int) -> dict:
+    """Fallback: Direct Neo4j query for path finding."""
+    import httpx
+
+    neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
+    neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+    neo4j_password = os.environ.get("NEO4J_PASSWORD", "12345678")
+
+    query = f"""
+    MATCH path = shortestPath((a:Memory {{id: $source_id}})-[*1..{max_depth}]-(b:Memory {{id: $target_id}}))
+    RETURN path
+    LIMIT 1
+    """
+
+    try:
+        response = httpx.post(
+            neo4j_url,
+            json={"statements": [{"statement": query, "parameters": {"source_id": source_id, "target_id": target_id}}]},
+            auth=(neo4j_user, neo4j_password),
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [{}])[0].get("data", [])
+            if results:
+                return {"path_found": True, "paths": [{"nodes": [], "edges": []}]}
+            return {"path_found": False, "paths": []}
+    except Exception as e:
+        logger.error(f"Neo4j path query error: {e}")
+
+    return {"path_found": False, "paths": []}
+
+
+def _neo4j_get_schema_stats(sample_size: int) -> dict:
+    """Fallback: Direct Neo4j query for schema stats."""
+    import httpx
+
+    neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
+    neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+    neo4j_password = os.environ.get("NEO4J_PASSWORD", "12345678")
+
+    stats = {
+        "total_nodes": 0,
+        "total_edges": 0,
+        "edge_types": {},
+        "memory_types": {},
+        "top_tags": [],
+        "avg_connections": 0.0,
+        "max_connections": 0,
+        "orphan_nodes": 0,
+        "time_range": {}
+    }
+
+    try:
+        # Get node count
+        response = httpx.post(
+            neo4j_url,
+            json={"statements": [{"statement": "MATCH (n:Memory) RETURN count(n) as cnt"}]},
+            auth=(neo4j_user, neo4j_password),
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [{}])[0].get("data", [])
+            if results:
+                stats["total_nodes"] = results[0].get("row", [0])[0]
+
+        # Get edge count
+        response = httpx.post(
+            neo4j_url,
+            json={"statements": [{"statement": "MATCH ()-[r]->() RETURN count(r) as cnt"}]},
+            auth=(neo4j_user, neo4j_password),
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [{}])[0].get("data", [])
+            if results:
+                stats["total_edges"] = results[0].get("row", [0])[0]
+
+        # Get edge type distribution
+        response = httpx.post(
+            neo4j_url,
+            json={"statements": [{"statement": "MATCH ()-[r]->() RETURN type(r) as t, count(r) as cnt"}]},
+            auth=(neo4j_user, neo4j_password),
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("results", [{}])[0].get("data", [])
+            for r in results:
+                row = r.get("row", [])
+                if len(row) >= 2:
+                    stats["edge_types"][row[0]] = row[1]
+
+    except Exception as e:
+        logger.error(f"Neo4j schema query error: {e}")
+
+    return stats
 
 
 @app.post("/chat", summary="Chat with MemOS", response_model=ChatResponse)
