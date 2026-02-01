@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import Field, field_validator, model_validator
 
@@ -64,7 +64,7 @@ class EmbedderConfigFactory(BaseConfig):
     """Factory class for creating embedder configurations."""
 
     backend: str = Field(..., description="Backend for embedding model")
-    config: Union[dict[str, Any], BaseEmbedderConfig] = Field(..., description="Configuration for the embedding model backend")
+    config: dict[str, Any] | BaseEmbedderConfig = Field(..., description="Configuration for the embedding model backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "ollama": OllamaEmbedderConfig,

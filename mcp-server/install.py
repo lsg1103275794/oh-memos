@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+
 from pathlib import Path
 
 
@@ -50,7 +51,7 @@ def update_claude_settings():
 
     # Read existing settings
     if settings_path.exists():
-        with open(settings_path, "r", encoding="utf-8") as f:
+        with open(settings_path, encoding="utf-8") as f:
             settings = json.load(f)
     else:
         settings = {}

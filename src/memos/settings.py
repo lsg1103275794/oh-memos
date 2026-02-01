@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+
 # Load environment variables FIRST before reading any config
 load_dotenv(override=True)
 

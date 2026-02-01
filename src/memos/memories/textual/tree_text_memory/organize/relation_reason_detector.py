@@ -5,13 +5,13 @@ from memos.embedders.factory import OllamaEmbedder
 from memos.graph_dbs.item import GraphDBNode
 from memos.graph_dbs.neo4j import Neo4jGraphDB
 from memos.llms.base import BaseLLM
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import TreeNodeTextualMemoryMetadata
 from memos.templates.tree_reorganize_prompts import (
     AGGREGATE_PROMPT,
-    INFER_FACT_PROMPT,
     BATCH_PAIRWISE_RELATION_PROMPT,
+    INFER_FACT_PROMPT,
 )
 
 

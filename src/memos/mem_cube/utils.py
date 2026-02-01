@@ -265,7 +265,7 @@ def get_wsl_distro_name() -> str | None:
 
         # Try to read from /etc/os-release
         if os.path.exists('/etc/os-release'):
-            with open('/etc/os-release', 'r') as f:
+            with open('/etc/os-release') as f:
                 for line in f:
                     if line.startswith('NAME='):
                         name = line.split('=')[1].strip().strip('"')
@@ -334,7 +334,7 @@ def normalize_path(path: str) -> str | None:
         is_wsl = os.path.exists('/proc/version')
         if is_wsl:
             try:
-                with open('/proc/version', 'r') as f:
+                with open('/proc/version') as f:
                     if 'microsoft' in f.read().lower():
                         # Convert C:/... or C:\... to /mnt/c/...
                         win_match = re.match(r'^([a-zA-Z]):[/\\](.*)$', path)

@@ -10,13 +10,14 @@ from fastapi.requests import Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+from memos.api.config import APIConfig
+from memos.api.handlers.graph_handler import GraphHandler, HandlerDependencies
+from memos.api.middleware.request_context import RequestContextMiddleware
 from memos.api.product_models import (
     APIGraphRequest,
     APISchemaRequest,
     APITracePathRequest,
     GraphData,
-    GraphEdge,
-    GraphNode,
     GraphResponse,
     PathEdge,
     PathNode,
@@ -26,13 +27,10 @@ from memos.api.product_models import (
     TracePathData,
     TracePathResponse,
 )
-from memos.api.handlers.graph_handler import GraphHandler, HandlerDependencies
-
-from memos.api.config import APIConfig
-from memos.api.middleware.request_context import RequestContextMiddleware
 from memos.configs.mem_os import MOSConfig
 from memos.mem_os.main import MOS
 from memos.mem_user.user_manager import UserManager, UserRole
+
 
 # Suppress harmless warnings
 warnings.filterwarnings("ignore", message=".*PyTorch.*TensorFlow.*Flax.*")
@@ -81,6 +79,39 @@ def get_mos_instance():
     return MOS_INSTANCE
 
 
+# Initialize graph handler
+GRAPH_HANDLER = None
+
+
+def get_graph_handler():
+    """Lazy initialize GraphHandler with the current MOS instance's graph DB."""
+    global GRAPH_HANDLER
+    if GRAPH_HANDLER is None:
+        mos = get_mos_instance()
+        # Find a cube that has a graph_store
+        graph_db = None
+        # Try to get from the default cube if specified
+        default_cube_id = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
+        if default_cube_id in mos.mem_cubes:
+            cube = mos.mem_cubes[default_cube_id]
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+
+        # If not found, take the first available
+        if not graph_db:
+            for cube in mos.mem_cubes.values():
+                if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                    graph_db = cube.text_mem.graph_store
+                    break
+
+        if not graph_db:
+            logger.warning("No graph database found in any memory cube")
+
+        deps = HandlerDependencies(graph_db=graph_db)
+        GRAPH_HANDLER = GraphHandler(deps)
+    return GRAPH_HANDLER
+
+
 app = FastAPI(
     title="MemOS REST APIs",
     description="A REST API for managing and searching memories using MemOS.",
@@ -97,45 +128,49 @@ async def startup_auto_register():
     default_cube_id = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
     cubes_dir = os.environ.get(
         "MEMOS_CUBES_DIR",
-        os.environ.get("MOS_CUBES_DIR", "")
+        os.environ.get("MOS_CUBES_DIR", os.environ.get("MOS_CUBE_PATH", ""))
     )
 
     if not cubes_dir:
-        logger.info("Startup: No MEMOS_CUBES_DIR set, skipping auto-registration")
+        logger.info("Startup: No cubes directory set, skipping auto-registration")
         return
 
-    # Derive cube path
-    if cubes_dir.endswith(default_cube_id):
-        cube_path = cubes_dir
-    else:
-        cube_path = os.path.join(cubes_dir, default_cube_id)
+    # Convert relative path to absolute if needed
+    if not os.path.isabs(cubes_dir):
+        # Assume relative to project root or current work dir
+        # start.bat runs from src/, so ./data/memos_cubes is ../data/memos_cubes
+        cubes_dir = os.path.abspath(os.path.join(os.getcwd(), "..", cubes_dir))
+        logger.info(f"Startup: Converted relative cubes_dir to absolute: {cubes_dir}")
 
-    config_path = os.path.join(cube_path, "config.json")
-    if not os.path.isfile(config_path):
-        logger.warning(f"Startup: Cube config not found at {config_path}, skipping auto-registration")
+    if not os.path.isdir(cubes_dir):
+        logger.warning(f"Startup: Cubes directory not found at {cubes_dir}")
         return
 
-    try:
-        mos_instance = get_mos_instance()
-        default_user = os.environ.get("MEMOS_USER", "dev_user")
+    mos_instance = get_mos_instance()
+    default_user = mos_instance.user_id  # Use the same user as MOS instance
 
-        # Check if already loaded
-        try:
-            mos_instance.get_mem_cube(default_cube_id, user_id=default_user)
-            logger.info(f"Startup: Default cube '{default_cube_id}' already loaded")
-            return
-        except Exception:
-            pass
+    # Register all cubes found in the directory
+    registered_count = 0
+    for item in os.listdir(cubes_dir):
+        cube_path = os.path.join(cubes_dir, item)
+        if os.path.isdir(cube_path):
+            config_path = os.path.join(cube_path, "config.json")
+            if os.path.isfile(config_path):
+                try:
+                    # Register the cube
+                    mos_instance.register_mem_cube(
+                        mem_cube_name_or_path=cube_path,
+                        mem_cube_id=item,
+                        user_id=default_user,
+                    )
+                    logger.info(f"Startup: Auto-registered cube '{item}' from {cube_path}")
+                    registered_count += 1
+                except Exception as e:
+                    logger.warning(f"Startup: Failed to auto-register cube '{item}': {e}")
+    
+    if registered_count == 0:
+        logger.warning(f"Startup: No valid cubes found in {cubes_dir}")
 
-        # Register the cube
-        mos_instance.register_mem_cube(
-            mem_cube_name_or_path=cube_path,
-            mem_cube_id=default_cube_id,
-            user_id=default_user,
-        )
-        logger.info(f"Startup: Auto-registered default cube '{default_cube_id}' from {cube_path}")
-    except Exception as e:
-        logger.warning(f"Startup: Failed to auto-register cube '{default_cube_id}': {e}")
 
 
 class BaseRequest(BaseModel):
@@ -348,6 +383,34 @@ async def share_cube(cube_id: str, share_request: CubeShare):
         raise ValueError("Failed to share cube")
 
 
+# Graph endpoints
+@app.post(
+    "/product/graph/data", summary="Get graph data for visualization", response_model=GraphResponse
+)
+async def get_graph_data(graph_req: APIGraphRequest):
+    """Fetch graph nodes and edges for visualization."""
+    handler = get_graph_handler()
+    return handler.handle_get_graph_data(graph_req)
+
+
+@app.post(
+    "/product/graph/trace_path", summary="Trace path between nodes", response_model=TracePathResponse
+)
+async def trace_path(req: APITracePathRequest):
+    """Trace paths between two memory nodes."""
+    handler = get_graph_handler()
+    return handler.handle_trace_path(req)
+
+
+@app.post(
+    "/product/graph/schema", summary="Get graph schema", response_model=SchemaResponse
+)
+async def get_graph_schema(req: APISchemaRequest):
+    """Get graph schema and statistics."""
+    handler = get_graph_handler()
+    return handler.handle_get_graph_schema(req)
+
+
 @app.post("/memories", summary="Create memories", response_model=SimpleResponse)
 async def add_memory(memory_create: MemoryCreate):
     """Store new memories in a MemCube."""
@@ -499,7 +562,7 @@ async def get_graph_data(graph_req: APIGraphRequest):
         return GraphResponse(code=200, message="Graph data fetched successfully", data=graph_data)
     except Exception as e:
         logger.error(f"Error fetching graph data: {e}", exc_info=True)
-        return GraphResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+        return GraphResponse(code=500, message=f"Internal server error: {e!s}", data=None)
 
 
 def _get_graph_db(mos_instance, user_id: str | None = None, mem_cube_id: str | None = None):
@@ -585,7 +648,7 @@ async def trace_path(req: APITracePathRequest):
 
     except Exception as e:
         logger.error(f"Error tracing path: {e}", exc_info=True)
-        return TracePathResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+        return TracePathResponse(code=500, message=f"Internal server error: {e!s}", data=None)
 
 
 @app.post("/graph/schema", summary="Export graph schema", response_model=SchemaResponse)
@@ -623,7 +686,7 @@ async def export_schema(req: APISchemaRequest):
 
     except Exception as e:
         logger.error(f"Error exporting schema: {e}", exc_info=True)
-        return SchemaResponse(code=500, message=f"Internal server error: {str(e)}", data=None)
+        return SchemaResponse(code=500, message=f"Internal server error: {e!s}", data=None)
 
 
 def _neo4j_find_path(source_id: str, target_id: str, max_depth: int) -> dict:

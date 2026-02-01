@@ -15,7 +15,6 @@ from memos.api.product_models import APISearchRequest, SearchResponse
 from memos.log import get_logger
 from memos.memories.textual.tree_text_memory.organize.context_aware_searcher import (
     ContextAwareSearcher,
-    SearchIntent,
 )
 from memos.memories.textual.tree_text_memory.retrieve.retrieve_utils import (
     cosine_similarity_matrix,

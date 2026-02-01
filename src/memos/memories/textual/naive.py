@@ -6,8 +6,8 @@ from typing import Any
 
 from memos.configs.memory import NaiveTextMemoryConfig
 from memos.llms.factory import LLMFactory
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.base import BaseTextMemory
 from memos.memories.textual.item import TextualMemoryItem, TextualMemoryMetadata
 from memos.types import MessageList

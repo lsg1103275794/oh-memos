@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -213,7 +213,7 @@ class PolarDBGraphDBConfig(BaseConfig):
 
 class GraphDBConfigFactory(BaseModel):
     backend: str = Field(..., description="Backend for graph database")
-    config: Union[dict[str, Any], BaseGraphDBConfig, PolarDBGraphDBConfig] = Field(..., description="Configuration for the graph database backend")
+    config: dict[str, Any] | BaseGraphDBConfig | PolarDBGraphDBConfig = Field(..., description="Configuration for the graph database backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "neo4j": Neo4jGraphDBConfig,

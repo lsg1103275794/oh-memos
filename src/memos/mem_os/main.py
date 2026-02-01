@@ -1,5 +1,4 @@
 import concurrent.futures
-import json
 import os
 
 from typing import Any
@@ -9,8 +8,8 @@ from memos.context.context import ContextThreadPoolExecutor
 from memos.llms.factory import LLMFactory
 from memos.log import get_logger
 from memos.mem_os.core import MOSCore
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_os.utils.default_config import get_default
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.base import BaseTextMemory
 from memos.templates.mos_prompts import (
     COT_DECOMPOSE_PROMPT,

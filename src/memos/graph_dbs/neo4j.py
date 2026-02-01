@@ -1340,6 +1340,7 @@ class Neo4jGraphDB(BaseGraphDB):
             }
         """
         user_name = kwargs.get("user_name") if kwargs.get("user_name") else self.config.user_name
+        filter_dict = kwargs.get("filter")
 
         # Initialize total counts
         total_nodes = 0
@@ -1362,10 +1363,40 @@ class Neo4jGraphDB(BaseGraphDB):
             edge_base_query = "MATCH (a:Memory)-[r]->(b:Memory)"
             params = {}
 
+            node_where_clauses = []
+            edge_where_clauses = []
+
             if not self.config.use_multi_db and (self.config.user_name or user_name):
-                node_base_query += " WHERE n.user_name = $user_name"
-                edge_base_query += " WHERE a.user_name = $user_name AND b.user_name = $user_name"
+                node_where_clauses.append("n.user_name = $user_name")
+                edge_where_clauses.append("a.user_name = $user_name AND b.user_name = $user_name")
                 params["user_name"] = user_name
+
+            if filter_dict:
+                # Add node filter conditions
+                node_filter_conditions, node_filter_params = self._build_filter_conditions_cypher(
+                    filter=filter_dict,
+                    param_counter_start=len(params),
+                    node_alias="n",
+                )
+                node_where_clauses.extend(node_filter_conditions)
+                params.update(node_filter_params)
+
+                # Add edge filter conditions (source node 'a' must match filter)
+                edge_filter_conditions, edge_filter_params = self._build_filter_conditions_cypher(
+                    filter=filter_dict,
+                    param_counter_start=len(params),
+                    node_alias="a",
+                )
+                edge_where_clauses.extend(edge_filter_conditions)
+                params.update(edge_filter_params)
+
+            if node_where_clauses:
+                node_base_query += " WHERE " + " AND ".join(node_where_clauses)
+            if edge_where_clauses:
+                edge_base_query += " WHERE " + " AND ".join(edge_where_clauses)
+
+            logger.info(f"[export_graph] node_query: {node_base_query}, params: {params}")
+            logger.info(f"[export_graph] edge_query: {edge_base_query}, params: {params}")
 
             # Get total count of nodes before pagination
             count_node_query = node_base_query + " RETURN COUNT(n) AS count"

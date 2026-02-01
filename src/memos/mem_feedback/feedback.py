@@ -1,7 +1,5 @@
 import concurrent.futures
 import difflib
-import json
-import re
 import uuid
 
 from datetime import datetime
@@ -16,7 +14,6 @@ from memos.embedders.factory import EmbedderFactory, OllamaEmbedder
 from memos.graph_dbs.factory import GraphStoreFactory, PolarDBGraphDB
 from memos.llms.factory import AzureLLM, LLMFactory, OllamaLLM, OpenAILLM
 from memos.log import get_logger
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_feedback.base import BaseMemFeedback
 from memos.mem_feedback.utils import (
     extract_bracket_content,
@@ -28,6 +25,7 @@ from memos.mem_feedback.utils import (
 )
 from memos.mem_reader.factory import MemReaderFactory
 from memos.mem_reader.read_multi_modal import detect_lang
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import TextualMemoryItem
 from memos.memories.textual.tree_text_memory.organize.manager import (
     MemoryManager,

@@ -1,8 +1,12 @@
 import os
 import sys
+
+
 sys.path.insert(0, 'src')
 
 from dotenv import load_dotenv
+
+
 load_dotenv(dotenv_path='src/.env', override=True)
 
 print("=== Environment Variables ===")
@@ -13,6 +17,7 @@ print(f"OPENAI_API_BASE: {os.getenv('OPENAI_API_BASE')}")
 
 print("\n=== Testing Config ===")
 from memos.api.config import APIConfig
+
 
 print("\nget_reader_config():")
 print(APIConfig.get_reader_config())

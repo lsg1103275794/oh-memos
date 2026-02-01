@@ -12,10 +12,26 @@ import json
 import logging
 import os
 import re
-from typing import Any
-
 import sys
+
+from typing import Any, Optional
+
 import httpx
+from dotenv import load_dotenv
+
+# Import keyword enhancer module
+try:
+    from keyword_enhancer import (
+        ALL_STOPWORDS,
+        extract_keywords_enhanced,
+        keyword_match_score_enhanced,
+        detect_cube_from_path,
+        find_fuzzy_matches,
+    )
+    KEYWORD_ENHANCER_AVAILABLE = True
+except ImportError:
+    KEYWORD_ENHANCER_AVAILABLE = False
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
@@ -23,6 +39,16 @@ from mcp.types import (
     Tool,
 )
 from pydantic import BaseModel
+
+
+# Load .env from project root (parent of mcp-server/)
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_dotenv_path = os.path.join(_project_root, ".env")
+if os.path.isfile(_dotenv_path):
+    load_dotenv(_dotenv_path, override=True)
+else:
+    load_dotenv()  # fallback: search from cwd upward
+
 
 # Parse command line arguments first (WSL env vars don't pass to Windows Python)
 def parse_args():
@@ -51,27 +77,51 @@ logging.basicConfig(
 logger = logging.getLogger("memos-mcp")
 
 # Configuration: CLI args take precedence over env vars
-MEMOS_URL = _args.memos_url or os.environ.get("MEMOS_URL", "http://localhost:18000")
-MEMOS_USER = _args.memos_user or os.environ.get("MEMOS_USER", "dev_user")
-MEMOS_DEFAULT_CUBE = _args.memos_default_cube or os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
-MEMOS_CUBES_DIR = _args.memos_cubes_dir or os.environ.get("MEMOS_CUBES_DIR", "G:/test/MemOS/data/memos_cubes")
+MEMOS_URL = _args.memos_url or os.environ.get("MEMOS_URL") or os.environ.get("MEMOS_BASE_URL")
+if not MEMOS_URL:
+    raise RuntimeError("MEMOS_URL is required (set MEMOS_URL or MEMOS_BASE_URL in .env)")
+
+MEMOS_USER = _args.memos_user or os.environ.get("MEMOS_USER")
+if not MEMOS_USER:
+    raise RuntimeError("MEMOS_USER is required (set MEMOS_USER in .env)")
+
+_default_cube_from_env = _args.memos_default_cube is not None or os.environ.get("MEMOS_DEFAULT_CUBE") is not None
+MEMOS_DEFAULT_CUBE = _args.memos_default_cube or os.environ.get("MEMOS_DEFAULT_CUBE")
+if not MEMOS_DEFAULT_CUBE:
+    raise RuntimeError("MEMOS_DEFAULT_CUBE is required (set MEMOS_DEFAULT_CUBE in .env)")
+
+MEMOS_CUBES_DIR = _args.memos_cubes_dir or os.environ.get("MEMOS_CUBES_DIR")
+if not MEMOS_CUBES_DIR:
+    raise RuntimeError("MEMOS_CUBES_DIR is required (set MEMOS_CUBES_DIR in .env)")
 
 # Timeout configuration (in seconds)
 # Large documents with embedding may take longer
-MEMOS_TIMEOUT_TOOL = float(_args.memos_timeout_tool or os.environ.get("MEMOS_TIMEOUT_TOOL", "120.0"))
-MEMOS_TIMEOUT_STARTUP = float(_args.memos_timeout_startup or os.environ.get("MEMOS_TIMEOUT_STARTUP", "30.0"))
-MEMOS_TIMEOUT_HEALTH = float(_args.memos_timeout_health or os.environ.get("MEMOS_TIMEOUT_HEALTH", "5.0"))
-MEMOS_API_WAIT_MAX = float(_args.memos_api_wait_max or os.environ.get("MEMOS_API_WAIT_MAX", "60.0"))
+def _require_env_value(name: str, value: str | None) -> str:
+    if value is None or value == "":
+        raise RuntimeError(f"{name} is required (set {name} in .env)")
+    return value
 
-# Safety configuration - dangerous operations disabled by default
-# Set to "true" to enable delete functionality (user must explicitly enable)
-_enable_delete_val = _args.memos_enable_delete or os.environ.get("MEMOS_ENABLE_DELETE", "false")
+
+def _require_float(name: str, value: str | None) -> float:
+    raw = _require_env_value(name, value)
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a float, got: {raw}") from exc
+
+
+MEMOS_TIMEOUT_TOOL = _require_float("MEMOS_TIMEOUT_TOOL", _args.memos_timeout_tool or os.environ.get("MEMOS_TIMEOUT_TOOL"))
+MEMOS_TIMEOUT_STARTUP = _require_float("MEMOS_TIMEOUT_STARTUP", _args.memos_timeout_startup or os.environ.get("MEMOS_TIMEOUT_STARTUP"))
+MEMOS_TIMEOUT_HEALTH = _require_float("MEMOS_TIMEOUT_HEALTH", _args.memos_timeout_health or os.environ.get("MEMOS_TIMEOUT_HEALTH"))
+MEMOS_API_WAIT_MAX = _require_float("MEMOS_API_WAIT_MAX", _args.memos_api_wait_max or os.environ.get("MEMOS_API_WAIT_MAX"))
+
+_enable_delete_val = _require_env_value("MEMOS_ENABLE_DELETE", _args.memos_enable_delete or os.environ.get("MEMOS_ENABLE_DELETE"))
 MEMOS_ENABLE_DELETE = _enable_delete_val.lower() == "true"
 
 # Neo4j configuration (for fallback direct queries)
-NEO4J_HTTP_URL = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "12345678")
+NEO4J_HTTP_URL = os.environ.get("NEO4J_HTTP_URL")
+NEO4J_USER = os.environ.get("NEO4J_USER")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
 # Create server instance
 server = Server("memos-memory")
@@ -144,15 +194,212 @@ def get_cube_path(cube_id: str) -> str | None:
     return None
 
 
+def get_cubes_base_dir() -> str:
+    cubes_dir = MEMOS_CUBES_DIR
+    if cubes_dir.endswith(MEMOS_DEFAULT_CUBE):
+        return os.path.dirname(cubes_dir)
+    return cubes_dir
+
+
+def _clone_config(config: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(config))
+
+
+def _update_config_for_cube(config: dict[str, Any], cube_id: str) -> dict[str, Any]:
+    config["user_id"] = MEMOS_USER
+    config["cube_id"] = cube_id
+    config["config_filename"] = "config.json"
+
+    text_mem = config.get("text_mem", {})
+    text_cfg = text_mem.get("config", {}) if isinstance(text_mem, dict) else {}
+
+    if isinstance(text_cfg, dict):
+        if "cube_id" in text_cfg:
+            text_cfg["cube_id"] = cube_id
+
+        graph_db = text_cfg.get("graph_db", {})
+        graph_cfg = graph_db.get("config", {}) if isinstance(graph_db, dict) else {}
+        if isinstance(graph_cfg, dict):
+            use_multi_db = graph_cfg.get("use_multi_db")
+            if use_multi_db is False or "user_name" in graph_cfg:
+                graph_cfg["user_name"] = cube_id
+            vec_cfg = graph_cfg.get("vec_config", {}).get("config")
+            if isinstance(vec_cfg, dict) and "collection_name" in vec_cfg:
+                vec_cfg["collection_name"] = f"{cube_id}_graph"
+
+        vector_db = text_cfg.get("vector_db", {})
+        vector_cfg = vector_db.get("config") if isinstance(vector_db, dict) else {}
+        if isinstance(vector_cfg, dict) and "collection_name" in vector_cfg:
+            vector_cfg["collection_name"] = f"{cube_id}_collection"
+
+    return config
+
+
+def _build_fallback_cube_config(cube_id: str) -> dict[str, Any]:
+    def _require_env(key: str) -> str:
+        value = os.getenv(key)
+        if value is None or value == "":
+            raise RuntimeError(f"{key} is required (set {key} in .env)")
+        return value
+
+    def _get_float(key: str) -> float:
+        raw = _require_env(key)
+        try:
+            return float(raw)
+        except ValueError as exc:
+            raise RuntimeError(f"{key} must be a float, got: {raw}") from exc
+
+    def _get_int(key: str) -> int:
+        raw = _require_env(key)
+        try:
+            return int(raw)
+        except ValueError as exc:
+            raise RuntimeError(f"{key} must be an int, got: {raw}") from exc
+
+    openai_config = {
+        "model_name_or_path": _require_env("MOS_CHAT_MODEL"),
+        "temperature": _get_float("MOS_CHAT_TEMPERATURE"),
+        "max_tokens": _get_int("MOS_MAX_TOKENS"),
+        "top_p": _get_float("MOS_TOP_P"),
+        "top_k": _get_int("MOS_TOP_K"),
+        "remove_think_prefix": True,
+        "api_key": _require_env("OPENAI_API_KEY"),
+        "api_base": _require_env("OPENAI_API_BASE"),
+    }
+
+    embedder_base_url = os.getenv("MOS_EMBEDDER_API_BASE") or _require_env("OPENAI_API_BASE")
+
+    embedder_config = {
+        "backend": _require_env("MOS_EMBEDDER_BACKEND"),
+        "config": {
+            "provider": _require_env("MOS_EMBEDDER_PROVIDER"),
+            "api_key": _require_env("OPENAI_API_KEY"),
+            "model_name_or_path": _require_env("MOS_EMBEDDER_MODEL"),
+            "base_url": embedder_base_url,
+            "embedding_dims": _get_int("EMBEDDING_DIMENSION"),
+        },
+    }
+
+    neo4j_backend = _require_env("NEO4J_BACKEND").lower()
+    if neo4j_backend == "neo4j":
+        graph_config = {
+            "uri": _require_env("NEO4J_URI"),
+            "user": _require_env("NEO4J_USER"),
+            "db_name": _require_env("NEO4J_DB_NAME"),
+            "password": _require_env("NEO4J_PASSWORD"),
+            "auto_create": _require_env("NEO4J_AUTO_CREATE").lower() == "true",
+            "use_multi_db": _require_env("NEO4J_USE_MULTI_DB").lower() == "true",
+            "user_name": cube_id,
+            "embedding_dimension": _get_int("EMBEDDING_DIMENSION"),
+        }
+    else:
+        qdrant_url = os.getenv("QDRANT_URL")
+        qdrant_host = None
+        qdrant_port = None
+        if not qdrant_url:
+            qdrant_host = _require_env("QDRANT_HOST")
+            qdrant_port = _get_int("QDRANT_PORT")
+        graph_config = {
+            "uri": _require_env("NEO4J_URI"),
+            "user": _require_env("NEO4J_USER"),
+            "db_name": _require_env("NEO4J_DB_NAME"),
+            "password": _require_env("NEO4J_PASSWORD"),
+            "user_name": cube_id,
+            "auto_create": False,
+            "use_multi_db": False,
+            "embedding_dimension": _get_int("EMBEDDING_DIMENSION"),
+            "vec_config": {
+                "backend": "qdrant",
+                "config": {
+                    "collection_name": f"{cube_id}_graph",
+                    "vector_dimension": _get_int("EMBEDDING_DIMENSION"),
+                    "distance_metric": "cosine",
+                    "host": qdrant_host,
+                    "port": qdrant_port,
+                    "path": os.getenv("QDRANT_PATH"),
+                    "url": qdrant_url,
+                    "api_key": os.getenv("QDRANT_API_KEY"),
+                },
+            },
+        }
+
+    return {
+        "model_schema": "memos.configs.mem_cube.GeneralMemCubeConfig",
+        "user_id": MEMOS_USER,
+        "cube_id": cube_id,
+        "config_filename": "config.json",
+        "text_mem": {
+            "backend": "tree_text",
+            "config": {
+                "extractor_llm": {"backend": "openai", "config": openai_config},
+                "dispatcher_llm": {"backend": "openai", "config": openai_config},
+                "embedder": embedder_config,
+                "graph_db": {"backend": neo4j_backend, "config": graph_config},
+                "reorganize": _require_env("MOS_ENABLE_REORGANIZE").lower() == "true",
+                "search_strategy": {
+                    "bm25": _require_env("BM25_CALL").lower() == "true",
+                    "cot": _require_env("VEC_COT_CALL").lower() == "true",
+                },
+            },
+        },
+        "act_mem": {},
+        "para_mem": {},
+    }
+
+
+def _build_cube_config(cube_id: str) -> dict[str, Any]:
+    template_path = get_cube_path(MEMOS_DEFAULT_CUBE)
+    if template_path is not None:
+        config_path = os.path.join(template_path, "config.json")
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            config = _clone_config(config)
+            return _update_config_for_cube(config, cube_id)
+        except Exception as e:
+            logger.warning(f"Failed to read template cube config: {e}")
+    return _build_fallback_cube_config(cube_id)
+
+
+def ensure_cube_directory(cube_id: str) -> tuple[str | None, str | None]:
+    cubes_dir = get_cubes_base_dir()
+    try:
+        os.makedirs(cubes_dir, exist_ok=True)
+        cube_dir = os.path.join(cubes_dir, cube_id)
+        config_path = os.path.join(cube_dir, "config.json")
+        if os.path.isdir(cube_dir) and os.path.isfile(config_path):
+            return cube_dir, None
+        os.makedirs(cube_dir, exist_ok=True)
+        config = _build_cube_config(cube_id)
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        return cube_dir, None
+    except Exception as e:
+        return None, f"Failed to create cube '{cube_id}': {e}"
+
+
 def get_default_cube_id() -> str:
-    """Derive default cube_id from current working directory if not set."""
+    """
+    Get the default cube ID based on environment or project path.
+
+    Priority:
+    1. Explicit env var MEMOS_DEFAULT_CUBE (if path exists)
+    2. Derived from current working directory using smart detection
+    3. Fallback to MEMOS_DEFAULT_CUBE constant
+    """
+    if _default_cube_from_env:
+        cube_path = get_cube_path(MEMOS_DEFAULT_CUBE)
+        if cube_path is not None:
+            return MEMOS_DEFAULT_CUBE
     try:
         cwd = os.getcwd()
+        # Use enhanced detection if available
+        if KEYWORD_ENHANCER_AVAILABLE:
+            return detect_cube_from_path(cwd)
+        # Fallback to basic detection
         folder_name = os.path.basename(cwd)
-        if not folder_name:  # Root directory case
+        if not folder_name:
             return MEMOS_DEFAULT_CUBE
-        
-        # Rule: lowercase, replace hyphens/dots/spaces with underscores, append '_cube'
         cube_id = folder_name.lower()
         cube_id = re.sub(r"[\-\.\s]+", "_", cube_id)
         return f"{cube_id}_cube"
@@ -764,6 +1011,199 @@ def extract_memories_from_response(data: dict) -> list[dict]:
     return memories
 
 
+MEMORY_TYPES = {
+    "ERROR_PATTERN",
+    "DECISION",
+    "MILESTONE",
+    "BUGFIX",
+    "FEATURE",
+    "CONFIG",
+    "CODE_PATTERN",
+    "GOTCHA",
+    "PROGRESS",
+}
+
+
+def parse_memory_type_prefix(query: str) -> tuple[str | None, str]:
+    if not query:
+        return None, ""
+    match = re.match(r"^\s*\[?([A-Z_]+)\]?\s*[:\-]?\s*(.*)$", query)
+    if not match:
+        return None, query.strip()
+    mem_type = match.group(1)
+    rest = match.group(2).strip()
+    if mem_type in MEMORY_TYPES:
+        return mem_type, rest
+    return None, query.strip()
+
+
+_KEYWORD_STOPWORDS = {
+    "the", "and", "or", "a", "an", "to", "of", "for", "with", "in", "on",
+    "at", "is", "are", "was", "were", "be", "this", "that", "it", "as",
+    "from", "by", "about", "into", "over", "after", "before", "not",
+    "的", "了", "和", "与", "在", "是", "有", "我", "你", "他", "她",
+    "它", "我们", "你们", "他们", "以及", "或", "并",
+}
+
+# Use enhanced stopwords if available
+if KEYWORD_ENHANCER_AVAILABLE:
+    _KEYWORD_STOPWORDS = ALL_STOPWORDS
+
+
+def extract_keywords(query: str) -> list[str]:
+    """Extract keywords from query with stopword filtering."""
+    if KEYWORD_ENHANCER_AVAILABLE:
+        return extract_keywords_enhanced(query, _KEYWORD_STOPWORDS)
+    # Fallback to basic implementation
+    if not query:
+        return []
+    raw_tokens = re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]+", query)
+    keywords: list[str] = []
+    seen = set()
+    for token in raw_tokens:
+        if not token:
+            continue
+        if re.search(r"[\u4e00-\u9fff]", token):
+            if len(token) < 2:
+                continue
+            if token in _KEYWORD_STOPWORDS:
+                continue
+            if token not in seen:
+                keywords.append(token)
+                seen.add(token)
+            continue
+        lowered = token.lower()
+        if len(lowered) < 2:
+            continue
+        if lowered in _KEYWORD_STOPWORDS:
+            continue
+        if lowered not in seen:
+            keywords.append(lowered)
+            seen.add(lowered)
+    return keywords
+
+
+def keyword_match_score(
+    text: str,
+    keywords: list[str],
+    metadata: Optional[dict] = None,
+    enable_fuzzy: bool = True
+) -> float:
+    """
+    Calculate keyword match score with optional fuzzy matching.
+
+    Args:
+        text: The text to match against
+        keywords: List of keywords
+        metadata: Optional metadata with 'key' and 'tags' fields
+        enable_fuzzy: Enable fuzzy matching (default True)
+
+    Returns:
+        Match score
+    """
+    if KEYWORD_ENHANCER_AVAILABLE:
+        return keyword_match_score_enhanced(
+            text, keywords, metadata, enable_fuzzy=enable_fuzzy
+        )
+    # Fallback to basic implementation
+    if not text or not keywords:
+        return 0.0
+    text_lower = text.lower()
+    matched = 0
+    score = 0.0
+    for kw in keywords:
+        if re.search(r"[\u4e00-\u9fff]", kw):
+            if kw in text:
+                matched += 1
+                score += 2.0
+            continue
+        if re.search(rf"\b{re.escape(kw)}\b", text_lower):
+            matched += 1
+            score += 2.0
+        elif kw in text_lower:
+            matched += 1
+            score += 1.2
+    if matched:
+        score += matched / max(len(keywords), 1)
+    return score
+
+
+def apply_keyword_rerank(data: dict, query: str, enable_fuzzy: bool = True) -> dict:
+    """
+    Apply keyword-based reranking to search results.
+
+    Args:
+        data: Search results data
+        query: Original query string
+        enable_fuzzy: Enable fuzzy matching
+
+    Returns:
+        Reranked data
+    """
+    keywords = extract_keywords(query)
+    if not keywords:
+        return data
+    text_mems = data.get("text_mem", [])
+    for cube_data in text_mems:
+        mem_data = cube_data.get("memories", [])
+        if isinstance(mem_data, dict) and "nodes" in mem_data:
+            nodes = mem_data.get("nodes", [])
+            nodes.sort(
+                key=lambda mem: (
+                    mem.get("metadata", {}).get("relativity", 0.0)
+                    + keyword_match_score(
+                        mem.get("memory", ""),
+                        keywords,
+                        mem.get("metadata"),
+                        enable_fuzzy
+                    )
+                ),
+                reverse=True,
+            )
+        elif isinstance(mem_data, list):
+            mem_data.sort(
+                key=lambda mem: (
+                    mem.get("metadata", {}).get("relativity", 0.0)
+                    + keyword_match_score(
+                        mem.get("memory", ""),
+                        keywords,
+                        mem.get("metadata"),
+                        enable_fuzzy
+                    )
+                ),
+                reverse=True,
+            )
+    return data
+
+
+def filter_memories_by_type(data: dict, mem_type: str | None) -> dict:
+    if not mem_type:
+        return data
+    text_mems = data.get("text_mem", [])
+    for cube_data in text_mems:
+        mem_data = cube_data.get("memories", [])
+        if isinstance(mem_data, dict) and "nodes" in mem_data:
+            nodes = mem_data.get("nodes", [])
+            filtered_nodes = [
+                node for node in nodes
+                if re.match(rf"^\[{mem_type}\]", node.get("memory", ""))
+            ]
+            if "edges" in mem_data:
+                kept_ids = {node.get("id", "") for node in filtered_nodes}
+                edges = mem_data.get("edges", [])
+                mem_data["edges"] = [
+                    edge for edge in edges
+                    if edge.get("source") in kept_ids and edge.get("target") in kept_ids
+                ]
+            mem_data["nodes"] = filtered_nodes
+        elif isinstance(mem_data, list):
+            mem_data[:] = [
+                mem for mem in mem_data
+                if re.match(rf"^\[{mem_type}\]", mem.get("memory", ""))
+            ]
+    return data
+
+
 # =============================================================================
 # Stats Computation Helper
 # =============================================================================
@@ -1168,6 +1608,66 @@ Returns comprehensive statistics including:
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="memos_register_cube",
+            description="""Register a memory cube with the MemOS API.
+
+USE THIS TOOL when you encounter:
+- "MemCube 'xxx' is not loaded" error
+- "Cube not registered" error
+- After API restart when cubes need re-registration
+
+This is the FALLBACK mechanism when auto-registration fails.
+
+Steps to register:
+1. First use memos_list_cubes() to find available cubes
+2. Call this tool with the cube_id you want to register
+3. Retry the original operation
+
+The tool will:
+1. Find the cube's full path from the cubes directory
+2. Send registration request to MemOS API
+3. Return success or detailed error message""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "cube_id": {
+                        "type": "string",
+                        "description": "ID of the cube to register (e.g., 'dev_cube', 'my_project_cube')"
+                    },
+                    "cube_path": {
+                        "type": "string",
+                        "description": "Optional: Full path to cube directory. If not provided, will be auto-detected from MEMOS_CUBES_DIR."
+                    }
+                },
+                "required": ["cube_id"]
+            }
+        ),
+        Tool(
+            name="memos_create_user",
+            description="""Create a user in MemOS.
+
+USE THIS TOOL when you encounter:
+- "User 'xxx' does not exist" error
+- "User not found" error
+
+This creates the user account needed to store and retrieve memories.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "User ID to create (e.g., 'dev_user')",
+                        "default": MEMOS_USER
+                    },
+                    "user_name": {
+                        "type": "string",
+                        "description": "Display name for the user. Defaults to user_id if not provided."
+                    }
+                },
+                "required": []
+            }
         )
     ]
 
@@ -1265,7 +1765,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     result.append(f"- **{cube_id}**: `{cube_path}`")
 
             result.append(f"\n**Default cube**: `{MEMOS_DEFAULT_CUBE}`")
-            result.append(f"\n*Use `memos_list_cubes(include_status=True)` to check registration status.*")
+            result.append("\n*Use `memos_list_cubes(include_status=True)` to check registration status.*")
             return [TextContent(type="text", text="\n".join(result))]
 
         # Determine target cube_id (explicit > derived > default)
@@ -1273,8 +1773,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         cube_id = arg_cube_id if arg_cube_id else get_default_cube_id()
 
         if name == "memos_search":
-            query = arguments.get("query", "")
+            raw_query = arguments.get("query", "")
             top_k = arguments.get("top_k", 10)
+            mem_type, cleaned_query = parse_memory_type_prefix(raw_query)
+            query = cleaned_query if cleaned_query else raw_query
 
             # Auto-register cube if needed (with helpful error message)
             reg_success, reg_error = await ensure_cube_registered(client, cube_id)
@@ -1292,7 +1794,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             )
 
             if success and data:
-                formatted = format_memories_for_display(data.get("data", {}))
+                result_data = data.get("data", {})
+                result_data = filter_memories_by_type(result_data, mem_type)
+                keyword_query = cleaned_query if mem_type else query
+                result_data = apply_keyword_rerank(result_data, keyword_query)
+                formatted = format_memories_for_display(result_data)
                 return [TextContent(type="text", text=formatted)]
             elif data:
                 return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
@@ -1300,8 +1806,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 return [TextContent(type="text", text=f"API error: {status}")]
 
         elif name == "memos_search_context":
-            query = arguments.get("query", "")
+            raw_query = arguments.get("query", "")
             context = arguments.get("context", [])
+            mem_type, cleaned_query = parse_memory_type_prefix(raw_query)
+            query = cleaned_query if cleaned_query else raw_query
 
             # Auto-register cube if needed
             reg_success, reg_error = await ensure_cube_registered(client, cube_id)
@@ -1334,7 +1842,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     results = []
                     results.append("## 🔍 Context-Aware Search Results")
                     results.append("")
-                    formatted = format_memories_for_display(data.get("data", {}))
+                    result_data = data.get("data", {})
+                    result_data = filter_memories_by_type(result_data, mem_type)
+                    keyword_query = cleaned_query if mem_type else query
+                    result_data = apply_keyword_rerank(result_data, keyword_query)
+                    formatted = format_memories_for_display(result_data)
                     if context:
                         results.append(f"*Analyzed with {len(context)} context messages*")
                         results.append("")
@@ -1353,7 +1865,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     if fallback_response.status_code == 200:
                         fallback_data = fallback_response.json()
                         if fallback_data.get("code") == 200:
-                            formatted = format_memories_for_display(fallback_data.get("data", {}))
+                            result_data = fallback_data.get("data", {})
+                            result_data = filter_memories_by_type(result_data, mem_type)
+                            keyword_query = cleaned_query if mem_type else query
+                            result_data = apply_keyword_rerank(result_data, keyword_query)
+                            formatted = format_memories_for_display(result_data)
                             return [TextContent(type="text", text=f"## Search Results (fallback)\n\n{formatted}")]
                     return [TextContent(type="text", text=f"Search failed: {data.get('message', 'Unknown error')}")]
             else:
@@ -1374,10 +1890,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             warning = ""
             if confidence < 0.6 and memory_type == "PROGRESS":
                 warning = (
-                    "\n\n⚠️ **类型检测置信度低** (confidence: {:.0%}) - "
+                    f"\n\n⚠️ **类型检测置信度低** (confidence: {confidence:.0%}) - "
                     "建议显式指定 `memory_type` 参数以提高图谱质量。\n"
                     "可选类型: ERROR_PATTERN, BUGFIX, DECISION, GOTCHA, CODE_PATTERN, CONFIG, FEATURE, MILESTONE"
-                ).format(confidence)
+                )
 
             # Prepend memory type if not already present
             if not content.startswith(f"[{memory_type}]"):
@@ -1477,7 +1993,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     result.append("")
                     result.append("---")
                     result.append("")
-                    result.append("⚠️ **健康警告**: PROGRESS 类型占比过高 (>{:.0%})".format(progress_count / total))
+                    result.append(f"⚠️ **健康警告**: PROGRESS 类型占比过高 (>{progress_count / total:.0%})")
                     result.append("")
                     result.append("这可能导致 Neo4j 知识图谱无法建立有效关系。建议:")
                     result.append("1. 保存记忆时**显式指定** `memory_type` 参数")
@@ -1531,7 +2047,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                         target_node = trace_data.get("target", {})
 
                         results = []
-                        results.append(f"## 🔗 Path Trace Results")
+                        results.append("## 🔗 Path Trace Results")
                         results.append("")
 
                         if source_node:
@@ -1566,7 +2082,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                                     if j < len(edges):
                                         edge = edges[j]
                                         edge_type = edge.get("type", "UNKNOWN")
-                                        results.append(f"    │")
+                                        results.append("    │")
                                         results.append(f"    └── {edge_type} ──>")
 
                                 results.append("```")
@@ -1579,10 +2095,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     return [TextContent(type="text", text=f"API error: {response.status_code}")]
 
             except Exception as e:
-                # Fallback: Direct Neo4j query if API endpoint not available
                 logger.warning(f"Falling back to direct Neo4j query: {e}")
 
-                # Use configured Neo4j credentials
+                if not NEO4J_HTTP_URL or not NEO4J_USER or not NEO4J_PASSWORD:
+                    return [TextContent(type="text", text="Neo4j fallback requires NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env")]
+
                 neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
 
                 cypher_query = f"""
@@ -1605,7 +2122,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     auth=neo4j_auth
                 )
 
-                results = [f"## 🔗 Path Trace (Direct Query)"]
+                results = ["## 🔗 Path Trace (Direct Query)"]
                 results.append("")
 
                 if neo4j_response.status_code == 200:
@@ -1640,7 +2157,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             if not reg_success:
                 return [TextContent(type="text", text=f"## Cube Registration Failed\n\n{reg_error}")]
 
-            # Use configured Neo4j credentials
+            if not NEO4J_HTTP_URL or not NEO4J_USER or not NEO4J_PASSWORD:
+                return [TextContent(type="text", text="Neo4j query requires NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env")]
+
             neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
 
             # First search for relevant memories using MemOS API
@@ -1847,7 +2366,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
             except Exception as e:
                 logger.error(f"Schema export error: {e}")
-                return [TextContent(type="text", text=f"Schema export error: {str(e)}")]
+                return [TextContent(type="text", text=f"Schema export error: {e!s}")]
 
         elif name == "memos_delete":
             # Safety check - only allow if explicitly enabled
@@ -1926,6 +2445,104 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             else:
                 return [TextContent(type="text", text="❌ Must provide either `memory_id`, `memory_ids` or `delete_all=true`")]
 
+        elif name == "memos_register_cube":
+            # Manual cube registration - fallback when auto-registration fails
+            cube_id = arguments.get("cube_id")
+            cube_path = arguments.get("cube_path")
+
+            if not cube_id:
+                return [TextContent(type="text", text="❌ `cube_id` is required")]
+
+            # If path not provided, try to find it
+            if not cube_path:
+                cube_path = get_cube_path(cube_id)
+                if not cube_path:
+                    # List available cubes as helpful hint
+                    available = list_available_cubes()
+                    hint = ""
+                    if available:
+                        hint = "\n\n**Available cubes:**\n" + "\n".join([f"- `{c['id']}`" for c in available])
+                    return [TextContent(
+                        type="text",
+                        text=f"❌ Cube `{cube_id}` not found in cubes directory.\n\n"
+                             f"Cubes directory: `{get_cubes_base_dir()}`{hint}"
+                    )]
+
+            try:
+                response = await client.post(
+                    f"{MEMOS_URL}/mem_cubes",
+                    json={
+                        "user_id": MEMOS_USER,
+                        "mem_cube_name_or_path": cube_path,
+                        "mem_cube_id": cube_id
+                    },
+                    timeout=MEMOS_TIMEOUT_TOOL
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == 200:
+                        _registered_cubes.add(cube_id)
+                        return [TextContent(
+                            type="text",
+                            text=f"✅ **Cube registered successfully!**\n\n"
+                                 f"- Cube ID: `{cube_id}`\n"
+                                 f"- Path: `{cube_path}`\n\n"
+                                 f"You can now use this cube with other memos_* tools."
+                        )]
+                    else:
+                        error_msg = data.get("message", "Unknown error")
+                        # Provide helpful hints based on error
+                        hint = ""
+                        if "reranker" in error_msg.lower():
+                            hint = "\n\n**Hint**: Edit the cube's config.json and change `reranker.backend` to `http_bge` or `noop`."
+                        elif "user" in error_msg.lower():
+                            hint = "\n\n**Hint**: Use `memos_create_user` tool to create the user first."
+                        return [TextContent(type="text", text=f"❌ Registration failed: {error_msg}{hint}")]
+                else:
+                    return [TextContent(type="text", text=f"❌ API error: HTTP {response.status_code}")]
+
+            except Exception as e:
+                return [TextContent(type="text", text=f"❌ Registration error: {str(e)}")]
+
+        elif name == "memos_create_user":
+            # Create user in MemOS
+            user_id = arguments.get("user_id", MEMOS_USER)
+            user_name = arguments.get("user_name", user_id)
+
+            try:
+                response = await client.post(
+                    f"{MEMOS_URL}/users",
+                    json={
+                        "user_name": user_name,
+                        "user_id": user_id,
+                        "role": "USER"
+                    },
+                    timeout=MEMOS_TIMEOUT_TOOL
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("code") == 200:
+                        return [TextContent(
+                            type="text",
+                            text=f"✅ **User created successfully!**\n\n"
+                                 f"- User ID: `{user_id}`\n"
+                                 f"- User Name: `{user_name}`\n\n"
+                                 f"You can now register cubes and store memories."
+                        )]
+                    else:
+                        error_msg = data.get("message", "Unknown error")
+                        # Check if user already exists
+                        if "exist" in error_msg.lower():
+                            return [TextContent(type="text", text=f"ℹ️ User `{user_id}` already exists. You can proceed with cube registration.")]
+                        return [TextContent(type="text", text=f"❌ User creation failed: {error_msg}")]
+                else:
+                    return [TextContent(type="text", text=f"❌ API error: HTTP {response.status_code}")]
+
+            except Exception as e:
+                return [TextContent(type="text", text=f"❌ User creation error: {str(e)}")]
+
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -1933,7 +2550,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         return [TextContent(type="text", text=f"❌ Cannot connect to MemOS API at {MEMOS_URL}. Is the server running?")]
     except Exception as e:
         logger.exception("Tool call failed")
-        return [TextContent(type="text", text=f"Error: {str(e)}")]
+        return [TextContent(type="text", text=f"Error: {e!s}")]
 
 
 async def run_server():
@@ -1973,7 +2590,7 @@ async def run_server():
 def main():
     """Entry point."""
     # Log configuration at startup
-    logger.info(f"MemOS MCP Server starting...")
+    logger.info("MemOS MCP Server starting...")
     logger.info(f"  MEMOS_URL: {MEMOS_URL}")
     logger.info(f"  MEMOS_USER: {MEMOS_USER}")
     logger.info(f"  MEMOS_DEFAULT_CUBE: {MEMOS_DEFAULT_CUBE}")

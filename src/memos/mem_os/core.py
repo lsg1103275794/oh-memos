@@ -16,7 +16,6 @@ from memos.mem_cube.utils import (
     is_valid_huggingface_repo,
     looks_like_local_path,
     normalize_path,
-    path_exists,
 )
 from memos.mem_reader.factory import MemReaderFactory
 from memos.mem_reader.read_multi_modal.utils import parse_json_result
@@ -708,7 +707,17 @@ class MOSCore:
                     logger.info(
                         f"time search graph: search graph time user_id: {target_user_id} time is: {search_time_end - time_start}"
                     )
-                    return {"cube_id": cube_id, "memories": memories}
+                    
+                    # Ensure project_name is included in results
+                    formatted_memories = []
+                    for mem in memories:
+                        mem_dict = mem.model_dump() if hasattr(mem, "model_dump") else mem
+                        # Extract project_name from metadata if it exists
+                        if isinstance(mem_dict, dict) and "metadata" in mem_dict and isinstance(mem_dict["metadata"], dict):
+                            mem_dict["project_name"] = mem_dict["metadata"].get("project_name")
+                        formatted_memories.append(mem_dict)
+                    
+                    return {"cube_id": cube_id, "memories": formatted_memories}
                 return None
 
             def search_preference_memory(cube_id, cube):

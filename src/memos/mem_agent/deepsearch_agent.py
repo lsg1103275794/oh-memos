@@ -5,16 +5,14 @@ This module implements a sophisticated deep search agent that performs iterative
 query refinement and memory retrieval to provide comprehensive answers.
 """
 
-import json
-import re
 
 from typing import TYPE_CHECKING, Any
 
 from memos.configs.mem_agent import DeepSearchAgentConfig
 from memos.llms.base import BaseLLM
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
 from memos.mem_agent.base import BaseMemAgent
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import TextualMemoryItem
 from memos.memories.textual.tree import TreeTextMemory
 from memos.templates.mem_agent_prompts import (

@@ -1,4 +1,3 @@
-import json
 import re
 
 from pathlib import Path
@@ -8,6 +7,21 @@ import numpy as np
 
 from memos.dependency import require_python_package
 from memos.log import get_logger
+
+# Re-export from read_multi_modal for backward compatibility
+from memos.mem_reader.read_multi_modal.utils import detect_lang, parse_json_result
+
+__all__ = [
+    "parse_structured_output",
+    "find_project_root",
+    "StopwordManager",
+    "FastTokenizer",
+    "format_memory_item",
+    "find_best_unrelated_subgroup",
+    "cosine_similarity_matrix",
+    "detect_lang",
+    "parse_json_result",
+]
 
 
 logger = get_logger(__name__)
@@ -402,7 +416,6 @@ class FastTokenizer:
         return tokens
 
 
-from memos.mem_reader.read_multi_modal.utils import parse_json_result, detect_lang
 
 
 def format_memory_item(memory_data: Any) -> dict[str, Any]:

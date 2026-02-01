@@ -8,7 +8,7 @@ from memos.configs.utils import get_json_file_model_schema
 from memos.exceptions import ConfigurationError, MemCubeError
 from memos.log import get_logger
 from memos.mem_cube.base import BaseMemCube
-from memos.mem_cube.utils import download_repo, merge_config_with_default, apply_env_overrides
+from memos.mem_cube.utils import apply_env_overrides, download_repo, merge_config_with_default
 from memos.memories.activation.base import BaseActMemory
 from memos.memories.factory import MemoryFactory
 from memos.memories.parametric.base import BaseParaMemory

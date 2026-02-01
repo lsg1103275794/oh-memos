@@ -60,6 +60,10 @@ class TextualMemoryMetadata(BaseModel):
         default=None,
         description="The ID of the session during which the memory was created. Useful for tracking context in conversations.",
     )
+    project_name: str | None = Field(
+        default=None,
+        description="The name of the project associated with the memory.",
+    )
     status: Literal["activated", "archived", "deleted"] | None = Field(
         default="activated",
         description="The status of the memory, e.g., 'activated', 'archived', 'deleted'.",

@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import traceback
 
 from collections import defaultdict
 from functools import wraps

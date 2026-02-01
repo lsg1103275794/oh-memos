@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import Field, field_validator, model_validator
 
@@ -17,7 +17,7 @@ class ParserConfigFactory(BaseConfig):
     """Factory class for creating Parser configurations."""
 
     backend: str = Field(..., description="Backend for parser")
-    config: Union[dict[str, Any], BaseParserConfig] = Field(..., description="Configuration for the parser backend")
+    config: dict[str, Any] | BaseParserConfig = Field(..., description="Configuration for the parser backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "markitdown": MarkItDownParserConfig,

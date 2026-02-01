@@ -2,7 +2,7 @@ import logging
 import os
 
 from pathlib import Path
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -136,7 +136,7 @@ class SchedulerConfigFactory(BaseConfig):
     """Factory class for creating scheduler configurations."""
 
     backend: str = Field(..., description="Backend for scheduler")
-    config: Union[dict[str, Any], BaseSchedulerConfig] = Field(..., description="Configuration for the scheduler backend")
+    config: dict[str, Any] | BaseSchedulerConfig = Field(..., description="Configuration for the scheduler backend")
 
     model_config = ConfigDict(extra="forbid", strict=True)
     backend_to_class: ClassVar[dict[str, Any]] = {

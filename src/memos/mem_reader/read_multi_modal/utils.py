@@ -155,9 +155,7 @@ def parse_json_result(response_text: str) -> dict:
                 stack.append("}")
             elif char == "[":
                 stack.append("]")
-            elif char == "}" and stack and stack[-1] == "}":
-                stack.pop()
-            elif char == "]" and stack and stack[-1] == "]":
+            elif (char == "}" and stack and stack[-1] == "}") or (char == "]" and stack and stack[-1] == "]"):
                 stack.pop()
 
         t += "".join(reversed(stack))

@@ -23,6 +23,7 @@ For example, write "The user felt exhausted..." instead of "I felt exhausted..."
 Return a single valid JSON object with the following structure:
 
 {
+  "project_name": <string, the name of the project mentioned in the dialogue, e.g., "AudioCraft", "DDSP-SVC-6.3". If not mentioned, return null>,
   "memory list": [
     {
       "key": <string, a unique, concise memory title>,
@@ -52,6 +53,7 @@ user: [June 26, 2025 at 4:21 PM]: Good idea. I’ll raise it in tomorrow’s 9:3
 
 Output:
 {
+  "project_name": "New Project",
   "memory list": [
     {
         "key": "Initial project meeting",
@@ -75,6 +77,7 @@ indeed very suitable for your current situation. The book explains … (omitted)
 
 Output:
 {
+  "project_name": null,
   "memory list": [
     {
       "key": "Deep Work Book Recommendation",

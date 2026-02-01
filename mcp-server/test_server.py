@@ -4,20 +4,21 @@ Test MemOS MCP Server functionality.
 """
 
 import asyncio
-import json
 import sys
+
+
 sys.path.insert(0, ".")
 
+import httpx
+
 from memos_mcp_server import (
-    format_memories_for_display,
-    detect_memory_type,
-    suggest_search_queries,
+    MEMOS_DEFAULT_CUBE,
     MEMOS_URL,
     MEMOS_USER,
-    MEMOS_DEFAULT_CUBE,
+    detect_memory_type,
+    format_memories_for_display,
+    suggest_search_queries,
 )
-
-import httpx
 
 
 async def test_api_connection():

@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal, Union
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -58,7 +58,7 @@ class VectorDBConfigFactory(BaseConfig):
     """Factory class for creating vector database configurations."""
 
     backend: str = Field(..., description="Backend for vector database")
-    config: Union[dict[str, Any], BaseVecDBConfig] = Field(..., description="Configuration for the vector database backend")
+    config: dict[str, Any] | BaseVecDBConfig = Field(..., description="Configuration for the vector database backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "qdrant": QdrantVecDBConfig,

@@ -9,6 +9,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **🛡️ MCP Fallback Tools for Isolated Projects** (`mcp-server/memos_mcp_server.py`)
+  - `memos_register_cube`: Manual cube registration when auto-registration fails
+    - Parameters: `cube_id` (required), `cube_path` (optional, auto-detected from MEMOS_CUBES_DIR)
+    - Use case: "Cube not found" or "Cube not registered" errors
+  - `memos_create_user`: Create user account for "user does not exist" errors
+    - Parameters: `user_id` (required), `user_name` (optional, defaults to user_id)
+    - Use case: "User 'xxx' does not exist" errors
+  - Updated SKILL.md Troubleshooting section with MCP-only recovery steps (no Bash/curl required)
+  - Added Quick Recovery Flowchart for common error scenarios
+  - **Impact**: Models in completely isolated projects can now self-recover from errors using only MCP tools
+
+- **🔍 Keyword Query Enhancement Module** (`mcp-server/keyword_enhancer.py`)
+  - **Extended Stopwords Library**: 1300+ stopwords (816 English + 484 Chinese)
+    - Programming terms: function, class, import, return, module, etc.
+    - Chinese stopwords from Baidu, HIT, SCU comprehensive lists
+  - **Fuzzy Matching**: Levenshtein distance algorithm for typo tolerance
+    - Example: "configration" matches "configuration" (92% similarity)
+    - Example: "databse" matches "database" (88% similarity)
+    - Configurable threshold (default: 0.75)
+  - **Structured Field Weighting**: Prioritize matches in metadata fields
+    - `key` field match: +5.0 score
+    - `tags` match: +3.0 score
+    - Text exact match: +2.5 score
+    - Text substring: +1.5 score
+    - Fuzzy match: +1.0 × similarity
+  - **Smart Cube Detection**: Auto-derive cube_id from project path
+    - `/mnt/g/test/MemOS` → `memos_cube`
+    - `C:\Projects\WebApp` → `webapp_cube`
+    - Cross-platform support (Windows/Linux/WSL)
+
+- **🧪 Keyword Enhancer Tests** (`tests/test_keyword_enhancer.py`)
+  - Stopwords library validation (1300+ words)
+  - Keyword extraction with stopword filtering
+  - Levenshtein distance calculation
+  - Fuzzy match finding
+  - Structured field scoring
+  - Smart cube detection (Unix and Windows paths)
+
+- **📋 Keyword Optimization Planning Docs** (`docs/plans/`)
+  - `keyword-query-optimization.md` - Task plan with phases
+  - `keyword-optimization-findings.md` - Technical research
+  - `keyword-optimization-progress.md` - Progress tracking
+
+### Changed
+
+- **⚡ Enhanced MCP Keyword Processing** (`mcp-server/memos_mcp_server.py`)
+  - `extract_keywords()` - Now uses extended stopwords library when available
+  - `keyword_match_score()` - Added metadata field weighting and fuzzy matching
+  - `apply_keyword_rerank()` - Now passes metadata for structured scoring
+  - `get_default_cube_id()` - Uses enhanced path detection
+  - Backward compatible: Falls back to basic implementation if enhancer unavailable
+
+### Technical Details
+
+**Keyword Scoring Algorithm:**
+```
+Final Score = base_relativity + keyword_bonus
+
+Where keyword_bonus =
+  + 5.0 × (matches in key field)
+  + 3.0 × (matches in tags)
+  + 2.5 × (exact word boundary matches)
+  + 1.5 × (substring matches)
+  + 1.0 × similarity (fuzzy matches above threshold)
+  + 1.5 × (matched_count / total_keywords)
+```
+
+**Fuzzy Matching Example:**
+```
+Query: "configration error"
+Text: "Configuration error in database"
+
+Levenshtein distance("configration", "configuration") = 1
+Similarity = 1 - (1/13) = 0.92 > 0.75 threshold
+→ Match found with 0.92 score bonus
+```
+
+### Fixed
+
+- **🔧 Import Error: parse_json_result and detect_lang** (`mem_reader/utils.py`, `retrieve_utils.py`)
+  - **Issue**: `ImportError: cannot import name 'parse_json_result' from 'memos.mem_reader.utils'`
+  - **Root Cause**: Functions were defined in `read_multi_modal/utils.py` but imported from parent modules
+  - **Fix**: Added re-exports in `memos/mem_reader/utils.py` and `retrieve/retrieve_utils.py`
+  - **Impact**: API startup and all memory operations now work correctly
+
+---
+
+### Added
+
 - **🔗 Graph API Endpoints** (start_api.py)
   - **`/graph/trace_path`**: Trace causality paths between two memory nodes (supports max_depth up to 10 hops)
   - **`/graph/schema`**: Export knowledge graph statistics including node/edge counts, relationship distribution, tag frequency, health metrics

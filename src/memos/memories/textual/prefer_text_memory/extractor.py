@@ -1,4 +1,3 @@
-import json
 import uuid
 
 from abc import ABC, abstractmethod
@@ -8,8 +7,8 @@ from typing import Any
 
 from memos.context.context import ContextThreadPoolExecutor
 from memos.log import get_logger
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_reader.read_multi_modal import detect_lang
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import (
     PreferenceTextualMemoryMetadata,
     TextualMemoryItem,

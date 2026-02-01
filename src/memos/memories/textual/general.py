@@ -9,8 +9,8 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt
 from memos.configs.memory import GeneralTextMemoryConfig
 from memos.embedders.factory import ArkEmbedder, EmbedderFactory, OllamaEmbedder
 from memos.llms.factory import AzureLLM, LLMFactory, OllamaLLM, OpenAILLM
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.log import get_logger
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.base import BaseTextMemory
 from memos.memories.textual.item import TextualMemoryItem
 from memos.templates.mem_reader_prompts import SIMPLE_STRUCT_MEM_READER_PROMPT

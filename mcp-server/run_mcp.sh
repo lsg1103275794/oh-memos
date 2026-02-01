@@ -3,20 +3,17 @@
 # This script ensures the MCP server runs correctly
 
 # NOTE: Claude Code env vars may not pass through to WSL bash correctly
-# Hardcode MEMOS_ENABLE_DELETE=true if you want delete functionality
-# Or set it in the environment before starting Claude Code
 
-# Set environment variables (with defaults)
-MEMOS_URL="${MEMOS_URL:-http://localhost:18000}"
-MEMOS_USER="${MEMOS_USER:-dev_user}"
-MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:-dev_cube}"
-MEMOS_CUBES_DIR="${MEMOS_CUBES_DIR:-G:/test/MemOS/data/memos_cubes}"
-# Enable delete by default in this dev environment
-MEMOS_ENABLE_DELETE="${MEMOS_ENABLE_DELETE:-true}"
-MEMOS_TIMEOUT_TOOL="${MEMOS_TIMEOUT_TOOL:-120.0}"
-MEMOS_TIMEOUT_STARTUP="${MEMOS_TIMEOUT_STARTUP:-30.0}"
-MEMOS_TIMEOUT_HEALTH="${MEMOS_TIMEOUT_HEALTH:-5.0}"
-MEMOS_API_WAIT_MAX="${MEMOS_API_WAIT_MAX:-60.0}"
+# Set environment variables (with .env)
+MEMOS_URL="${MEMOS_URL:-${MEMOS_BASE_URL:?MEMOS_URL or MEMOS_BASE_URL required}}"
+MEMOS_USER="${MEMOS_USER:?MEMOS_USER required}"
+MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:?MEMOS_DEFAULT_CUBE required}"
+MEMOS_CUBES_DIR="${MEMOS_CUBES_DIR:?MEMOS_CUBES_DIR required}"
+MEMOS_ENABLE_DELETE="${MEMOS_ENABLE_DELETE:?MEMOS_ENABLE_DELETE required}"
+MEMOS_TIMEOUT_TOOL="${MEMOS_TIMEOUT_TOOL:?MEMOS_TIMEOUT_TOOL required}"
+MEMOS_TIMEOUT_STARTUP="${MEMOS_TIMEOUT_STARTUP:?MEMOS_TIMEOUT_STARTUP required}"
+MEMOS_TIMEOUT_HEALTH="${MEMOS_TIMEOUT_HEALTH:?MEMOS_TIMEOUT_HEALTH required}"
+MEMOS_API_WAIT_MAX="${MEMOS_API_WAIT_MAX:?MEMOS_API_WAIT_MAX required}"
 
 # Use Windows paths for Windows Python
 PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"

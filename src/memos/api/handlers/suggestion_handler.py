@@ -5,7 +5,6 @@ This module handles suggestion query generation based on user's recent memories
 or further suggestions from chat history.
 """
 
-import json
 
 from typing import Any
 

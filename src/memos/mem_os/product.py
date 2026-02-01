@@ -22,7 +22,6 @@ from memos.mem_cube.utils import (
     normalize_path,
 )
 from memos.mem_os.core import MOSCore
-from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_os.utils.format_utils import (
     convert_graph_to_tree_forworkmem,
     ensure_unique_tree_ids,
@@ -34,6 +33,7 @@ from memos.mem_os.utils.reference_utils import (
     prepare_reference_data,
     process_streaming_references_complete,
 )
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
 from memos.mem_scheduler.schemas.task_schemas import (
     ANSWER_TASK_LABEL,

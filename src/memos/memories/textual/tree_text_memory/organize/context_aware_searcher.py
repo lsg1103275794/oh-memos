@@ -9,6 +9,7 @@ This module provides context-aware search enhancement that uses LLM to:
 """
 
 import traceback
+
 from dataclasses import dataclass, field
 from typing import Any
 

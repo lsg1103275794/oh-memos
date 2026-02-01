@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import Field, field_validator, model_validator
 
@@ -122,7 +122,7 @@ class LLMConfigFactory(BaseConfig):
     """Factory class for creating LLM configurations."""
 
     backend: str = Field(..., description="Backend for LLM")
-    config: Union[dict[str, Any], BaseLLMConfig] = Field(..., description="Configuration for the LLM backend")
+    config: dict[str, Any] | BaseLLMConfig = Field(..., description="Configuration for the LLM backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "openai": OpenAILLMConfig,

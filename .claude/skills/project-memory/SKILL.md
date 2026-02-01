@@ -9,6 +9,56 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ---
 
+## 🚨 强制规则 (MUST/MUST NOT)
+
+### MUST (必须遵守)
+
+1. **修复 Bug 后必须保存为 `BUGFIX` 或 `ERROR_PATTERN`**，不得使用 PROGRESS
+2. **做出技术决策后必须保存为 `DECISION`**，包含理由和备选方案
+3. **发现非显而易见的陷阱必须保存为 `GOTCHA`**
+4. **保存时必须显式指定 `memory_type` 参数**，不依赖自动检测
+
+### MUST NOT (禁止)
+
+1. **禁止将 PROGRESS 作为默认/万能类型**
+2. **禁止省略 memory_type 参数** (除非是纯进度汇报)
+3. **禁止在 PROGRESS 中包含错误解决方案、技术决策、陷阱警告**
+
+### 类型选择决策树
+
+```
+是否解决了一个错误/Bug？
+├─ 是 → 是否有通用价值？
+│       ├─ 是 → ERROR_PATTERN (错误模式，可复用)
+│       └─ 否 → BUGFIX (一次性修复)
+└─ 否 → 是否做出了技术选择？
+        ├─ 是 → DECISION
+        └─ 否 → 是否发现了非显而易见的问题？
+                ├─ 是 → GOTCHA
+                └─ 否 → 是否是可复用的代码模板？
+                        ├─ 是 → CODE_PATTERN
+                        └─ 否 → 是否修改了配置？
+                                ├─ 是 → CONFIG
+                                └─ 否 → 是否完成了重大里程碑？
+                                        ├─ 是 → MILESTONE
+                                        └─ 否 → 是否新增了功能？
+                                                ├─ 是 → FEATURE
+                                                └─ 否 → PROGRESS (仅限纯进度)
+```
+
+### 错误示范 vs 正确示范
+
+❌ **错误**: `memos_save(content="修复了模型路径问题")` → 默认 PROGRESS
+✅ **正确**: `memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")`
+
+❌ **错误**: `memos_save(content="决定采用三轨架构")` → 可能被误检测
+✅ **正确**: `memos_save(content="决定采用三轨架构...", memory_type="DECISION")`
+
+❌ **错误**: `memos_save(content="注意: fallbacks会自动切换")` → 可能落入 PROGRESS
+✅ **正确**: `memos_save(content="注意: fallbacks会自动切换...", memory_type="GOTCHA")`
+
+---
+
 ## Quick Reference: MCP Tools
 
 | Tool | When to Use | Example |
@@ -22,6 +72,34 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | `memos_get_graph` | View dependency/causal relationships | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
 | `memos_trace_path` | **Trace paths between memories** | `source_id: "...", target_id: "..."` |
 | `memos_export_schema` | **View graph structure and health** | Shows node/edge counts, types, connectivity |
+| `memos_register_cube` | **Manual cube registration (fallback)** | `cube_id: "my_project_cube"` |
+| `memos_create_user` | **Create user (fallback)** | `user_id: "dev_user"` |
+| `getGraphData` (IPC) | **Renderer-side graph data fetch** | `projectId: "ddsp-svc-6.3"` (Desktop App Only) |
+
+---
+
+## Desktop Integration: Knowledge Graph Visualization
+
+The desktop app now supports real-time Neo4j knowledge graph visualization.
+
+### Usage in Renderer
+```typescript
+const accomplish = getAccomplish();
+const graphData = await accomplish.getGraphData("ddsp-svc-6.3");
+```
+
+### UI Component
+The `<KnowledgeGraph />` component (located in `renderer/components/memory/KnowledgeGraph.tsx`) provides:
+- Force-directed graph layout
+- Node color-coding by memory type
+- Interactive tooltips with memory content
+- Color coding by type:
+    - **LongTermMemory**: Blue (#3b82f6)
+    - **WorkingMemory**: Emerald (#10b981)
+    - **ShortTermMemory**: Amber (#f59e0b)
+    - **Episodic/Semantic**: Violet/Pink
+- Zoom, pan, and center controls
+- Automatic data fetching for a given `projectId`
 
 ---
 
@@ -285,30 +363,92 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 
 ---
 
-## Troubleshooting
+## Troubleshooting (MCP Tools Only)
+
+> **Note**: All error recovery uses MCP tools - no Bash/curl required. Works in isolated projects.
 
 ### Cube Not Found Error
 
-1. **Use `memos_list_cubes()` to see available cubes**
-2. Check if the cube directory exists with `config.json`
-3. Verify correct `cube_id` is being used
-4. MCP will show available cubes in error message
+**Error**: `Cube 'xxx' not found` or `Cube not registered`
 
-### MCP Tool Returns Error
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes()` → See available cubes
+2. If cube exists but not registered: `memos_register_cube(cube_id="xxx")`
+3. If cube doesn't exist: Create cube directory with config.json, then register
 
-1. **Check MemOS API is running**: `curl http://localhost:18000/users`
-2. **Check MCP connection**: In Claude Code, run `/mcp` to see server status
-3. **Restart Claude Code** if MCP shows as disconnected
+**Example**:
+```
+memos_list_cubes(include_status=true)
+→ Shows: dev_cube (registered), my_project (not registered)
+
+memos_register_cube(cube_id="my_project")
+→ "Cube 'my_project' registered successfully"
+```
+
+### User Does Not Exist Error
+
+**Error**: `User 'xxx' does not exist`
+
+**Recovery Steps** (all via MCP):
+1. `memos_create_user(user_id="xxx")` → Create the user
+2. Retry the original operation
+
+**Example**:
+```
+memos_save(content="...", cube_id="my_cube")
+→ Error: User 'dev_user' does not exist
+
+memos_create_user(user_id="dev_user")
+→ "User 'dev_user' created successfully"
+
+memos_save(content="...", cube_id="my_cube")
+→ Success
+```
+
+### MCP Connection Error
+
+**Error**: MCP tools not responding or timeout
+
+**Recovery Steps**:
+1. Wait a moment and retry (API may be starting)
+2. Try a simpler operation first: `memos_list_cubes()`
+3. If persistent, the MemOS API service may need restart (outside MCP scope)
 
 ### Memory Not Found
 
-1. Use `memos_list` to see what's in the cube
-2. Try `memos_search_context` with conversation context for smarter search
-3. Try broader search terms
-4. Check if searching correct `cube_id`
+**Error**: Search returns empty results
+
+**Recovery Steps** (all via MCP):
+1. `memos_list(cube_id="xxx", limit=20)` → Check what memories exist
+2. `memos_list_cubes()` → Verify using correct cube_id
+3. `memos_search_context(query="...", context=[...])` → Use context-aware search
+4. Try broader search terms or different memory types
 
 ### Save Failed
 
-1. Check API is running
-2. MCP auto-registers cubes, but verify with `memos_list_cubes`
-3. Check error message for details
+**Error**: `Save operation failed`
+
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes(include_status=true)` → Check cube status
+2. If not registered: `memos_register_cube(cube_id="xxx")`
+3. If user error: `memos_create_user(user_id="xxx")`
+4. Retry save operation
+
+### Quick Recovery Flowchart
+
+```
+Error occurred
+    │
+    ├─ "Cube not found" ────────────> memos_list_cubes()
+    │                                      │
+    │                                      ├─ Found? → memos_register_cube()
+    │                                      └─ Not found? → Create cube first
+    │
+    ├─ "User does not exist" ───────> memos_create_user(user_id="xxx")
+    │
+    ├─ "Save failed" ───────────────> memos_list_cubes(include_status=true)
+    │                                      │
+    │                                      └─ Check cube/user, then retry
+    │
+    └─ "No results" ────────────────> memos_list() to verify data exists
+```

@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from memos.api.handlers.base_handler import BaseHandler, HandlerDependencies
 from memos.api.product_models import (
@@ -26,7 +25,6 @@ class GraphHandler(BaseHandler):
 
     def __init__(self, dependencies: HandlerDependencies):
         super().__init__(dependencies)
-        self.graph_db = dependencies.graph_db
 
     def handle_get_graph_data(self, graph_req: APIGraphRequest) -> GraphResponse:
         """
@@ -67,7 +65,7 @@ class GraphHandler(BaseHandler):
             logger.error(f"[GraphHandler] Error fetching graph data: {e}", exc_info=True)
             return GraphResponse(
                 code=500,
-                message=f"Internal server error: {str(e)}",
+                message=f"Internal server error: {e!s}",
                 data=None
             )
 
@@ -133,7 +131,7 @@ class GraphHandler(BaseHandler):
             logger.error(f"[GraphHandler] Error tracing path: {e}", exc_info=True)
             return TracePathResponse(
                 code=500,
-                message=f"Internal server error: {str(e)}",
+                message=f"Internal server error: {e!s}",
                 data=None
             )
 
@@ -178,13 +176,14 @@ class GraphHandler(BaseHandler):
             logger.error(f"[GraphHandler] Error exporting schema: {e}", exc_info=True)
             return SchemaResponse(
                 code=500,
-                message=f"Internal server error: {str(e)}",
+                message=f"Internal server error: {e!s}",
                 data=None
             )
 
     def _neo4j_find_path(self, source_id: str, target_id: str, max_depth: int) -> dict:
         """Fallback: Direct Neo4j query for path finding."""
         import os
+
         import httpx
 
         neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")
@@ -220,6 +219,7 @@ class GraphHandler(BaseHandler):
     def _neo4j_get_schema_stats(self, sample_size: int) -> dict:
         """Fallback: Direct Neo4j query for schema stats."""
         import os
+
         import httpx
 
         neo4j_url = os.environ.get("NEO4J_HTTP_URL", "http://localhost:7474/db/neo4j/tx/commit")

@@ -137,12 +137,14 @@ def _build_node(idx, message, info, source_info, llm, parse_json_result, embedde
         info_ = info.copy()
         user_id = info_.pop("user_id", "")
         session_id = info_.pop("session_id", "")
+        project_name = info_.pop("project_name", chunk_res.get("project_name", None))
 
         return TextualMemoryItem(
             memory=value,
             metadata=TreeNodeTextualMemoryMetadata(
                 user_id=user_id,
                 session_id=session_id,
+                project_name=project_name,
                 memory_type="LongTermMemory",
                 status="activated",
                 tags=tags,
@@ -198,17 +200,20 @@ class SimpleStructMemReader(BaseMemReader, ABC):
         background: str = "",
         type_: str = "fact",
         confidence: float = 0.99,
+        project_name: str | None = None,
         **kwargs,
     ) -> TextualMemoryItem:
-        """construct memory item"""
         info_ = info.copy()
         user_id = info_.pop("user_id", "")
         session_id = info_.pop("session_id", "")
+        final_project_name = project_name or info_.pop("project_name", None)
+
         return TextualMemoryItem(
             memory=value,
             metadata=TreeNodeTextualMemoryMetadata(
                 user_id=user_id,
                 session_id=session_id,
+                project_name=final_project_name,
                 memory_type=memory_type,
                 status="activated",
                 tags=tags or [],

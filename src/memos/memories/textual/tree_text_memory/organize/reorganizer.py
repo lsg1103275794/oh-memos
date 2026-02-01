@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import traceback
@@ -17,8 +16,8 @@ from memos.graph_dbs.item import GraphDBEdge, GraphDBNode
 from memos.graph_dbs.neo4j import Neo4jGraphDB
 from memos.llms.base import BaseLLM
 from memos.log import get_logger
-from memos.memories.textual.item import SourceMessage, TreeNodeTextualMemoryMetadata
 from memos.mem_reader.read_multi_modal.utils import parse_json_result
+from memos.memories.textual.item import SourceMessage, TreeNodeTextualMemoryMetadata
 from memos.memories.textual.tree_text_memory.organize.handler import NodeHandler
 from memos.memories.textual.tree_text_memory.organize.relation_reason_detector import (
     RelationAndReasoningDetector,

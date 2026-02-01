@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -68,7 +68,7 @@ class MemReaderConfigFactory(BaseConfig):
     """Factory class for creating MemReader configurations."""
 
     backend: str = Field(..., description="Backend for MemReader")
-    config: Union[dict[str, Any], BaseMemReaderConfig] = Field(..., description="Configuration for the MemReader backend")
+    config: dict[str, Any] | BaseMemReaderConfig = Field(..., description="Configuration for the MemReader backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "simple_struct": SimpleStructMemReaderConfig,

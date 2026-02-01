@@ -7,10 +7,11 @@ import platform
 import re
 import subprocess
 import sys
+
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
-from typing import Optional, Tuple, Dict, List
+
 
 # Configuration
 MEMOS_URL = os.environ.get("MEMOS_URL", "http://localhost:18000")
@@ -34,7 +35,7 @@ def detect_environment() -> str:
     # Check if running in WSL
     if system == "linux":
         try:
-            with open("/proc/version", "r") as f:
+            with open("/proc/version") as f:
                 if "microsoft" in f.read().lower():
                     return "wsl"
         except:
@@ -124,18 +125,18 @@ def normalize_path_for_api(path: str) -> str:
 
 # ============== Cube ID Management ==============
 
-def load_cube_cache() -> Dict[str, str]:
+def load_cube_cache() -> dict[str, str]:
     """Load cube ID to full path mapping from cache."""
     try:
         if os.path.exists(CUBE_CACHE_FILE):
-            with open(CUBE_CACHE_FILE, "r") as f:
+            with open(CUBE_CACHE_FILE) as f:
                 return json.load(f)
     except:
         pass
     return {}
 
 
-def save_cube_cache(cache: Dict[str, str]):
+def save_cube_cache(cache: dict[str, str]):
     """Save cube ID to full path mapping to cache."""
     try:
         with open(CUBE_CACHE_FILE, "w") as f:
@@ -153,7 +154,7 @@ def update_cube_cache(cube_name: str, full_path: str):
     save_cube_cache(cache)
 
 
-def get_registered_cubes(user: str = DEFAULT_USER) -> List[Dict]:
+def get_registered_cubes(user: str = DEFAULT_USER) -> list[dict]:
     """Get list of registered cubes by searching."""
     result = api_request("/search", {
         "user_id": user,
@@ -248,7 +249,7 @@ def resolve_cube_id(cube_name_or_path: str, user: str = DEFAULT_USER) -> str:
 
 # ============== API Functions ==============
 
-def check_api_health() -> Tuple[bool, str]:
+def check_api_health() -> tuple[bool, str]:
     """Check if MemOS API is accessible."""
     try:
         req = Request(f"{MEMOS_URL}/users", method="GET")
@@ -301,7 +302,7 @@ def get_project_name() -> str:
         return os.path.basename(os.getcwd())
 
 
-def ensure_cube_registered(project: str, user: str = DEFAULT_USER) -> Tuple[bool, str]:
+def ensure_cube_registered(project: str, user: str = DEFAULT_USER) -> tuple[bool, str]:
     """Ensure a cube is registered, auto-register if needed.
 
     Returns (success, message) tuple.

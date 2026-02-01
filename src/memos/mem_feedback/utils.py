@@ -1,7 +1,7 @@
 import json
 import re
 
-from memos.mem_reader.read_multi_modal.utils import parse_json_result, detect_lang
+from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
 
 

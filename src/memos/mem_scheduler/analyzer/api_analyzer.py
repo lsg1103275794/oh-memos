@@ -16,8 +16,8 @@ import requests
 from memos.api.product_models import APIADDRequest, APISearchRequest
 from memos.api.routers.server_router import add_memories, search_memories
 from memos.log import get_logger
-from memos.types import MessageDict, SearchMode, UserContext
 from memos.mem_reader.read_multi_modal.utils import parse_json_result
+from memos.types import MessageDict, SearchMode, UserContext
 
 
 logger = get_logger(__name__)
