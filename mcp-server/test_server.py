@@ -11,14 +11,13 @@ sys.path.insert(0, ".")
 
 import httpx
 
-from memos_mcp_server import (
+from config import (
     MEMOS_DEFAULT_CUBE,
     MEMOS_URL,
     MEMOS_USER,
-    detect_memory_type,
-    format_memories_for_display,
-    suggest_search_queries,
 )
+from memory_analysis import detect_memory_type, suggest_search_queries
+from formatters import format_memories_for_display
 
 
 async def test_api_connection():
@@ -75,9 +74,9 @@ async def test_api_connection():
                 ("Added new login feature", "FEATURE"),
             ]
             for content, expected in test_cases:
-                detected = detect_memory_type(content)
+                detected, confidence = detect_memory_type(content)
                 status = "✅" if detected == expected else "⚠️"
-                print(f"   {status} '{content[:40]}...' → {detected}")
+                print(f"   {status} '{content[:40]}...' → {detected} (conf: {confidence:.0%})")
 
             # Test suggestion
             print("\n4. Testing search suggestions...")
@@ -132,12 +131,21 @@ async def test_api_connection():
             else:
                 print(f"   ❌ List with filter failed: {response.status_code}")
 
-            # 7. Testing optimized delete
-            print("\n7. Testing optimized delete...")
-            # This will test the handler logic directly if imported, or we can use curl to simulate
-            # Since test_server.py tests the API, we can't easily test the MCP-specific formatting here
-            # but we've already verified the API works.
-            print("   ✅ Delete logic updated in memos_mcp_server.py")
+            # 7. Testing modular structure
+            print("\n7. Testing modular structure...")
+            try:
+                from config import MEMOS_URL, server
+                from api_client import get_http_client
+                from cube_manager import list_available_cubes
+                from formatters import format_memories_for_display
+                from memory_analysis import detect_memory_type
+                from query_processing import extract_keywords
+                from tools_registry import get_tools
+                from handlers import dispatch_tool
+                print("   ✅ All modules imported successfully")
+            except ImportError as e:
+                print(f"   ❌ Module import failed: {e}")
+                return False
 
             print("\n" + "=" * 60)
             print("✅ All API tests passed!")
@@ -148,8 +156,6 @@ async def test_api_connection():
             print(f"❌ Cannot connect to MemOS API at {MEMOS_URL}")
             print("   Make sure the API is running: python -m uvicorn memos.api.start_api:app")
             return False
-if __name__ == "__main__":
-    asyncio.run(test_api_connection())
 
 
 def main():
