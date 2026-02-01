@@ -361,6 +361,64 @@ def _build_cube_config(cube_id: str) -> dict[str, Any]:
     return _build_fallback_cube_config(cube_id)
 
 
+def validate_and_fix_cube_config(cube_id: str, config_path: str) -> tuple[bool, str | None]:
+    """
+    Validate cube config and fix user_name mismatch if found.
+
+    Returns:
+        (was_fixed, error_message)
+        - was_fixed: True if config was modified
+        - error_message: None if OK, error string if failed
+    """
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+
+        modified = False
+        issues = []
+
+        # Check top-level cube_id
+        if config.get("cube_id") != cube_id:
+            issues.append(f"cube_id mismatch: {config.get('cube_id')} -> {cube_id}")
+            config["cube_id"] = cube_id
+            modified = True
+
+        # Check graph_db user_name
+        text_mem = config.get("text_mem", {})
+        text_cfg = text_mem.get("config", {}) if isinstance(text_mem, dict) else {}
+        if isinstance(text_cfg, dict):
+            # Update nested cube_id
+            if text_cfg.get("cube_id") != cube_id:
+                text_cfg["cube_id"] = cube_id
+                modified = True
+
+            graph_db = text_cfg.get("graph_db", {})
+            graph_cfg = graph_db.get("config", {}) if isinstance(graph_db, dict) else {}
+            if isinstance(graph_cfg, dict):
+                current_user_name = graph_cfg.get("user_name")
+                if current_user_name and current_user_name != cube_id:
+                    issues.append(f"graph_db.user_name mismatch: {current_user_name} -> {cube_id}")
+                    graph_cfg["user_name"] = cube_id
+                    modified = True
+
+                # Fix vec_config collection_name
+                vec_cfg = graph_cfg.get("vec_config", {}).get("config", {})
+                if isinstance(vec_cfg, dict):
+                    expected_collection = f"{cube_id}_graph"
+                    if vec_cfg.get("collection_name") and vec_cfg["collection_name"] != expected_collection:
+                        vec_cfg["collection_name"] = expected_collection
+                        modified = True
+
+        if modified:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            logger.info(f"Fixed cube config for '{cube_id}': {', '.join(issues)}")
+
+        return modified, None
+    except Exception as e:
+        return False, f"Failed to validate cube config: {e}"
+
+
 def ensure_cube_directory(cube_id: str) -> tuple[str | None, str | None]:
     cubes_dir = get_cubes_base_dir()
     try:
@@ -368,6 +426,8 @@ def ensure_cube_directory(cube_id: str) -> tuple[str | None, str | None]:
         cube_dir = os.path.join(cubes_dir, cube_id)
         config_path = os.path.join(cube_dir, "config.json")
         if os.path.isdir(cube_dir) and os.path.isfile(config_path):
+            # Validate and fix existing config if needed
+            validate_and_fix_cube_config(cube_id, config_path)
             return cube_dir, None
         os.makedirs(cube_dir, exist_ok=True)
         config = _build_cube_config(cube_id)
@@ -1668,6 +1728,34 @@ This creates the user account needed to store and retrieve memories.""",
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="memos_validate_cubes",
+            description="""Validate all cube configurations and fix namespace mismatches.
+
+USE THIS TOOL to:
+- Check if cube configs have correct user_name (should match cube_id)
+- Auto-fix mismatched user_name in configs
+- Detect cubes that may write to wrong namespace
+
+This prevents the issue where memories are saved to wrong namespace
+(e.g., saving to 'dev_user' instead of 'my_project_cube').
+
+Returns:
+- List of all cubes with their validation status
+- Any fixes that were applied
+- Warnings for potential issues""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "fix": {
+                        "type": "boolean",
+                        "description": "If true, automatically fix mismatched configs. Default: true",
+                        "default": True
+                    }
+                },
+                "required": []
+            }
         )
     ]
 
@@ -2542,6 +2630,82 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
             except Exception as e:
                 return [TextContent(type="text", text=f"❌ User creation error: {str(e)}")]
+
+        elif name == "memos_validate_cubes":
+            # Validate all cube configurations
+            fix_issues = arguments.get("fix", True)
+            cubes_dir = get_cubes_base_dir()
+
+            if not cubes_dir or not os.path.isdir(cubes_dir):
+                return [TextContent(type="text", text=f"❌ Cubes directory not found: {cubes_dir}")]
+
+            results = ["## 🔍 Cube Configuration Validation\n"]
+            fixed_count = 0
+            error_count = 0
+            ok_count = 0
+
+            try:
+                for cube_name in os.listdir(cubes_dir):
+                    cube_path = os.path.join(cubes_dir, cube_name)
+                    config_path = os.path.join(cube_path, "config.json")
+
+                    if not os.path.isdir(cube_path) or not os.path.isfile(config_path):
+                        continue
+
+                    # Read and check config
+                    try:
+                        with open(config_path, "r", encoding="utf-8") as f:
+                            config = json.load(f)
+
+                        issues = []
+
+                        # Check cube_id
+                        if config.get("cube_id") != cube_name:
+                            issues.append(f"cube_id: `{config.get('cube_id')}` → `{cube_name}`")
+
+                        # Check graph_db user_name
+                        text_cfg = config.get("text_mem", {}).get("config", {})
+                        graph_cfg = text_cfg.get("graph_db", {}).get("config", {})
+                        current_user_name = graph_cfg.get("user_name")
+
+                        if current_user_name and current_user_name != cube_name:
+                            issues.append(f"user_name: `{current_user_name}` → `{cube_name}`")
+
+                        if issues:
+                            if fix_issues:
+                                was_fixed, error = validate_and_fix_cube_config(cube_name, config_path)
+                                if was_fixed:
+                                    results.append(f"- **{cube_name}**: ✅ Fixed - {', '.join(issues)}")
+                                    fixed_count += 1
+                                elif error:
+                                    results.append(f"- **{cube_name}**: ❌ Error - {error}")
+                                    error_count += 1
+                            else:
+                                results.append(f"- **{cube_name}**: ⚠️ Issues - {', '.join(issues)}")
+                                error_count += 1
+                        else:
+                            results.append(f"- **{cube_name}**: ✅ OK")
+                            ok_count += 1
+
+                    except Exception as e:
+                        results.append(f"- **{cube_name}**: ❌ Error reading config - {e}")
+                        error_count += 1
+
+                # Summary
+                results.append(f"\n### Summary")
+                results.append(f"- ✅ OK: {ok_count}")
+                if fixed_count > 0:
+                    results.append(f"- 🔧 Fixed: {fixed_count}")
+                if error_count > 0:
+                    results.append(f"- ⚠️ Issues: {error_count}")
+
+                if fixed_count > 0:
+                    results.append(f"\n**Note:** Fixed cubes need API restart to take effect for existing loaded cubes.")
+
+                return [TextContent(type="text", text="\n".join(results))]
+
+            except Exception as e:
+                return [TextContent(type="text", text=f"❌ Validation error: {str(e)}")]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
