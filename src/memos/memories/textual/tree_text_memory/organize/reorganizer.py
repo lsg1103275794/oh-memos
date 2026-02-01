@@ -571,7 +571,13 @@ class GraphStructureReorganizer:
         parent_tags = response_json.get("tags", [])
         parent_background = response_json.get("summary", "").strip()
 
-        embedding = self.embedder.embed([parent_value])[0]
+        # Handle embedding with fallback for None result
+        embedding_result = self.embedder.embed([parent_value]) if parent_value else None
+        if embedding_result is None or len(embedding_result) == 0:
+            logger.warning(f"[GraphStructureReorganize] Embedding failed for parent_value: {parent_value[:50]}...")
+            embedding = []  # Use empty embedding as fallback
+        else:
+            embedding = embedding_result[0]
 
         parent_node = GraphDBNode(
             memory=parent_value,
