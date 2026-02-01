@@ -35,13 +35,22 @@ async def handle_memos_save(
     else:
         memory_type, confidence = detect_memory_type(content)
 
-    # Low confidence warning
-    warning = ""
+    # Reject low-confidence PROGRESS - require explicit type
     if confidence < 0.6 and memory_type == "PROGRESS":
-        warning = (
-            f"\n\n⚠️ **类型检测置信度低** (confidence: {confidence:.0%}) - "
-            "建议显式指定 `memory_type` 参数以提高图谱质量。\n"
-            "可选类型: ERROR_PATTERN, BUGFIX, DECISION, GOTCHA, CODE_PATTERN, CONFIG, FEATURE, MILESTONE"
+        return error_response(
+            "## 需要显式指定 memory_type\n\n"
+            f"内容分析未能确定准确的记忆类型 (置信度: {confidence:.0%})，默认为 PROGRESS。\n\n"
+            "**请显式指定 `memory_type` 参数**，可选类型：\n"
+            "- `ERROR_PATTERN` - 错误模式 + 解决方案\n"
+            "- `BUGFIX` - Bug 修复详情\n"
+            "- `DECISION` - 技术决策 + 理由\n"
+            "- `GOTCHA` - 非显而易见的陷阱\n"
+            "- `CODE_PATTERN` - 可复用代码模板\n"
+            "- `CONFIG` - 配置变更\n"
+            "- `FEATURE` - 新功能\n"
+            "- `MILESTONE` - 重大里程碑\n"
+            "- `PROGRESS` - 仅用于纯进度汇报\n\n"
+            "**示例**: `memos_save(content=\"...\", memory_type=\"BUGFIX\")`"
         )
 
     # Prepend memory type if not already present
@@ -63,7 +72,7 @@ async def handle_memos_save(
     )
 
     if success:
-        return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}] (confidence: {confidence:.0%}){warning}")]
+        return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}] (confidence: {confidence:.0%})")]
     elif data:
         return error_response(f"Save failed: {data.get('message', 'Unknown error')}")
     else:
