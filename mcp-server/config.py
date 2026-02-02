@@ -55,9 +55,11 @@ _args = parse_args()
 # Logging
 # ============================================================================
 
+# Default to WARNING to reduce noise; set MEMOS_LOG_LEVEL=INFO for verbose output
+_log_level = os.environ.get("MEMOS_LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=getattr(logging, _log_level, logging.WARNING),
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stderr)
     ]

@@ -60,7 +60,7 @@ async def wait_for_api_ready(max_wait: float | None = None, interval: float = 2.
             try:
                 response = await client.get(f"{MEMOS_URL}/users")
                 if response.status_code == 200:
-                    logger.info("MemOS API is ready")
+                    logger.debug("MemOS API is ready")
                     return True
             except httpx.ConnectError:
                 pass

@@ -322,7 +322,7 @@ def validate_and_fix_cube_config(cube_id: str, config_path: str) -> tuple[bool, 
         if modified:
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
-            logger.info(f"Fixed cube config for '{cube_id}': {', '.join(issues)}")
+            logger.debug(f"Fixed cube config for '{cube_id}': {', '.join(issues)}")
 
         return modified, None
     except Exception as e:
@@ -440,14 +440,14 @@ async def ensure_cube_registered(
         # First check if already loaded
         if await verify_cube_loaded(client, cube_id):
             _registered_cubes.add(cube_id)
-            logger.info(f"Cube '{cube_id}' already loaded")
+            logger.debug(f"Cube '{cube_id}' already loaded")
             return True, None
 
         # Check if the cube path exists before trying to register
         cube_path = get_cube_path(cube_id)
         if cube_path is None:
             # Cube doesn't exist - try to auto-create it
-            logger.info(f"Cube '{cube_id}' not found, attempting auto-creation...")
+            logger.debug(f"Cube '{cube_id}' not found, attempting auto-creation...")
 
             # Check if we have a template cube to clone from
             template_path = get_cube_path(MEMOS_DEFAULT_CUBE)
@@ -480,7 +480,7 @@ async def ensure_cube_registered(
                 logger.error(error_msg)
                 return False, error_msg
 
-            logger.info(f"Auto-created cube '{cube_id}' at {cube_path}")
+            logger.debug(f"Auto-created cube '{cube_id}' at {cube_path}")
 
         # Try to register the cube
         response = await client.post(
@@ -495,7 +495,7 @@ async def ensure_cube_registered(
             data = response.json()
             if data.get("code") == 200:
                 _registered_cubes.add(cube_id)
-                logger.info(f"Auto-registered cube: {cube_id}")
+                logger.debug(f"Auto-registered cube: {cube_id}")
                 return True, None
             # Already registered is also success
             if "already" in data.get("message", "").lower():

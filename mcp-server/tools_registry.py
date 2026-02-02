@@ -521,6 +521,6 @@ Before deleting, always:
                 }
             )
         )
-        logger.info("Delete tool enabled (MEMOS_ENABLE_DELETE=true)")
+        logger.debug("Delete tool enabled (MEMOS_ENABLE_DELETE=true)")
 
     return tools
