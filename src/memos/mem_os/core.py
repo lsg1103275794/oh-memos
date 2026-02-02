@@ -18,6 +18,7 @@ from memos.mem_cube.utils import (
     normalize_path,
 )
 from memos.mem_reader.factory import MemReaderFactory
+from memos.utils import mask_sensitive_config
 from memos.mem_reader.read_multi_modal.utils import parse_json_result
 from memos.mem_scheduler.general_scheduler import GeneralScheduler
 from memos.mem_scheduler.scheduler_factory import SchedulerFactory
@@ -576,7 +577,7 @@ class MOSCore:
             cube_embedder := self.mem_cubes[mem_cube_id].text_mem.config.embedder
         ):
             logger.warning(
-                f"Cube Embedder is not consistent with MOSConfig for cube: {mem_cube_id}, will use Cube Embedder: {cube_embedder}"
+                f"Cube Embedder is not consistent with MOSConfig for cube: {mem_cube_id}, will use Cube Embedder: {mask_sensitive_config(cube_embedder)}"
             )
 
         if existing_cube:

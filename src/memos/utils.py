@@ -123,3 +123,103 @@ def timed(func=None, *, log=True, log_prefix=""):
     if func is None:
         return decorator
     return decorator(func)
+
+
+# Sensitive field names to mask in logs
+SENSITIVE_FIELDS = frozenset({
+    "api_key", "api-key", "apikey",
+    "password", "passwd", "pwd",
+    "token", "access_token", "refresh_token",
+    "secret", "secret_key", "client_secret",
+    "authorization", "auth",
+    "credential", "credentials",
+    "private_key", "privatekey",
+})
+
+
+def mask_sensitive_value(value: str, visible_chars: int = 4) -> str:
+    """Mask a sensitive value, showing only the first few characters."""
+    if not value or len(value) <= visible_chars:
+        return "***"
+    return f"{value[:visible_chars]}***"
+
+
+def mask_sensitive_config(config, _seen: set | None = None) -> str:
+    """
+    Convert a config object to string with sensitive fields masked.
+
+    Handles Pydantic models, dicts, and other objects.
+    Masks fields like api_key, password, token, secret, etc.
+
+    Args:
+        config: Config object (Pydantic model, dict, or any object)
+        _seen: Internal set to track seen objects and prevent infinite recursion
+
+    Returns:
+        String representation with sensitive values masked
+    """
+    if _seen is None:
+        _seen = set()
+
+    # Prevent infinite recursion
+    obj_id = id(config)
+    if obj_id in _seen:
+        return "..."
+    _seen.add(obj_id)
+
+    try:
+        # Handle None
+        if config is None:
+            return "None"
+
+        # Handle Pydantic models
+        if hasattr(config, "model_dump"):
+            data = config.model_dump()
+        elif hasattr(config, "dict"):
+            data = config.dict()
+        elif isinstance(config, dict):
+            data = config
+        else:
+            # For other objects, try to get __dict__ or just str()
+            if hasattr(config, "__dict__"):
+                data = vars(config)
+            else:
+                return str(config)
+
+        # Mask sensitive fields
+        masked_data = _mask_dict_recursive(data, _seen)
+        return str(masked_data)
+
+    except Exception:
+        # Fallback: just return type name
+        return f"<{type(config).__name__}>"
+
+
+def _mask_dict_recursive(data: dict, _seen: set) -> dict:
+    """Recursively mask sensitive fields in a dict."""
+    masked = {}
+    for key, value in data.items():
+        key_lower = key.lower().replace("_", "").replace("-", "")
+
+        # Check if this is a sensitive field
+        is_sensitive = any(
+            s.replace("_", "").replace("-", "") in key_lower
+            for s in SENSITIVE_FIELDS
+        )
+
+        if is_sensitive and isinstance(value, str) and value:
+            masked[key] = mask_sensitive_value(value)
+        elif isinstance(value, dict):
+            masked[key] = _mask_dict_recursive(value, _seen)
+        elif isinstance(value, list):
+            masked[key] = [
+                _mask_dict_recursive(item, _seen) if isinstance(item, dict) else item
+                for item in value
+            ]
+        elif hasattr(value, "model_dump") or hasattr(value, "dict"):
+            # Nested Pydantic model
+            masked[key] = mask_sensitive_config(value, _seen)
+        else:
+            masked[key] = value
+
+    return masked
