@@ -52,7 +52,7 @@ MOS_EMBEDDER_API_KEY=sk-your-api-key                # API 密钥
 
 **缺点：**
 - 需要网络连接
-- 有调用成本（通常很低）
+- 有调用成本（通常很低） # https://cloud.siliconflow.cn/i/eaey72Uc 点击前往注册硅基流动提供免费的向量模型和重排模型
 
 ---
 
