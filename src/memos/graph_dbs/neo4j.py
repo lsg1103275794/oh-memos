@@ -1213,6 +1213,157 @@ class Neo4jGraphDB(BaseGraphDB):
             result = session.run(query, params)
             return [record["id"] for record in result]
 
+    def search_by_ppr(
+        self,
+        seed_ids: list[str],
+        top_k: int = 10,
+        damping_factor: float = 0.85,
+        max_iterations: int = 20,
+        scope: str | None = None,
+        status: str | None = None,
+        user_name: str | None = None,
+        edge_types: list[str] | None = None,
+    ) -> list[dict]:
+        """
+        Perform Personalized PageRank (PPR) search starting from seed nodes.
+
+        This implements HippoRAG-style associative retrieval using Neo4j GDS.
+        PPR finds nodes that are "close" to the seed nodes in the graph topology,
+        not just by embedding similarity.
+
+        Args:
+            seed_ids: List of node IDs to use as personalization seeds
+            top_k: Number of top-ranked nodes to return
+            damping_factor: PageRank damping factor (default 0.85)
+            max_iterations: Maximum PPR iterations (default 20)
+            scope: Memory type filter (e.g., 'LongTermMemory')
+            status: Node status filter (e.g., 'activated')
+            user_name: User/cube namespace filter
+            edge_types: List of edge types to traverse (e.g., ['CAUSE', 'RELATE'])
+                       If None, traverses all edge types
+
+        Returns:
+            list[dict]: Nodes ranked by PPR score, each with 'id' and 'ppr_score'
+
+        Notes:
+            - Requires Neo4j GDS plugin to be installed
+            - Creates a temporary in-memory graph projection for each query
+            - PPR is useful for finding contextually related memories even if
+              they don't share embedding similarity
+        """
+        user_name = user_name if user_name else self.config.user_name
+
+        if not seed_ids:
+            return []
+
+        # Build node filter conditions
+        node_filter_parts = []
+        if scope:
+            node_filter_parts.append(f"n.memory_type = '{scope}'")
+        if status:
+            node_filter_parts.append(f"n.status = '{status}'")
+        if not self.config.use_multi_db and (self.config.user_name or user_name):
+            node_filter_parts.append(f"n.user_name = '{user_name}'")
+
+        node_filter = " AND ".join(node_filter_parts) if node_filter_parts else "true"
+
+        # Build relationship type filter
+        if edge_types:
+            rel_types = "|".join(edge_types)
+            rel_pattern = f"[:{rel_types}]"
+        else:
+            rel_pattern = "[]"  # All relationship types
+
+        # Generate unique graph name to avoid conflicts
+        import uuid
+        graph_name = f"ppr_temp_{uuid.uuid4().hex[:8]}"
+
+        try:
+            with self.driver.session(database=self.db_name) as session:
+                # Step 1: Create temporary in-memory graph projection
+                # Using Cypher projection for flexibility
+                create_graph_query = f"""
+                CALL gds.graph.project.cypher(
+                    '{graph_name}',
+                    'MATCH (n:Memory) WHERE {node_filter} RETURN id(n) AS id',
+                    'MATCH (a:Memory)-{rel_pattern}->(b:Memory)
+                     WHERE {node_filter.replace("n.", "a.")}
+                       AND {node_filter.replace("n.", "b.")}
+                     RETURN id(a) AS source, id(b) AS target'
+                )
+                YIELD graphName, nodeCount, relationshipCount
+                RETURN graphName, nodeCount, relationshipCount
+                """
+
+                projection_result = session.run(create_graph_query).single()
+                if not projection_result or projection_result["nodeCount"] == 0:
+                    logger.warning(f"[PPR] Empty graph projection for scope={scope}, user={user_name}")
+                    return []
+
+                logger.info(
+                    f"[PPR] Created graph '{graph_name}' with "
+                    f"{projection_result['nodeCount']} nodes, "
+                    f"{projection_result['relationshipCount']} relationships"
+                )
+
+                # Step 2: Get internal node IDs for seed nodes
+                seed_internal_ids_query = """
+                MATCH (n:Memory)
+                WHERE n.id IN $seed_ids
+                RETURN id(n) AS internalId, n.id AS externalId
+                """
+                seed_result = session.run(seed_internal_ids_query, {"seed_ids": seed_ids})
+                seed_internal_ids = [r["internalId"] for r in seed_result]
+
+                if not seed_internal_ids:
+                    logger.warning(f"[PPR] No valid seed nodes found for ids={seed_ids[:3]}...")
+                    # Cleanup
+                    session.run(f"CALL gds.graph.drop('{graph_name}', false)")
+                    return []
+
+                # Step 3: Run Personalized PageRank
+                ppr_query = f"""
+                CALL gds.pageRank.stream('{graph_name}', {{
+                    maxIterations: $max_iterations,
+                    dampingFactor: $damping_factor,
+                    sourceNodes: $seed_internal_ids
+                }})
+                YIELD nodeId, score
+                WITH gds.util.asNode(nodeId) AS node, score
+                WHERE node.id IS NOT NULL
+                RETURN node.id AS id, score AS ppr_score
+                ORDER BY ppr_score DESC
+                LIMIT $top_k
+                """
+
+                ppr_result = session.run(
+                    ppr_query,
+                    {
+                        "max_iterations": max_iterations,
+                        "damping_factor": damping_factor,
+                        "seed_internal_ids": seed_internal_ids,
+                        "top_k": top_k,
+                    },
+                )
+
+                results = [{"id": r["id"], "ppr_score": r["ppr_score"]} for r in ppr_result]
+                logger.info(f"[PPR] Found {len(results)} nodes via PPR from {len(seed_ids)} seeds")
+
+                # Step 4: Cleanup - drop temporary graph
+                session.run(f"CALL gds.graph.drop('{graph_name}', false)")
+
+                return results
+
+        except Exception as e:
+            logger.error(f"[PPR] Error during PPR search: {e}")
+            # Attempt cleanup on error
+            try:
+                with self.driver.session(database=self.db_name) as session:
+                    session.run(f"CALL gds.graph.drop('{graph_name}', false)")
+            except Exception:
+                pass
+            return []
+
     def get_grouped_counts(
         self,
         group_fields: list[str],

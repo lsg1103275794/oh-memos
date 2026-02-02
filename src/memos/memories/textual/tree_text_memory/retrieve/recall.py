@@ -23,6 +23,7 @@ class GraphMemoryRetriever:
         embedder: OllamaEmbedder,
         bm25_retriever: EnhancedBM25 | None = None,
         include_embedding: bool = False,
+        enable_ppr: bool = True,
     ):
         self.graph_store = graph_store
         self.embedder = embedder
@@ -31,6 +32,7 @@ class GraphMemoryRetriever:
         self.filter_weight = 0.6
         self.use_bm25 = bool(self.bm25_retriever)
         self.include_embedding = include_embedding
+        self.enable_ppr = enable_ppr  # Enable Personalized PageRank (requires GDS)
 
     def retrieve(
         self,
@@ -44,12 +46,25 @@ class GraphMemoryRetriever:
         user_name: str | None = None,
         id_filter: dict | None = None,
         use_fast_graph: bool = False,
+        edge_types: list[str] | None = None,
     ) -> list[TextualMemoryItem]:
         """
         Perform hybrid memory retrieval:
         - Run graph-based lookup from dispatch plan.
         - Run vector similarity search from embedded query.
+        - Run PPR (Personalized PageRank) for associative retrieval (if enabled).
         - Merge and return combined result set.
+
+        Args:
+            query (str): Original task query.
+            parsed_goal (dict): parsed_goal.
+            top_k (int): Number of candidates to return.
+            memory_scope (str): One of ['working', 'long_term', 'user'].
+            query_embedding(list of embedding): list of embedding of query
+            search_filter (dict, optional): Optional metadata filters for search results.
+            edge_types (list[str], optional): Edge types for PPR traversal (multi-graph routing).
+        Returns:
+            list: Combined memory items.
 
         Args:
             query (str): Original task query.
@@ -81,7 +96,7 @@ class GraphMemoryRetriever:
             )
             return [TextualMemoryItem.from_dict(record) for record in working_memories[:top_k]]
 
-        with ContextThreadPoolExecutor(max_workers=3) as executor:
+        with ContextThreadPoolExecutor(max_workers=4) as executor:
             # Structured graph-based retrieval
             future_graph = executor.submit(
                 self._graph_recall,
@@ -121,15 +136,28 @@ class GraphMemoryRetriever:
                     user_name=user_name,
                 )
 
+            # PPR (Personalized PageRank) for associative retrieval
+            future_ppr = None
+            if self.enable_ppr:
+                future_ppr = executor.submit(
+                    self._ppr_recall,
+                    query_embedding or [],
+                    memory_scope,
+                    top_k=top_k,
+                    user_name=user_name,
+                    edge_types=edge_types,
+                )
+
             graph_results = future_graph.result()
             vector_results = future_vector.result()
             bm25_results = future_bm25.result() if self.use_bm25 else []
             fulltext_results = future_fulltext.result() if use_fast_graph else []
+            ppr_results = future_ppr.result() if future_ppr else []
 
         # Merge and deduplicate by ID
         combined = {
             item.id: item
-            for item in graph_results + vector_results + bm25_results + fulltext_results
+            for item in graph_results + vector_results + bm25_results + fulltext_results + ppr_results
         }
 
         return list(combined.values())
@@ -495,3 +523,89 @@ class GraphMemoryRetriever:
             or []
         )
         return [TextualMemoryItem.from_dict(n) for n in node_dicts]
+
+    def _ppr_recall(
+        self,
+        query_embedding: list[list[float]],
+        memory_scope: str,
+        top_k: int = 10,
+        user_name: str | None = None,
+        edge_types: list[str] | None = None,
+    ) -> list[TextualMemoryItem]:
+        """
+        Perform PPR (Personalized PageRank) based associative retrieval.
+
+        This implements HippoRAG-style retrieval:
+        1. First find seed nodes via vector similarity
+        2. Then use PPR to find topologically related nodes
+
+        Args:
+            query_embedding: Query embeddings for finding seed nodes
+            memory_scope: Memory type filter
+            top_k: Number of results to return
+            user_name: User/cube namespace
+            edge_types: Edge types for PPR traversal (for multi-graph routing)
+
+        Returns:
+            List of TextualMemoryItem found via PPR
+        """
+        if not query_embedding:
+            return []
+
+        # Check if graph_store supports PPR
+        if not hasattr(self.graph_store, "search_by_ppr"):
+            logger.debug("[PPR] Graph store does not support PPR, skipping")
+            return []
+
+        try:
+            # Step 1: Find seed nodes via vector similarity (top 3)
+            seed_hits = self.graph_store.search_by_embedding(
+                vector=query_embedding[0],  # Use first embedding
+                top_k=3,
+                scope=memory_scope,
+                status="activated",
+                user_name=user_name,
+            )
+
+            if not seed_hits:
+                logger.debug("[PPR] No seed nodes found via vector search")
+                return []
+
+            seed_ids = [hit["id"] for hit in seed_hits if hit.get("id")]
+            logger.info(f"[PPR] Found {len(seed_ids)} seed nodes for PPR")
+
+            # Step 2: Run PPR from seed nodes
+            ppr_hits = self.graph_store.search_by_ppr(
+                seed_ids=seed_ids,
+                top_k=top_k,
+                scope=memory_scope,
+                status="activated",
+                user_name=user_name,
+                edge_types=edge_types,
+            )
+
+            if not ppr_hits:
+                return []
+
+            # Step 3: Load full node data
+            ppr_ids = [hit["id"] for hit in ppr_hits]
+            node_dicts = self.graph_store.get_nodes(
+                ppr_ids,
+                include_embedding=self.include_embedding,
+                user_name=user_name,
+            ) or []
+
+            # Add PPR score to metadata for downstream ranking
+            ppr_score_map = {hit["id"]: hit.get("ppr_score", 0) for hit in ppr_hits}
+            for node in node_dicts:
+                if node.get("id") in ppr_score_map:
+                    if "metadata" not in node:
+                        node["metadata"] = {}
+                    node["metadata"]["ppr_score"] = ppr_score_map[node["id"]]
+
+            logger.info(f"[PPR] Retrieved {len(node_dicts)} nodes via PPR")
+            return [TextualMemoryItem.from_dict(n) for n in node_dicts]
+
+        except Exception as e:
+            logger.warning(f"[PPR] PPR recall failed: {e}")
+            return []
