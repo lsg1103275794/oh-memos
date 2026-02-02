@@ -20,7 +20,12 @@ from config import (
 )
 from cube_manager import ensure_cube_registered
 from mcp.types import TextContent
-from query_processing import extract_memories_from_response
+from query_processing import (
+    detect_query_intent,
+    extract_memories_from_response,
+    get_graphs_for_intent,
+    get_intent_description,
+)
 
 from handlers.utils import error_response, get_cube_id_from_args
 
@@ -174,9 +179,13 @@ async def handle_memos_get_graph(
     client: httpx.AsyncClient,
     arguments: dict[str, Any]
 ) -> list[TextContent]:
-    """Handle memos_get_graph tool call."""
+    """Handle memos_get_graph tool call with multi-graph view routing."""
     cube_id = get_cube_id_from_args(arguments)
     query = arguments.get("query", "")
+
+    # Multi-graph view routing: detect query intent
+    intent = detect_query_intent(query)
+    target_edge_types = get_graphs_for_intent(intent)
 
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
@@ -222,9 +231,10 @@ async def handle_memos_get_graph(
                     if retry_data.get("code") == 200:
                         memories = extract_memories_from_response(retry_data.get("data", {}))
 
-    # Query Neo4j for all CAUSE/RELATE/CONFLICT relationships
-    cypher_query = """
-    MATCH (a)-[r:CAUSE|RELATE|CONFLICT|CONDITION]->(b)
+    # Build dynamic Cypher query based on intent (multi-graph view routing)
+    edge_types_cypher = "|".join(target_edge_types)
+    cypher_query = f"""
+    MATCH (a)-[r:{edge_types_cypher}]->(b)
     WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
     RETURN a.id as source_id, a.memory as source_memory,
            type(r) as relation_type,
@@ -244,8 +254,10 @@ async def handle_memos_get_graph(
     )
 
     results = []
+    intent_desc = get_intent_description(intent)
     results.append(f"## 🧠 Knowledge Graph: {cube_id}")
-    results.append(f"Query: `{query}`")
+    results.append(f"Query: `{query}` | {intent_desc}")
+    results.append(f"*Filtering edges: {', '.join(target_edge_types)}*")
     results.append("")
 
     # Display memories from search

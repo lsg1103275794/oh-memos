@@ -44,6 +44,140 @@ def parse_memory_type_prefix(query: str) -> tuple[str | None, str]:
     return None, query.strip()
 
 
+# ============================================================================
+# Multi-Graph View Routing (MAGMA-inspired)
+# ============================================================================
+
+# Intent to graph type mapping
+INTENT_TO_GRAPHS: dict[str, list[str]] = {
+    "causal": ["CAUSE", "CONDITION"],       # Why did X happen? What caused Y?
+    "related": ["RELATE"],                   # What's related to X?
+    "conflict": ["CONFLICT"],                # What conflicts with X?
+    "temporal": ["FOLLOWS"],                 # What happened before/after X?
+    "default": ["CAUSE", "RELATE", "CONDITION"],  # General queries
+}
+
+
+def detect_query_intent(query: str) -> str:
+    """
+    Detect query intent for multi-graph routing.
+
+    Returns one of: "causal", "related", "conflict", "temporal", "default"
+    """
+    query_lower = query.lower()
+
+    # Causal intent patterns (Chinese + English)
+    causal_patterns = [
+        r"为什么", r"why", r"原因", r"cause", r"导致", r"因为",
+        r"根本原因", r"root\s*cause", r"怎么.*出错", r"how.*fail",
+        r"什么.*引起", r"what.*caused", r"出了什么问题",
+    ]
+    for pattern in causal_patterns:
+        if re.search(pattern, query_lower):
+            return "causal"
+
+    # Conflict intent patterns
+    conflict_patterns = [
+        r"冲突", r"conflict", r"矛盾", r"contradict", r"不一致",
+        r"inconsisten", r"问题.*之间", r"clash",
+    ]
+    for pattern in conflict_patterns:
+        if re.search(pattern, query_lower):
+            return "conflict"
+
+    # Temporal intent patterns
+    temporal_patterns = [
+        r"什么时候", r"when", r"之前", r"before", r"之后", r"after",
+        r"最近", r"recent", r"先.*后", r"顺序", r"timeline", r"历史",
+        r"上次", r"last\s*time", r"earlier", r"previously",
+    ]
+    for pattern in temporal_patterns:
+        if re.search(pattern, query_lower):
+            return "temporal"
+
+    # Related intent patterns (general association)
+    related_patterns = [
+        r"相关", r"related", r"关联", r"有关", r"涉及",
+        r"association", r"connect", r"link",
+    ]
+    for pattern in related_patterns:
+        if re.search(pattern, query_lower):
+            return "related"
+
+    return "default"
+
+
+def get_graphs_for_intent(intent: str) -> list[str]:
+    """Get the list of graph/edge types to query for a given intent."""
+    return INTENT_TO_GRAPHS.get(intent, INTENT_TO_GRAPHS["default"])
+
+
+def filter_edges_by_intent(data: dict, intent: str) -> dict:
+    """
+    Filter edges in search results based on query intent.
+
+    This implements MAGMA-style multi-graph view routing:
+    - Only keep edges of types relevant to the intent
+    - Boost nodes that have matching edges
+
+    Args:
+        data: Search results data with text_mem containing nodes and edges
+        intent: Query intent from detect_query_intent()
+
+    Returns:
+        Filtered data with only relevant edge types
+    """
+    allowed_edge_types = get_graphs_for_intent(intent)
+
+    text_mems = data.get("text_mem", [])
+    for cube_data in text_mems:
+        mem_data = cube_data.get("memories", {})
+
+        # Handle tree_text mode with nodes and edges
+        if isinstance(mem_data, dict) and "edges" in mem_data:
+            edges = mem_data.get("edges", [])
+            nodes = mem_data.get("nodes", [])
+
+            # Filter edges by allowed types
+            filtered_edges = [
+                edge for edge in edges
+                if edge.get("type") in allowed_edge_types
+            ]
+            mem_data["edges"] = filtered_edges
+
+            # Boost nodes that have matching edges
+            if filtered_edges:
+                # Collect node IDs that have filtered edges
+                boosted_ids = set()
+                for edge in filtered_edges:
+                    boosted_ids.add(edge.get("source", ""))
+                    boosted_ids.add(edge.get("target", ""))
+
+                # Add a boost score to metadata for reranking
+                for node in nodes:
+                    node_id = node.get("id", "")
+                    metadata = node.get("metadata", {})
+                    if node_id in boosted_ids:
+                        # Add intent_match boost
+                        current_relativity = metadata.get("relativity", 0.0)
+                        metadata["relativity"] = current_relativity + 0.5
+                        metadata["intent_matched"] = True
+
+    return data
+
+
+def get_intent_description(intent: str) -> str:
+    """Get human-readable description of query intent."""
+    descriptions = {
+        "causal": "🔍 因果分析 (Causal Analysis)",
+        "related": "🔗 关联查询 (Related Search)",
+        "conflict": "⚠️ 冲突检测 (Conflict Detection)",
+        "temporal": "📅 时序查询 (Temporal Search)",
+        "default": "📚 综合查询 (General Search)",
+    }
+    return descriptions.get(intent, descriptions["default"])
+
+
 def extract_keywords(query: str) -> list[str]:
     """Extract keywords from query with stopword filtering."""
     if KEYWORD_ENHANCER_AVAILABLE and extract_keywords_enhanced is not None:
