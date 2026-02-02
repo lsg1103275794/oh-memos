@@ -233,9 +233,36 @@ To enable deletion, explicitly set in your MCP config:
 - Supports single memory or bulk deletion
 - AI is instructed to always confirm before deleting
 
-## Auto-Registration
+## Auto-Registration & Auto-Creation
 
-The MCP server automatically registers cubes on first use. No manual setup required!
+The MCP server automatically handles cube management for new projects:
+
+### Auto-Creation (New in v2.0)
+
+When you start using MCP in a new project, the server automatically:
+
+1. **Derives cube_id from project folder** (e.g., `my-project` → `my_project_cube`)
+2. **Checks if cube exists** in the cubes directory
+3. **Auto-creates cube** by cloning config from `dev_cube` template
+4. **Registers with MemOS API** for immediate use
+
+```
+First call to memos_search/save/list
+        ↓
+Cube not found? Auto-create from template (dev_cube)
+        ↓
+Auto-register via /mem_cubes API
+        ↓
+Continue with original operation
+```
+
+**Requirements:**
+- `dev_cube` must exist as template (or any cube in `MEMOS_CUBES_DIR`)
+- Cubes directory must be writable
+
+### Auto-Registration
+
+If cube directory exists but not registered:
 
 ```
 First call to memos_search/save/list

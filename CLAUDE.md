@@ -229,19 +229,37 @@ memos_list_cubes(include_status=True)  # Check registration status
 
 ---
 
-## Auto-Registration
+## Auto-Registration & Auto-Creation
 
 The MCP server now includes **smart cube management**:
 
-1. **Automatic Registration**: Cubes are auto-registered on first use
-2. **Path Verification**: Checks if cube directory exists before registration
-3. **Helpful Error Messages**: If a cube is not found, shows available cubes
-4. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+1. **Auto-Creation**: New projects automatically get their own cube (cloned from `dev_cube` template)
+2. **Automatic Registration**: Cubes are auto-registered on first use
+3. **Path Verification**: Checks if cube directory exists before registration
+4. **Helpful Error Messages**: If a cube is not found and cannot be created, shows available cubes
+5. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+
+**How it works for new projects:**
+```
+User starts Claude Code in ~/projects/my-new-project/
+        ↓
+MCP derives cube_id: "my_new_project_cube"
+        ↓
+Cube not found? Auto-create from dev_cube template
+        ↓
+Auto-register with MemOS API
+        ↓
+Ready to use!
+```
+
+**Requirements:**
+- `dev_cube` must exist as template in `MEMOS_CUBES_DIR`
+- Cubes directory must be writable
 
 If you see "Cube Registration Failed" error:
 1. Use `memos_list_cubes()` to see available cubes
-2. Verify the cube directory exists with config.json
-3. Create a new cube if needed via MemOS API
+2. Verify `dev_cube` exists as template
+3. Check cubes directory permissions
 
 ```bash
 # Manual registration (fallback)
