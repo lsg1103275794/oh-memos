@@ -6,13 +6,13 @@ Contains query processing functions for keyword extraction, matching, and rerank
 """
 
 import re
-from typing import Optional
 
 from config import (
-    MEMORY_TYPES,
-    KEYWORD_ENHANCER_AVAILABLE,
     _KEYWORD_STOPWORDS,
+    KEYWORD_ENHANCER_AVAILABLE,
+    MEMORY_TYPES,
 )
+
 
 # Import enhanced functions if available
 if KEYWORD_ENHANCER_AVAILABLE:
@@ -80,7 +80,7 @@ def extract_keywords(query: str) -> list[str]:
 def keyword_match_score(
     text: str,
     keywords: list[str],
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     enable_fuzzy: bool = True
 ) -> float:
     """

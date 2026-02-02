@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 
@@ -10,10 +10,10 @@ class BaseEmbedderConfig(BaseConfig):
 
     model_name_or_path: str = Field(..., description="Model name or path")
     embedding_dims: int | None = Field(
-        default=None, description="Number of dimensions for the embedding"
+        default=1024, description="Number of dimensions for the embedding"
     )
     max_tokens: int | None = Field(
-        default=8192,
+        default=512,
         description="Maximum number of tokens per text. Texts exceeding this limit will be automatically truncated. Set to None to disable truncation.",
     )
     headers_extra: dict[str, Any] | None = Field(
@@ -64,7 +64,7 @@ class EmbedderConfigFactory(BaseConfig):
     """Factory class for creating embedder configurations."""
 
     backend: str = Field(..., description="Backend for embedding model")
-    config: dict[str, Any] | BaseEmbedderConfig = Field(..., description="Configuration for the embedding model backend")
+    config: dict[str, Any] | SerializeAsAny[BaseEmbedderConfig] = Field(..., description="Configuration for the embedding model backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "ollama": OllamaEmbedderConfig,
@@ -87,3 +87,4 @@ class EmbedderConfigFactory(BaseConfig):
         if isinstance(self.config, dict):
             self.config = config_class(**self.config)
         return self
+

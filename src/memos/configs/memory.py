@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.configs.embedder import EmbedderConfigFactory
@@ -16,6 +16,49 @@ from memos.memories.textual.prefer_text_memory.config import (
     ExtractorConfigFactory,
     RetrieverConfigFactory,
 )
+
+
+def _get_embedding_dims(embedder: EmbedderConfigFactory | None) -> int | None:
+    if embedder is None:
+        return None
+    return getattr(embedder.config, "embedding_dims", None)
+
+
+def _get_vector_dimension(vector_db: VectorDBConfigFactory | None) -> int | None:
+    if vector_db is None:
+        return None
+    return getattr(vector_db.config, "vector_dimension", None)
+
+
+def _get_graph_dimensions(
+    graph_db: GraphDBConfigFactory | None,
+) -> tuple[int | None, int | None]:
+    if graph_db is None:
+        return None, None
+    graph_dim = getattr(graph_db.config, "embedding_dimension", None)
+    vec_config = getattr(graph_db.config, "vec_config", None)
+    vec_dim = None
+    if vec_config is not None:
+        vec_dim = getattr(vec_config.config, "vector_dimension", None)
+    return graph_dim, vec_dim
+
+
+def _ensure_embedding_dimensions(
+    embedding_dims: int | None,
+    *,
+    vector_dimension: int | None = None,
+    graph_dimension: int | None = None,
+):
+    if embedding_dims is None:
+        return
+    if vector_dimension is not None and int(vector_dimension) != int(embedding_dims):
+        raise ConfigurationError(
+            f"Embedding dimension mismatch: embedder={embedding_dims}, vector_db={vector_dimension}"
+        )
+    if graph_dimension is not None and int(graph_dimension) != int(embedding_dims):
+        raise ConfigurationError(
+            f"Embedding dimension mismatch: embedder={embedding_dims}, graph_db={graph_dimension}"
+        )
 
 
 # ─── 1. Global Base Memory Config ─────────────────────────────────────────────
@@ -139,6 +182,13 @@ class GeneralTextMemoryConfig(BaseTextMemoryConfig):
         description="Embedder configuration for the memory embedding",
     )
 
+    @model_validator(mode="after")
+    def validate_embedding_dimensions(self):
+        embedding_dims = _get_embedding_dims(self.embedder)
+        vector_dimension = _get_vector_dimension(self.vector_db)
+        _ensure_embedding_dimensions(embedding_dims, vector_dimension=vector_dimension)
+        return self
+
 
 class TreeTextMemoryConfig(BaseTextMemoryConfig):
     """Tree text memory configuration class."""
@@ -201,6 +251,17 @@ class TreeTextMemoryConfig(BaseTextMemoryConfig):
         description="Whether to include embedding in the memory retrieval",
     )
 
+    @model_validator(mode="after")
+    def validate_embedding_dimensions(self):
+        embedding_dims = _get_embedding_dims(self.embedder)
+        graph_dimension, vector_dimension = _get_graph_dimensions(self.graph_db)
+        _ensure_embedding_dimensions(
+            embedding_dims,
+            vector_dimension=vector_dimension,
+            graph_dimension=graph_dimension,
+        )
+        return self
+
 
 class SimpleTreeTextMemoryConfig(TreeTextMemoryConfig):
     """Simple tree text memory configuration class."""
@@ -243,6 +304,13 @@ class PreferenceTextMemoryConfig(BaseTextMemoryConfig):
         default_factory=RetrieverConfigFactory,
         description="Retriever configuration for the memory retrieving",
     )
+
+    @model_validator(mode="after")
+    def validate_embedding_dimensions(self):
+        embedding_dims = _get_embedding_dims(self.embedder)
+        vector_dimension = _get_vector_dimension(self.vector_db)
+        _ensure_embedding_dimensions(embedding_dims, vector_dimension=vector_dimension)
+        return self
 
 
 class MemFeedbackConfig(BaseMemoryConfig):
@@ -294,7 +362,7 @@ class MemoryConfigFactory(BaseConfig):
     """Factory class for creating memory configurations."""
 
     backend: str = Field("uninitialized", description="Backend for memory")
-    config: dict[str, Any] | BaseMemoryConfig = Field({}, description="Configuration for the memory backend")
+    config: dict[str, Any] | SerializeAsAny[BaseMemoryConfig] = Field({}, description="Configuration for the memory backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "naive_text": NaiveTextMemoryConfig,
@@ -323,3 +391,4 @@ class MemoryConfigFactory(BaseConfig):
         if isinstance(self.config, dict):
             self.config = config_class(**self.config)
         return self
+

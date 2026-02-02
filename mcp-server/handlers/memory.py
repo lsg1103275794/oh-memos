@@ -8,15 +8,16 @@ Handles memos_save, memos_list, memos_list_v2, memos_get_stats tools.
 from typing import Any
 
 import httpx
-from mcp.types import TextContent
 
 from api_client import api_call_with_retry
 from config import MEMOS_URL, MEMOS_USER
 from cube_manager import ensure_cube_registered
 from formatters import format_memories_for_display
+from mcp.types import TextContent
 from memory_analysis import detect_memory_type
 from query_processing import compute_memory_stats
-from handlers.utils import get_cube_id_from_args, error_response
+
+from handlers.utils import error_response, get_cube_id_from_args
 
 
 async def handle_memos_save(

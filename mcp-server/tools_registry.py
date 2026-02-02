@@ -5,9 +5,8 @@ MemOS MCP Server Tools Registry Module
 Contains all MCP tool definitions.
 """
 
-from mcp.types import Tool
-
 from config import MEMOS_DEFAULT_CUBE, MEMOS_ENABLE_DELETE, MEMOS_USER, logger
+from mcp.types import Tool
 
 
 def get_tools() -> list[Tool]:

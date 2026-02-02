@@ -7,9 +7,8 @@ Contains shared utilities for handlers.
 
 from typing import Any
 
-from mcp.types import TextContent
-
 from cube_manager import get_default_cube_id
+from mcp.types import TextContent
 
 
 def get_cube_id_from_args(arguments: dict[str, Any]) -> str:

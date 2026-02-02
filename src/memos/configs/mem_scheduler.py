@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, ClassVar
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.mem_scheduler.general_modules.misc import DictConversionMixin, EnvConfigMixin
@@ -136,7 +136,7 @@ class SchedulerConfigFactory(BaseConfig):
     """Factory class for creating scheduler configurations."""
 
     backend: str = Field(..., description="Backend for scheduler")
-    config: dict[str, Any] | BaseSchedulerConfig = Field(..., description="Configuration for the scheduler backend")
+    config: dict[str, Any] | SerializeAsAny[BaseSchedulerConfig] = Field(..., description="Configuration for the scheduler backend")
 
     model_config = ConfigDict(extra="forbid", strict=True)
     backend_to_class: ClassVar[dict[str, Any]] = {

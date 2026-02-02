@@ -11,8 +11,9 @@ Features:
 
 import os
 import re
+
 from pathlib import Path
-from typing import Optional
+
 
 # =============================================================================
 # Extended Stopwords - Programming & Technical Terms
@@ -74,14 +75,14 @@ ENGLISH_STOPWORDS = {
     "todo", "fixme", "hack", "note", "xxx", "temp", "tmp", "foo", "bar",
     "baz", "qux", "test", "example", "sample", "demo", "main", "index",
     "app", "application", "module", "package", "import", "export", "require",
-    "define", "declare", "const", "let", "var", "function", "class", "method",
+    "define", "declare", "const", "var", "function", "class", "method",
     "return", "void", "null", "undefined", "true", "false", "new", "delete",
-    "typeof", "instanceof", "try", "catch", "finally", "throw", "async",
+    "typeof", "instanceof", "catch", "finally", "throw", "async",
     "await", "yield", "public", "private", "protected", "static", "final",
     "abstract", "interface", "extends", "implements", "super", "self", "cls",
     "args", "kwargs", "param", "params", "arg", "argument", "arguments",
     "value", "values", "result", "results", "data", "info", "item", "items",
-    "list", "array", "object", "dict", "map", "set", "tuple", "string",
+    "list", "array", "object", "dict", "map", "tuple", "string",
     "str", "int", "float", "bool", "boolean", "number", "num", "char",
     "byte", "bytes", "type", "types", "name", "names", "key", "keys",
     "val", "vals", "obj", "objs", "elem", "elems", "element", "elements",
@@ -90,8 +91,7 @@ ENGLISH_STOPWORDS = {
     "cfg", "conf", "config", "configuration", "setting", "settings",
     "env", "environment", "ctx", "context", "req", "request", "res",
     "response", "err", "error", "errors", "msg", "message", "messages",
-    "log", "logs", "debug", "warn", "warning", "warnings", "info",
-    "input", "output", "in", "out", "src", "source", "dest", "destination",
+    "log", "logs", "debug", "warn", "warning", "warnings", "input", "output", "out", "src", "source", "dest", "destination",
     "target", "path", "paths", "file", "files", "dir", "directory",
     "directories", "folder", "folders", "url", "urls", "uri", "uris",
     "id", "ids", "uid", "uuid", "guid", "ref", "refs", "reference",
@@ -101,13 +101,11 @@ ENGLISH_STOPWORDS = {
     "flag", "flags", "mode", "modes", "level", "levels", "size", "sizes",
     "length", "len", "count", "counts", "total", "sum", "avg", "average",
     "min", "max", "first", "last", "prev", "previous", "next", "current",
-    "cur", "old", "new", "start", "end", "begin", "stop", "init",
+    "cur", "old", "start", "end", "init",
     "initialize", "initialized", "setup", "teardown", "cleanup", "reset",
-    "clear", "load", "save", "read", "write", "get", "set", "put",
-    "post", "delete", "update", "create", "remove", "insert", "append",
-    "push", "pop", "shift", "unshift", "add", "sub", "mul", "div",
-    "mod", "and", "or", "not", "xor", "bit", "bits", "byte", "bytes",
-    "word", "words", "line", "lines", "row", "rows", "col", "column",
+    "clear", "load", "save", "post", "update", "remove", "insert", "append",
+    "push", "pop", "shift", "unshift", "sub", "mul", "div",
+    "mod", "xor", "bit", "bits", "word", "words", "line", "lines", "row", "rows", "col", "column",
     "columns", "cell", "cells", "grid", "grids", "table", "tables",
     "record", "records", "field", "fields", "schema", "schemas", "model",
     "models", "view", "views", "controller", "controllers", "service",
@@ -116,10 +114,9 @@ ENGLISH_STOPWORDS = {
     "helper", "helpers", "util", "utils", "utility", "utilities", "tool",
     "tools", "lib", "library", "libraries", "framework", "frameworks",
     "plugin", "plugins", "extension", "extensions", "addon", "addons",
-    "component", "components", "widget", "widgets", "element", "elements",
-    "block", "blocks", "section", "sections", "part", "parts", "piece",
+    "component", "components", "widget", "widgets", "block", "blocks", "section", "sections", "part", "parts", "piece",
     "pieces", "chunk", "chunks", "segment", "segments", "fragment",
-    "fragments", "unit", "units", "module", "modules", "system", "systems",
+    "fragments", "unit", "units", "modules", "system", "systems",
     "subsystem", "subsystems", "layer", "layers", "tier", "tiers",
     "process", "processes", "thread", "threads", "task", "tasks", "job",
     "jobs", "work", "works", "worker", "workers", "queue", "queues",
@@ -130,8 +127,7 @@ ENGLISH_STOPWORDS = {
     "admins", "root", "guest", "account", "accounts", "profile", "profiles",
     "session", "sessions", "token", "tokens", "auth", "authentication",
     "authorization", "permission", "permissions", "role", "roles", "access",
-    "grant", "grants", "deny", "denies", "allow", "allows", "block",
-    "blocks", "filter", "filters", "validate", "validates", "validation",
+    "grant", "grants", "deny", "denies", "filter", "filters", "validate", "validates", "validation",
     "check", "checks", "verify", "verifies", "verification", "confirm",
     "confirms", "confirmation", "approve", "approves", "approval", "reject",
     "rejects", "rejection", "accept", "accepts", "acceptance", "decline",
@@ -152,13 +148,12 @@ CHINESE_STOPWORDS = {
     "不想", "应该", "不应该", "必须", "不必", "可能", "不可能", "一定",
     "也许", "或许", "大概", "肯定", "当然", "确实", "真的", "假的",
     # Conjunctions and prepositions
-    "和", "与", "及", "或", "或者", "还是", "以及", "并", "并且", "而",
+    "及", "或", "或者", "还是", "以及", "并", "并且", "而",
     "而且", "但", "但是", "不过", "然而", "可是", "虽然", "尽管", "即使",
     "如果", "假如", "要是", "只要", "除非", "无论", "不管", "不论",
     "因为", "由于", "所以", "因此", "因而", "于是", "那么", "这样",
     "既然", "只有", "才", "就", "便", "却", "倒", "反而", "否则",
-    "不然", "要不", "要不然", "要么", "或者", "还是", "并且", "而且",
-    "以便", "以免", "以致", "为了", "为着", "对于", "关于", "至于",
+    "不然", "要不", "要不然", "要么", "以便", "以免", "以致", "为了", "为着", "对于", "关于", "至于",
     "根据", "按照", "依照", "通过", "经过", "随着", "沿着", "顺着",
     "朝着", "向着", "趁着", "除了", "除开", "除去", "除却", "除外",
     # Pronouns and determiners
@@ -180,33 +175,29 @@ CHINESE_STOPWORDS = {
     "很", "非常", "十分", "极", "极其", "极为", "特别", "尤其", "格外",
     "更", "更加", "越", "越发", "越来越", "最", "顶", "太", "过于",
     "稍", "稍微", "略", "略微", "比较", "相当", "相对", "颇", "挺",
-    "蛮", "怪", "真", "实在", "确实", "的确", "果然", "果真", "居然",
-    "竟然", "竟", "简直", "几乎", "差不多", "大约", "大概", "左右",
-    "上下", "前后", "之间", "不", "没", "没有", "未", "尚未", "并",
-    "并不", "并非", "并没", "并没有", "也", "还", "又", "再", "仍",
+    "蛮", "怪", "真", "实在", "的确", "果然", "果真", "居然",
+    "竟然", "竟", "简直", "几乎", "差不多", "大约", "左右",
+    "上下", "前后", "之间", "不", "没", "没有", "未", "尚未", "并不", "并非", "并没", "并没有", "也", "还", "又", "再", "仍",
     "仍然", "依然", "依旧", "照样", "照旧", "照常", "本", "原", "原本",
-    "本来", "根本", "压根", "完全", "全", "全都", "都", "皆", "均",
+    "根本", "压根", "完全", "全", "全都", "都", "皆", "均",
     "俱", "统统", "通通", "一概", "一律", "一并", "一同", "一起",
-    "一齐", "同时", "一块", "一块儿", "一道", "一直", "一向", "始终",
-    "只", "只是", "仅", "仅仅", "光", "光是", "单", "单单", "单独",
-    "独", "独自", "唯", "唯独", "唯有", "只有", "才", "方", "方才",
-    "刚", "刚刚", "刚才", "恰", "恰好", "恰巧", "正", "正好", "正巧",
+    "一齐", "同时", "一块", "一块儿", "一道", "只", "只是", "仅", "仅仅", "光", "光是", "单", "单单", "单独",
+    "独", "独自", "唯", "唯独", "唯有", "方", "刚", "恰", "恰好", "恰巧", "正好", "正巧",
     # Particles and interjections
     "啊", "呀", "哇", "哦", "噢", "哎", "哎呀", "哎哟", "唉", "嗨",
     "喂", "嘿", "呃", "嗯", "哼", "呵", "嘻", "呸", "咦", "哈", "嘿嘿",
     "哈哈", "呵呵", "嘻嘻", "吧", "呢", "吗", "嘛", "啦", "喽", "呗",
-    "罢了", "而已", "罢", "了", "的", "地", "得", "着", "过", "们",
+    "罢了", "而已", "罢", "地", "得", "着", "过", "们",
     # Common verbs (often meaningless in search)
-    "是", "有", "在", "做", "用", "把", "被", "给", "让", "叫", "使",
+    "做", "用", "把", "被", "给", "让", "叫", "使",
     "令", "请", "来", "去", "到", "进", "出", "上", "下", "起", "开",
-    "关", "拿", "放", "看", "听", "说", "写", "读", "想", "觉得", "认为",
+    "关", "拿", "放", "看", "听", "说", "写", "读", "觉得", "认为",
     "知道", "了解", "明白", "清楚", "理解", "相信", "希望", "期望",
     "盼望", "愿意", "喜欢", "讨厌", "害怕", "担心", "感觉", "感到",
-    "觉得", "发现", "发现", "注意", "注意到", "看到", "听到", "收到",
+    "发现", "注意", "注意到", "看到", "听到", "收到",
     "得到", "拿到", "找到", "遇到", "碰到", "见到", "看见", "听见",
     "遇见", "碰见", "学会", "学到", "懂得", "记得", "忘记", "忘了",
-    "想起", "记起", "提到", "说到", "谈到", "讲到", "涉及", "关于",
-    "有关", "属于", "成为", "变成", "作为", "当作", "看作", "视为",
+    "想起", "记起", "提到", "说到", "谈到", "讲到", "涉及", "有关", "属于", "成为", "变成", "作为", "当作", "看作", "视为",
 }
 
 # Combined stopwords
@@ -330,7 +321,7 @@ def find_fuzzy_matches(
 # Smart Cube Detection
 # =============================================================================
 
-def detect_cube_from_path(project_path: Optional[str] = None) -> str:
+def detect_cube_from_path(project_path: str | None = None) -> str:
     """
     Detect the appropriate cube ID from the project path.
 
@@ -378,7 +369,7 @@ def detect_cube_from_path(project_path: Optional[str] = None) -> str:
     return cube_id or "default_cube"
 
 
-def get_project_keywords(project_path: Optional[str] = None) -> list[str]:
+def get_project_keywords(project_path: str | None = None) -> list[str]:
     """
     Extract potential keywords from project structure.
 
@@ -408,7 +399,7 @@ def get_project_keywords(project_path: Optional[str] = None) -> list[str]:
                     keywords.append(data["name"])
                 if "keywords" in data:
                     keywords.extend(data["keywords"])
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
 
     # Check pyproject.toml
@@ -421,7 +412,7 @@ def get_project_keywords(project_path: Optional[str] = None) -> list[str]:
                 match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', content)
                 if match:
                     keywords.append(match.group(1))
-        except IOError:
+        except OSError:
             pass
 
     # Check setup.py
@@ -433,7 +424,7 @@ def get_project_keywords(project_path: Optional[str] = None) -> list[str]:
                 match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', content)
                 if match:
                     keywords.append(match.group(1))
-        except IOError:
+        except OSError:
             pass
 
     # Add folder name
@@ -457,7 +448,7 @@ def get_project_keywords(project_path: Optional[str] = None) -> list[str]:
 
 def extract_keywords_enhanced(
     query: str,
-    stopwords: Optional[set[str]] = None,
+    stopwords: set[str] | None = None,
     min_length: int = 2
 ) -> list[str]:
     """
@@ -514,7 +505,7 @@ def extract_keywords_enhanced(
 def keyword_match_score_enhanced(
     text: str,
     keywords: list[str],
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     enable_fuzzy: bool = True,
     fuzzy_threshold: float = 0.75
 ) -> float:
@@ -555,10 +546,7 @@ def keyword_match_score_enhanced(
 
         # 1. Key field match (highest weight)
         if key_field:
-            if kw_lower in key_field:
-                score += 5.0
-                kw_matched = True
-            elif is_chinese and kw in key_field:
+            if kw_lower in key_field or (is_chinese and kw in key_field):
                 score += 5.0
                 kw_matched = True
 

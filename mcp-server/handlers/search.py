@@ -8,19 +8,20 @@ Handles memos_search, memos_search_context, memos_suggest tools.
 from typing import Any
 
 import httpx
-from mcp.types import TextContent
 
 from api_client import api_call_with_retry
 from config import MEMOS_URL, MEMOS_USER
 from cube_manager import ensure_cube_registered
 from formatters import format_memories_for_display
+from mcp.types import TextContent
 from memory_analysis import suggest_search_queries
 from query_processing import (
-    parse_memory_type_prefix,
     apply_keyword_rerank,
     filter_memories_by_type,
+    parse_memory_type_prefix,
 )
-from handlers.utils import get_cube_id_from_args, error_response
+
+from handlers.utils import error_response, get_cube_id_from_args
 
 
 async def handle_memos_search(

@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 
@@ -19,7 +19,7 @@ class AdderConfigFactory(BaseConfig):
     """Factory class for creating Adder configurations."""
 
     backend: str = Field(..., description="Backend for Adder")
-    config: dict[str, Any] = Field(..., description="Configuration for the Adder backend")
+    config: dict[str, Any] | SerializeAsAny[BaseAdderConfig] = Field(..., description="Configuration for the Adder backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "naive": NaiveAdderConfig,
@@ -36,7 +36,8 @@ class AdderConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "AdderConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self
 
 
@@ -52,7 +53,7 @@ class ExtractorConfigFactory(BaseConfig):
     """Factory class for creating Extractor configurations."""
 
     backend: str = Field(..., description="Backend for Extractor")
-    config: dict[str, Any] = Field(..., description="Configuration for the Extractor backend")
+    config: dict[str, Any] | SerializeAsAny[BaseExtractorConfig] = Field(..., description="Configuration for the Extractor backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "naive": NaiveExtractorConfig,
@@ -69,7 +70,8 @@ class ExtractorConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "ExtractorConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self
 
 
@@ -85,7 +87,7 @@ class RetrieverConfigFactory(BaseConfig):
     """Factory class for creating Retriever configurations."""
 
     backend: str = Field(..., description="Backend for Retriever")
-    config: dict[str, Any] = Field(..., description="Configuration for the Retriever backend")
+    config: dict[str, Any] | SerializeAsAny[BaseRetrieverConfig] = Field(..., description="Configuration for the Retriever backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "naive": NaiveRetrieverConfig,
@@ -102,5 +104,6 @@ class RetrieverConfigFactory(BaseConfig):
     @model_validator(mode="after")
     def create_config(self) -> "RetrieverConfigFactory":
         config_class = self.backend_to_class[self.backend]
-        self.config = config_class(**self.config)
+        if isinstance(self.config, dict):
+            self.config = config_class(**self.config)
         return self

@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import os
 import platform
@@ -12,6 +13,15 @@ from memos.configs.mem_cube import GeneralMemCubeConfig
 logger = logging.getLogger(__name__)
 
 
+# Try to import env_loader for unified configuration
+try:
+    from memos.configs.env_loader import get_config as get_env_config
+    _ENV_LOADER_AVAILABLE = True
+except ImportError:
+    _ENV_LOADER_AVAILABLE = False
+    get_env_config = None
+
+
 # ============== Environment Variable Overrides ==============
 
 def apply_env_overrides(config: GeneralMemCubeConfig) -> GeneralMemCubeConfig:
@@ -20,8 +30,19 @@ def apply_env_overrides(config: GeneralMemCubeConfig) -> GeneralMemCubeConfig:
     This ensures that .env settings take priority over hardcoded config.json values.
     Only overrides values if the environment variable is set (non-empty).
 
+    Priority: Environment Variables > config.json values
+
     Supported environment variables:
-        Qdrant:
+
+        Neo4j (graph_db):
+            - NEO4J_URI: Connection URI (bolt://...)
+            - NEO4J_USER: Username
+            - NEO4J_PASSWORD: Password
+            - NEO4J_DB_NAME: Database name
+            - NEO4J_BACKEND: Backend type (neo4j, neo4j-community)
+            - EMBEDDING_DIMENSION: Vector dimension for graph DB
+
+        Qdrant (vec_config in graph_db or vector_db):
             - QDRANT_URL: Cloud endpoint URL (if set, host/port are ignored)
             - QDRANT_HOST: Local host (only used if QDRANT_URL is not set)
             - QDRANT_PORT: Local port (only used if QDRANT_URL is not set)
@@ -37,12 +58,20 @@ def apply_env_overrides(config: GeneralMemCubeConfig) -> GeneralMemCubeConfig:
             - MOS_EMBEDDER_PROVIDER: Universal API provider
             - EMBEDDING_DIMENSION: Vector dimension
 
-        LLM (extractor):
+        LLM (extractor_llm, dispatcher_llm):
             - MOS_CHAT_MODEL: Model name
             - OPENAI_API_KEY: API key
             - OPENAI_API_BASE: API base URL
             - MOS_CHAT_TEMPERATURE: Temperature
             - MOS_MAX_TOKENS: Max tokens
+
+        Reranker:
+            - MOS_RERANKER_URL: Reranker API URL
+            - MOS_RERANKER_MODEL: Model name
+            - MOS_RERANKER_API_KEY: API key
+
+        Memory Settings:
+            - MOS_ENABLE_REORGANIZE: Enable graph reorganization
 
     Args:
         config: The cube configuration to modify
@@ -52,148 +81,309 @@ def apply_env_overrides(config: GeneralMemCubeConfig) -> GeneralMemCubeConfig:
     """
     config_dict = config.model_dump(mode="json")
     modified = False
+    changes = []  # Track all changes for logging
 
     # Helper to get env var, returns None if empty
     def get_env(key: str) -> str | None:
         val = os.environ.get(key, "").strip()
         return val if val else None
 
-    # ===== Qdrant Vector DB Overrides =====
-    if "text_mem" in config_dict and config_dict["text_mem"].get("config"):
-        text_config = config_dict["text_mem"]["config"]
+    def log_change(section: str, field: str, old_val, new_val, mask: bool = False):
+        """Record a configuration change."""
+        old_display = "***" if mask else old_val
+        new_display = "***" if mask else new_val
+        changes.append(f"  [{section}] {field}: {old_display} -> {new_display}")
 
-        if "vector_db" in text_config and text_config["vector_db"].get("config"):
-            vec_config = text_config["vector_db"]["config"]
-            qdrant_url = get_env("QDRANT_URL")
+    # ===== Text Memory Config =====
+    if "text_mem" not in config_dict or not config_dict["text_mem"].get("config"):
+        if modified:
+            logger.info("Environment variable overrides applied:\n" + "\n".join(changes))
+            return GeneralMemCubeConfig.model_validate(config_dict)
+        return config
 
-            if qdrant_url:
-                # Cloud mode: use URL, clear host/port
-                if vec_config.get("url") != qdrant_url:
-                    logger.info(f"[ENV Override] Qdrant URL: {vec_config.get('url')} -> {qdrant_url}")
-                    vec_config["url"] = qdrant_url
-                    vec_config["host"] = None
-                    vec_config["port"] = None
-                    modified = True
-            else:
-                # Local mode: use host/port
-                qdrant_host = get_env("QDRANT_HOST")
-                qdrant_port = get_env("QDRANT_PORT")
-                if qdrant_host and vec_config.get("host") != qdrant_host:
-                    logger.info(f"[ENV Override] Qdrant host: {vec_config.get('host')} -> {qdrant_host}")
-                    vec_config["host"] = qdrant_host
-                    modified = True
-                if qdrant_port and vec_config.get("port") != int(qdrant_port):
-                    logger.info(f"[ENV Override] Qdrant port: {vec_config.get('port')} -> {qdrant_port}")
-                    vec_config["port"] = int(qdrant_port)
-                    modified = True
+    text_config = config_dict["text_mem"]["config"]
 
-            qdrant_api_key = get_env("QDRANT_API_KEY")
-            if qdrant_api_key and vec_config.get("api_key") != qdrant_api_key:
-                logger.info("[ENV Override] Qdrant API key: *** -> ***")
-                vec_config["api_key"] = qdrant_api_key
+    # ===== Reorganize Setting =====
+    reorganize_env = get_env("MOS_ENABLE_REORGANIZE")
+    if reorganize_env is not None:
+        new_val = reorganize_env.lower() == "true"
+        if text_config.get("reorganize") != new_val:
+            log_change("Memory", "reorganize", text_config.get("reorganize"), new_val)
+            text_config["reorganize"] = new_val
+            modified = True
+
+    # ===== Neo4j/Graph DB Overrides =====
+    if "graph_db" in text_config and text_config["graph_db"].get("config"):
+        graph_backend = text_config["graph_db"].get("backend", "neo4j")
+        graph_config = text_config["graph_db"]["config"]
+
+        # Neo4j specific overrides
+        if "neo4j" in graph_backend:
+            neo4j_uri = get_env("NEO4J_URI")
+            if neo4j_uri and graph_config.get("uri") != neo4j_uri:
+                log_change("Neo4j", "uri", graph_config.get("uri"), neo4j_uri)
+                graph_config["uri"] = neo4j_uri
                 modified = True
 
-            qdrant_path = get_env("QDRANT_PATH")
-            if qdrant_path and vec_config.get("path") != qdrant_path:
-                logger.info(f"[ENV Override] Qdrant path: {vec_config.get('path')} -> {qdrant_path}")
-                vec_config["path"] = qdrant_path
+            neo4j_user = get_env("NEO4J_USER")
+            if neo4j_user and graph_config.get("user") != neo4j_user:
+                log_change("Neo4j", "user", graph_config.get("user"), neo4j_user)
+                graph_config["user"] = neo4j_user
+                modified = True
+
+            neo4j_password = get_env("NEO4J_PASSWORD")
+            if neo4j_password and graph_config.get("password") != neo4j_password:
+                log_change("Neo4j", "password", "***", "***", mask=True)
+                graph_config["password"] = neo4j_password
+                modified = True
+
+            neo4j_db = get_env("NEO4J_DB_NAME")
+            if neo4j_db and graph_config.get("db_name") != neo4j_db:
+                log_change("Neo4j", "db_name", graph_config.get("db_name"), neo4j_db)
+                graph_config["db_name"] = neo4j_db
                 modified = True
 
             embedding_dim = get_env("EMBEDDING_DIMENSION")
+            if embedding_dim and graph_config.get("embedding_dimension") != int(embedding_dim):
+                log_change("Neo4j", "embedding_dimension", graph_config.get("embedding_dimension"), embedding_dim)
+                graph_config["embedding_dimension"] = int(embedding_dim)
+                modified = True
+
+        # ===== Vec Config inside Graph DB (for Neo4j Community) =====
+        if "vec_config" in graph_config and graph_config["vec_config"].get("config"):
+            vec_config = graph_config["vec_config"]["config"]
+            modified = _apply_qdrant_overrides(vec_config, get_env, log_change, "GraphVec", changes) or modified
+
+            # Vector dimension
+            embedding_dim = get_env("EMBEDDING_DIMENSION")
             if embedding_dim and vec_config.get("vector_dimension") != int(embedding_dim):
-                logger.info(f"[ENV Override] Vector dimension: {vec_config.get('vector_dimension')} -> {embedding_dim}")
+                log_change("GraphVec", "vector_dimension", vec_config.get("vector_dimension"), embedding_dim)
                 vec_config["vector_dimension"] = int(embedding_dim)
                 modified = True
 
-        # ===== Embedder Overrides =====
-        if "embedder" in text_config and text_config["embedder"].get("config"):
-            emb_config = text_config["embedder"]["config"]
-            current_backend = text_config["embedder"].get("backend", "ollama")
-            emb_backend = get_env("MOS_EMBEDDER_BACKEND")
+    # ===== Standalone Vector DB Overrides (for non-graph modes) =====
+    if "vector_db" in text_config and text_config["vector_db"].get("config"):
+        vec_config = text_config["vector_db"]["config"]
+        modified = _apply_qdrant_overrides(vec_config, get_env, log_change, "VectorDB", changes) or modified
 
-            if emb_backend and current_backend != emb_backend:
-                logger.info(f"[ENV Override] Embedder backend: {current_backend} -> {emb_backend}")
-                text_config["embedder"]["backend"] = emb_backend
-                current_backend = emb_backend
+        embedding_dim = get_env("EMBEDDING_DIMENSION")
+        if embedding_dim and vec_config.get("vector_dimension") != int(embedding_dim):
+            log_change("VectorDB", "vector_dimension", vec_config.get("vector_dimension"), embedding_dim)
+            vec_config["vector_dimension"] = int(embedding_dim)
+            modified = True
+
+    # ===== Embedder Overrides =====
+    if "embedder" in text_config and text_config["embedder"].get("config"):
+        emb_config = text_config["embedder"]["config"]
+        current_backend = text_config["embedder"].get("backend", "ollama")
+        emb_backend = get_env("MOS_EMBEDDER_BACKEND")
+
+        if emb_backend and current_backend != emb_backend:
+            log_change("Embedder", "backend", current_backend, emb_backend)
+            text_config["embedder"]["backend"] = emb_backend
+
+            # When switching backends, rebuild config with only common fields
+            # to avoid extra fields being rejected by strict validation
+            common_fields = {"model_name_or_path", "embedding_dims", "max_tokens"}
+            new_config = {k: v for k, v in emb_config.items() if k in common_fields}
+            emb_config.clear()
+            emb_config.update(new_config)
+
+            current_backend = emb_backend
+            modified = True
+
+        emb_model = get_env("MOS_EMBEDDER_MODEL")
+        if emb_model and emb_config.get("model_name_or_path") != emb_model:
+            log_change("Embedder", "model", emb_config.get("model_name_or_path"), emb_model)
+            emb_config["model_name_or_path"] = emb_model
+            modified = True
+
+        embedding_dim = get_env("EMBEDDING_DIMENSION")
+        if embedding_dim:
+            dim_int = int(embedding_dim)
+            if emb_config.get("embedding_dims") != dim_int:
+                log_change("Embedder", "embedding_dims", emb_config.get("embedding_dims"), dim_int)
+                emb_config["embedding_dims"] = dim_int
                 modified = True
 
-            emb_model = get_env("MOS_EMBEDDER_MODEL")
-            if emb_model and emb_config.get("model_name_or_path") != emb_model:
-                logger.info(f"[ENV Override] Embedder model: {emb_config.get('model_name_or_path')} -> {emb_model}")
-                emb_config["model_name_or_path"] = emb_model
+        # Apply backend-specific overrides only
+        if current_backend == "ollama":
+            # Support both OLLAMA_API_BASE and MOS_EMBEDDER_API_BASE for ollama
+            ollama_base = get_env("MOS_EMBEDDER_API_BASE") or get_env("OLLAMA_API_BASE")
+            if ollama_base and emb_config.get("api_base") != ollama_base:
+                log_change("Embedder", "api_base", emb_config.get("api_base"), ollama_base)
+                emb_config["api_base"] = ollama_base
+                modified = True
+        elif current_backend == "universal_api":
+            emb_api_base = get_env("MOS_EMBEDDER_API_BASE")
+            if emb_api_base and emb_config.get("base_url") != emb_api_base:
+                log_change("Embedder", "base_url", emb_config.get("base_url"), emb_api_base)
+                emb_config["base_url"] = emb_api_base
                 modified = True
 
-            # Apply backend-specific overrides only
-            if current_backend == "ollama":
-                # Ollama specific: only api_base
-                ollama_base = get_env("OLLAMA_API_BASE")
-                if ollama_base and emb_config.get("api_base") != ollama_base:
-                    logger.info(f"[ENV Override] Ollama API base: {emb_config.get('api_base')} -> {ollama_base}")
-                    emb_config["api_base"] = ollama_base
-                    modified = True
-            elif current_backend == "universal_api":
-                # Universal API specific
-                emb_api_base = get_env("MOS_EMBEDDER_API_BASE")
-                if emb_api_base and emb_config.get("base_url") != emb_api_base:
-                    logger.info(f"[ENV Override] Embedder API base: {emb_config.get('base_url')} -> {emb_api_base}")
-                    emb_config["base_url"] = emb_api_base
-                    modified = True
-
-                emb_api_key = get_env("MOS_EMBEDDER_API_KEY")
-                if emb_api_key and emb_config.get("api_key") != emb_api_key:
-                    logger.info("[ENV Override] Embedder API key: *** -> ***")
-                    emb_config["api_key"] = emb_api_key
-                    modified = True
-
-                emb_provider = get_env("MOS_EMBEDDER_PROVIDER")
-                if emb_provider and emb_config.get("provider") != emb_provider:
-                    logger.info(f"[ENV Override] Embedder provider: {emb_config.get('provider')} -> {emb_provider}")
-                    emb_config["provider"] = emb_provider
-                    modified = True
-
-        # ===== LLM/Extractor Overrides =====
-        if "extractor_llm" in text_config and text_config["extractor_llm"].get("config"):
-            llm_config = text_config["extractor_llm"]["config"]
-
-            chat_model = get_env("MOS_CHAT_MODEL")
-            if chat_model and llm_config.get("model_name_or_path") != chat_model:
-                logger.info(f"[ENV Override] LLM model: {llm_config.get('model_name_or_path')} -> {chat_model}")
-                llm_config["model_name_or_path"] = chat_model
+            emb_api_key = get_env("MOS_EMBEDDER_API_KEY")
+            if emb_api_key and emb_config.get("api_key") != emb_api_key:
+                log_change("Embedder", "api_key", "***", "***", mask=True)
+                emb_config["api_key"] = emb_api_key
                 modified = True
 
-            openai_key = get_env("OPENAI_API_KEY")
-            if openai_key and llm_config.get("api_key") != openai_key:
-                logger.info("[ENV Override] OpenAI API key: *** -> ***")
-                llm_config["api_key"] = openai_key
+            emb_provider = get_env("MOS_EMBEDDER_PROVIDER")
+            if emb_provider and emb_config.get("provider") != emb_provider:
+                log_change("Embedder", "provider", emb_config.get("provider"), emb_provider)
+                emb_config["provider"] = emb_provider
                 modified = True
 
-            openai_base = get_env("OPENAI_API_BASE")
-            if openai_base and llm_config.get("api_base") != openai_base:
-                logger.info(f"[ENV Override] OpenAI API base: {llm_config.get('api_base')} -> {openai_base}")
-                llm_config["api_base"] = openai_base
+    # ===== LLM/Extractor Overrides =====
+    for llm_key in ["extractor_llm", "dispatcher_llm"]:
+        if llm_key in text_config and text_config[llm_key].get("config"):
+            llm_config = text_config[llm_key]["config"]
+            section_name = llm_key.replace("_", " ").title()
+            modified = _apply_llm_overrides(llm_config, get_env, log_change, section_name, changes) or modified
+
+    # ===== Reranker Overrides =====
+    if "reranker" in text_config and text_config["reranker"].get("config"):
+        reranker_config = text_config["reranker"]["config"]
+
+        reranker_url = get_env("MOS_RERANKER_URL")
+        if reranker_url:
+            # Update URL - may be base URL or full endpoint
+            current_url = reranker_config.get("url", "")
+            if not current_url.startswith(reranker_url):
+                # Construct rerank endpoint if needed
+                if "/rerank" not in reranker_url:
+                    new_url = reranker_url.rstrip("/") + "/rerank"
+                else:
+                    new_url = reranker_url
+                if current_url != new_url:
+                    log_change("Reranker", "url", current_url, new_url)
+                    reranker_config["url"] = new_url
+                    modified = True
+
+        reranker_model = get_env("MOS_RERANKER_MODEL")
+        if reranker_model and reranker_config.get("model") != reranker_model:
+            log_change("Reranker", "model", reranker_config.get("model"), reranker_model)
+            reranker_config["model"] = reranker_model
+            modified = True
+
+        reranker_api_key = get_env("MOS_RERANKER_API_KEY")
+        if reranker_api_key:
+            # Update headers_extra with new API key
+            headers_extra = reranker_config.get("headers_extra", "{}")
+            if isinstance(headers_extra, str):
+                try:
+                    headers_dict = json.loads(headers_extra) if headers_extra else {}
+                except json.JSONDecodeError:
+                    headers_dict = {}
+            else:
+                headers_dict = headers_extra
+
+            new_auth = f"Bearer {reranker_api_key}"
+            if headers_dict.get("Authorization") != new_auth:
+                headers_dict["Authorization"] = new_auth
+                new_headers = json.dumps(headers_dict)
+                log_change("Reranker", "headers_extra", "***", "***", mask=True)
+                reranker_config["headers_extra"] = new_headers
                 modified = True
-
-            chat_temp = get_env("MOS_CHAT_TEMPERATURE")
-            if chat_temp:
-                temp_float = float(chat_temp)
-                if llm_config.get("temperature") != temp_float:
-                    logger.info(f"[ENV Override] LLM temperature: {llm_config.get('temperature')} -> {temp_float}")
-                    llm_config["temperature"] = temp_float
-                    modified = True
-
-            max_tokens = get_env("MOS_MAX_TOKENS")
-            if max_tokens:
-                max_int = int(max_tokens)
-                if llm_config.get("max_tokens") != max_int:
-                    logger.info(f"[ENV Override] LLM max_tokens: {llm_config.get('max_tokens')} -> {max_int}")
-                    llm_config["max_tokens"] = max_int
-                    modified = True
 
     if modified:
-        logger.info("Environment variable overrides applied to cube config")
+        logger.info("Environment variable overrides applied to cube config:\n" + "\n".join(changes))
         return GeneralMemCubeConfig.model_validate(config_dict)
 
     return config
+
+
+def _apply_qdrant_overrides(
+    vec_config: dict,
+    get_env,
+    log_change,
+    section: str,
+    changes: list
+) -> bool:
+    """Apply Qdrant-specific environment overrides."""
+    modified = False
+    qdrant_url = get_env("QDRANT_URL")
+
+    if qdrant_url:
+        # Cloud mode: use URL, clear host/port
+        if vec_config.get("url") != qdrant_url:
+            log_change(section, "url", vec_config.get("url"), qdrant_url)
+            vec_config["url"] = qdrant_url
+            vec_config["host"] = None
+            vec_config["port"] = None
+            modified = True
+    else:
+        # Local mode: use host/port
+        qdrant_host = get_env("QDRANT_HOST")
+        qdrant_port = get_env("QDRANT_PORT")
+        if qdrant_host and vec_config.get("host") != qdrant_host:
+            log_change(section, "host", vec_config.get("host"), qdrant_host)
+            vec_config["host"] = qdrant_host
+            modified = True
+        if qdrant_port and vec_config.get("port") != int(qdrant_port):
+            log_change(section, "port", vec_config.get("port"), qdrant_port)
+            vec_config["port"] = int(qdrant_port)
+            modified = True
+
+    qdrant_api_key = get_env("QDRANT_API_KEY")
+    if qdrant_api_key and vec_config.get("api_key") != qdrant_api_key:
+        log_change(section, "api_key", "***", "***", mask=True)
+        vec_config["api_key"] = qdrant_api_key
+        modified = True
+
+    qdrant_path = get_env("QDRANT_PATH")
+    if qdrant_path and vec_config.get("path") != qdrant_path:
+        log_change(section, "path", vec_config.get("path"), qdrant_path)
+        vec_config["path"] = qdrant_path
+        modified = True
+
+    return modified
+
+
+def _apply_llm_overrides(
+    llm_config: dict,
+    get_env,
+    log_change,
+    section: str,
+    changes: list
+) -> bool:
+    """Apply LLM-specific environment overrides."""
+    modified = False
+
+    chat_model = get_env("MOS_CHAT_MODEL")
+    if chat_model and llm_config.get("model_name_or_path") != chat_model:
+        log_change(section, "model", llm_config.get("model_name_or_path"), chat_model)
+        llm_config["model_name_or_path"] = chat_model
+        modified = True
+
+    openai_key = get_env("OPENAI_API_KEY")
+    if openai_key and llm_config.get("api_key") != openai_key:
+        log_change(section, "api_key", "***", "***", mask=True)
+        llm_config["api_key"] = openai_key
+        modified = True
+
+    openai_base = get_env("OPENAI_API_BASE")
+    if openai_base and llm_config.get("api_base") != openai_base:
+        log_change(section, "api_base", llm_config.get("api_base"), openai_base)
+        llm_config["api_base"] = openai_base
+        modified = True
+
+    chat_temp = get_env("MOS_CHAT_TEMPERATURE")
+    if chat_temp:
+        temp_float = float(chat_temp)
+        if llm_config.get("temperature") != temp_float:
+            log_change(section, "temperature", llm_config.get("temperature"), temp_float)
+            llm_config["temperature"] = temp_float
+            modified = True
+
+    max_tokens = get_env("MOS_MAX_TOKENS")
+    if max_tokens:
+        max_int = int(max_tokens)
+        if llm_config.get("max_tokens") != max_int:
+            log_change(section, "max_tokens", llm_config.get("max_tokens"), max_int)
+            llm_config["max_tokens"] = max_int
+            modified = True
+
+    return modified
 
 
 # ============== HuggingFace Validation ==============

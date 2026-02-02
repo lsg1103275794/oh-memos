@@ -40,22 +40,18 @@ class GeneralMemCubeConfig(BaseMemCubeConfig):
         description="Cube ID for the MemCube. This is used to distinguish between different MemCubes.",
     )
     text_mem: MemoryConfigFactory = Field(
-        ...,
         default_factory=MemoryConfigFactory,
         description="Configuration for the textual memory",
     )
     act_mem: MemoryConfigFactory = Field(
-        ...,
         default_factory=MemoryConfigFactory,
         description="Configuration for the activation memory",
     )
     para_mem: MemoryConfigFactory = Field(
-        ...,
         default_factory=MemoryConfigFactory,
         description="Configuration for the parametric memory",
     )
     pref_mem: MemoryConfigFactory = Field(
-        ...,
         default_factory=MemoryConfigFactory,
         description="Configuration for the preference memory",
     )

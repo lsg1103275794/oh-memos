@@ -10,10 +10,10 @@ import asyncio
 import httpx
 
 from config import (
-    MEMOS_URL,
     MEMOS_API_WAIT_MAX,
     MEMOS_TIMEOUT_HEALTH,
     MEMOS_TIMEOUT_TOOL,
+    MEMOS_URL,
     logger,
 )
 
@@ -98,8 +98,8 @@ async def api_call_with_retry(
         tuple: (success: bool, data: dict | None, status_code: int)
     """
     # Import here to avoid circular imports
-    from cube_manager import ensure_cube_registered
     from config import _registered_cubes
+    from cube_manager import ensure_cube_registered
 
     # First attempt
     if method.upper() == "GET":

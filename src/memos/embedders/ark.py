@@ -49,15 +49,18 @@ class ArkEmbedder(BaseEmbedder):
             MultimodalEmbeddingContentPartTextParam,
         )
 
-        # Truncate texts if max_tokens is configured
-        texts = self._truncate_texts(texts)
+        texts, spans = self._prepare_texts_for_embedding(texts)
 
         if self.config.multi_modal:
             texts_input = [
                 MultimodalEmbeddingContentPartTextParam(text=text, type="text") for text in texts
             ]
-            return self.multimodal_embeddings(inputs=texts_input, chunk_size=self.config.chunk_size)
-        return self.text_embedding(texts, chunk_size=self.config.chunk_size)
+            embeddings = self.multimodal_embeddings(
+                inputs=texts_input, chunk_size=self.config.chunk_size
+            )
+            return self._aggregate_embeddings(embeddings, spans)
+        embeddings = self.text_embedding(texts, chunk_size=self.config.chunk_size)
+        return self._aggregate_embeddings(embeddings, spans)
 
     def text_embedding(self, inputs: list[str], chunk_size: int | None = None) -> list[list[float]]:
         chunk_size_ = chunk_size or self.config.chunk_size

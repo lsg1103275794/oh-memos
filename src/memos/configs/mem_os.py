@@ -2,7 +2,7 @@ import uuid
 
 from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, SerializeAsAny, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.configs.llm import LLMConfigFactory
@@ -75,7 +75,7 @@ class MOSConfig(BaseConfig):
 class MemOSConfigFactory(BaseConfig):
     """Factory class for creating Memos configurations."""
 
-    config: dict[str, Any] | MOSConfig = Field(..., description="Configuration for the MemOS backend")
+    config: dict[str, Any] | SerializeAsAny[MOSConfig] = Field(..., description="Configuration for the MemOS backend")
 
     @model_validator(mode="after")
     def create_config(self) -> "MemOSConfigFactory":

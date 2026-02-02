@@ -16,8 +16,8 @@ from config import (
     MEMOS_URL,
     MEMOS_USER,
 )
-from memory_analysis import detect_memory_type, suggest_search_queries
 from formatters import format_memories_for_display
+from memory_analysis import detect_memory_type, suggest_search_queries
 
 
 async def test_api_connection():
@@ -134,14 +134,14 @@ async def test_api_connection():
             # 7. Testing modular structure
             print("\n7. Testing modular structure...")
             try:
-                from config import MEMOS_URL, server
                 from api_client import get_http_client
+                from config import MEMOS_URL, server
                 from cube_manager import list_available_cubes
                 from formatters import format_memories_for_display
+                from handlers import dispatch_tool
                 from memory_analysis import detect_memory_type
                 from query_processing import extract_keywords
                 from tools_registry import get_tools
-                from handlers import dispatch_tool
                 print("   ✅ All modules imported successfully")
             except ImportError as e:
                 print(f"   ❌ Module import failed: {e}")

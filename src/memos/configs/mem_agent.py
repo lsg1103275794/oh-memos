@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 
@@ -32,7 +32,7 @@ class MemAgentConfigFactory(BaseConfig):
     """Factory class for creating agent configurations."""
 
     backend: str = Field(..., description="Backend for agent")
-    config: dict[str, Any] | BaseAgentConfig = Field(..., description="Configuration for the agent backend")
+    config: dict[str, Any] | SerializeAsAny[BaseAgentConfig] = Field(..., description="Configuration for the agent backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "simple": SimpleAgentConfig,

@@ -3,6 +3,9 @@
 MemOS MCP Server Configuration Module
 
 Contains all configuration constants, CLI argument parsing, and global state.
+
+Configuration priority: CLI args > environment variables > defaults
+All environment variables are loaded from .env file in project root.
 """
 
 import argparse
@@ -14,7 +17,10 @@ from dotenv import load_dotenv
 from mcp.server import Server
 
 
-# Load .env from project root (parent of mcp-server/)
+# ============================================================================
+# .env Loading
+# ============================================================================
+
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _dotenv_path = os.path.join(_project_root, ".env")
 if os.path.isfile(_dotenv_path):
@@ -22,6 +28,10 @@ if os.path.isfile(_dotenv_path):
 else:
     load_dotenv()  # fallback: search from cwd upward
 
+
+# ============================================================================
+# CLI Argument Parsing
+# ============================================================================
 
 def parse_args():
     """Parse command line arguments."""
@@ -41,7 +51,10 @@ def parse_args():
 _args = parse_args()
 
 
-# Logging configuration
+# ============================================================================
+# Logging
+# ============================================================================
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -53,17 +66,33 @@ logger = logging.getLogger("memos-mcp")
 
 
 # ============================================================================
-# Helper functions for required values
+# Configuration Helpers
 # ============================================================================
 
-def _require_env_value(name: str, value: str | None) -> str:
-    if value is None or value == "":
+def _get_env(key: str, *alternatives: str, default: str | None = None) -> str | None:
+    """Get environment variable, checking alternatives. Returns None for empty strings."""
+    val = os.environ.get(key, "").strip()
+    if val:
+        return val
+    for alt in alternatives:
+        val = os.environ.get(alt, "").strip()
+        if val:
+            return val
+    return default
+
+
+def _require(name: str, value: str | None) -> str:
+    """Require a non-empty value."""
+    if not value:
         raise RuntimeError(f"{name} is required (set {name} in .env)")
     return value
 
 
-def _require_float(name: str, value: str | None) -> float:
-    raw = _require_env_value(name, value)
+def _require_float(name: str, value: str | None, default: float | None = None) -> float:
+    """Require a float value, with optional default."""
+    if not value and default is not None:
+        return default
+    raw = _require(name, value)
     try:
         return float(raw)
     except ValueError as exc:
@@ -71,52 +100,52 @@ def _require_float(name: str, value: str | None) -> float:
 
 
 # ============================================================================
-# Configuration: CLI args take precedence over env vars
+# Core Configuration (CLI args > env vars > defaults)
 # ============================================================================
 
-MEMOS_URL = _args.memos_url or os.environ.get("MEMOS_URL") or os.environ.get("MEMOS_BASE_URL")
-if not MEMOS_URL:
-    raise RuntimeError("MEMOS_URL is required (set MEMOS_URL or MEMOS_BASE_URL in .env)")
+# -- API Connection --
+MEMOS_URL = _require("MEMOS_URL",
+    _args.memos_url or _get_env("MEMOS_URL", "MEMOS_BASE_URL"))
 
-MEMOS_USER = _args.memos_user or os.environ.get("MEMOS_USER")
-if not MEMOS_USER:
-    raise RuntimeError("MEMOS_USER is required (set MEMOS_USER in .env)")
+MEMOS_USER = _require("MEMOS_USER",
+    _args.memos_user or _get_env("MEMOS_USER", "MOS_USER_ID"))
 
 _default_cube_from_env = _args.memos_default_cube is not None or os.environ.get("MEMOS_DEFAULT_CUBE") is not None
-MEMOS_DEFAULT_CUBE = _args.memos_default_cube or os.environ.get("MEMOS_DEFAULT_CUBE")
-if not MEMOS_DEFAULT_CUBE:
-    raise RuntimeError("MEMOS_DEFAULT_CUBE is required (set MEMOS_DEFAULT_CUBE in .env)")
+MEMOS_DEFAULT_CUBE = _require("MEMOS_DEFAULT_CUBE",
+    _args.memos_default_cube or _get_env("MEMOS_DEFAULT_CUBE"))
 
-MEMOS_CUBES_DIR = _args.memos_cubes_dir or os.environ.get("MEMOS_CUBES_DIR")
-if not MEMOS_CUBES_DIR:
-    raise RuntimeError("MEMOS_CUBES_DIR is required (set MEMOS_CUBES_DIR in .env)")
+MEMOS_CUBES_DIR = _require("MEMOS_CUBES_DIR",
+    _args.memos_cubes_dir or _get_env("MEMOS_CUBES_DIR"))
 
+# -- Timeouts (seconds) --
+MEMOS_TIMEOUT_TOOL = _require_float("MEMOS_TIMEOUT_TOOL",
+    _args.memos_timeout_tool or _get_env("MEMOS_TIMEOUT_TOOL"), default=120.0)
+MEMOS_TIMEOUT_STARTUP = _require_float("MEMOS_TIMEOUT_STARTUP",
+    _args.memos_timeout_startup or _get_env("MEMOS_TIMEOUT_STARTUP"), default=30.0)
+MEMOS_TIMEOUT_HEALTH = _require_float("MEMOS_TIMEOUT_HEALTH",
+    _args.memos_timeout_health or _get_env("MEMOS_TIMEOUT_HEALTH"), default=5.0)
+MEMOS_API_WAIT_MAX = _require_float("MEMOS_API_WAIT_MAX",
+    _args.memos_api_wait_max or _get_env("MEMOS_API_WAIT_MAX"), default=60.0)
 
-# Timeout configuration (in seconds)
-MEMOS_TIMEOUT_TOOL = _require_float("MEMOS_TIMEOUT_TOOL", _args.memos_timeout_tool or os.environ.get("MEMOS_TIMEOUT_TOOL"))
-MEMOS_TIMEOUT_STARTUP = _require_float("MEMOS_TIMEOUT_STARTUP", _args.memos_timeout_startup or os.environ.get("MEMOS_TIMEOUT_STARTUP"))
-MEMOS_TIMEOUT_HEALTH = _require_float("MEMOS_TIMEOUT_HEALTH", _args.memos_timeout_health or os.environ.get("MEMOS_TIMEOUT_HEALTH"))
-MEMOS_API_WAIT_MAX = _require_float("MEMOS_API_WAIT_MAX", _args.memos_api_wait_max or os.environ.get("MEMOS_API_WAIT_MAX"))
+# -- Feature Flags --
+_enable_delete_raw = _args.memos_enable_delete or _get_env("MEMOS_ENABLE_DELETE", default="false")
+MEMOS_ENABLE_DELETE = _enable_delete_raw.lower() == "true"
 
-_enable_delete_val = _require_env_value("MEMOS_ENABLE_DELETE", _args.memos_enable_delete or os.environ.get("MEMOS_ENABLE_DELETE"))
-MEMOS_ENABLE_DELETE = _enable_delete_val.lower() == "true"
-
-
-# Neo4j configuration (for fallback direct queries)
-NEO4J_HTTP_URL = os.environ.get("NEO4J_HTTP_URL")
-NEO4J_USER = os.environ.get("NEO4J_USER")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
+# -- Neo4j (for fallback direct graph queries) --
+NEO4J_HTTP_URL = _get_env("NEO4J_HTTP_URL")
+NEO4J_USER = _get_env("NEO4J_USER")
+NEO4J_PASSWORD = _get_env("NEO4J_PASSWORD")
 
 
 # ============================================================================
-# MCP Server instance
+# MCP Server Instance
 # ============================================================================
 
 server = Server("memos-memory")
 
 
 # ============================================================================
-# Cube registration tracking
+# Cube Registration Tracking
 # ============================================================================
 
 _registered_cubes: set[str] = set()
@@ -125,7 +154,7 @@ REGISTRATION_RETRY_INTERVAL = 5.0  # seconds
 
 
 # ============================================================================
-# Memory types
+# Memory Types
 # ============================================================================
 
 MEMORY_TYPES = {
@@ -142,7 +171,7 @@ MEMORY_TYPES = {
 
 
 # ============================================================================
-# Keyword stopwords (basic set, can be overridden by keyword_enhancer)
+# Keyword Stopwords
 # ============================================================================
 
 _KEYWORD_STOPWORDS = {
@@ -155,19 +184,18 @@ _KEYWORD_STOPWORDS = {
 
 
 # ============================================================================
-# Keyword enhancer availability check
+# Keyword Enhancer
 # ============================================================================
 
 try:
     from keyword_enhancer import (
         ALL_STOPWORDS,
-        extract_keywords_enhanced,
-        keyword_match_score_enhanced,
         detect_cube_from_path,
+        extract_keywords_enhanced,
         find_fuzzy_matches,
+        keyword_match_score_enhanced,
     )
     KEYWORD_ENHANCER_AVAILABLE = True
-    # Use enhanced stopwords if available
     _KEYWORD_STOPWORDS = ALL_STOPWORDS
 except ImportError:
     KEYWORD_ENHANCER_AVAILABLE = False

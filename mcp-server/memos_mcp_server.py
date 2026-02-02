@@ -7,28 +7,29 @@ project memories, enabling intelligent context-aware assistance.
 """
 
 import asyncio
+
 from typing import Any
 
 import httpx
-from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
 
+from api_client import get_http_client, wait_for_api_ready
 from config import (
-    MEMOS_URL,
-    MEMOS_USER,
+    MEMOS_API_WAIT_MAX,
     MEMOS_DEFAULT_CUBE,
     MEMOS_ENABLE_DELETE,
-    MEMOS_TIMEOUT_TOOL,
-    MEMOS_TIMEOUT_STARTUP,
     MEMOS_TIMEOUT_HEALTH,
-    MEMOS_API_WAIT_MAX,
-    server,
+    MEMOS_TIMEOUT_STARTUP,
+    MEMOS_TIMEOUT_TOOL,
+    MEMOS_URL,
+    MEMOS_USER,
     logger,
+    server,
 )
-from api_client import get_http_client, close_http_client, wait_for_api_ready
 from cube_manager import ensure_cube_registered
-from tools_registry import get_tools
 from handlers import dispatch_tool
+from mcp.server.stdio import stdio_server
+from mcp.types import TextContent, Tool
+from tools_registry import get_tools
 
 
 @server.list_tools()

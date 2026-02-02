@@ -198,7 +198,7 @@ def get_default_cube_config(
             "password": kwargs.get("neo4j_password", "12345678"),
             "auto_create": kwargs.get("neo4j_auto_create", True),
             "use_multi_db": kwargs.get("use_multi_db", False),
-            "embedding_dimension": kwargs.get("embedding_dimension", 3072),
+            "embedding_dimension": kwargs.get("embedding_dimension", 1024),
         }
         if not kwargs.get("use_multi_db", False):
             neo4j_config["user_name"] = f"memos{user_id.replace('-', '').replace('_', '')}"
@@ -229,7 +229,7 @@ def get_default_cube_config(
                     "backend": "qdrant",
                     "config": {
                         "collection_name": kwargs.get("collection_name", f"{user_id}_collection"),
-                        "vector_dimension": kwargs.get("vector_dimension", 3072),
+                        "vector_dimension": kwargs.get("vector_dimension", 1024),
                         "distance_metric": "cosine",
                     },
                 },

@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 
@@ -46,7 +46,7 @@ class UserManagerConfigFactory(BaseModel):
     """Factory for user manager configurations."""
 
     backend: str = Field(default="sqlite", description="Backend for user manager")
-    config: dict[str, Any] | BaseUserManagerConfig = Field(
+    config: dict[str, Any] | SerializeAsAny[BaseUserManagerConfig] = Field(
         default_factory=dict, description="Configuration for the user manager backend"
     )
 

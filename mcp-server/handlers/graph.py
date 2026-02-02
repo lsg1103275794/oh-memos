@@ -8,20 +8,21 @@ Handles memos_trace_path, memos_get_graph, memos_export_schema tools.
 from typing import Any
 
 import httpx
-from mcp.types import TextContent
 
 from config import (
     MEMOS_URL,
     MEMOS_USER,
     NEO4J_HTTP_URL,
-    NEO4J_USER,
     NEO4J_PASSWORD,
-    logger,
+    NEO4J_USER,
     _registered_cubes,
+    logger,
 )
 from cube_manager import ensure_cube_registered
+from mcp.types import TextContent
 from query_processing import extract_memories_from_response
-from handlers.utils import get_cube_id_from_args, error_response
+
+from handlers.utils import error_response, get_cube_id_from_args
 
 
 async def handle_memos_trace_path(

@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.configs.vec_db import VectorDBConfigFactory
@@ -68,7 +68,7 @@ class Neo4jGraphDBConfig(BaseGraphDBConfig):
         ),
     )
 
-    embedding_dimension: int = Field(default=768, description="Dimension of vector embedding")
+    embedding_dimension: int = Field(default=1024, description="Dimension of vector embedding")
 
     @model_validator(mode="after")
     def validate_config(self):
@@ -144,7 +144,7 @@ class NebulaGraphDBConfig(BaseGraphDBConfig):
         default=1000,
         description=("max_client"),
     )
-    embedding_dimension: int = Field(default=3072, description="Dimension of vector embedding")
+    embedding_dimension: int = Field(default=1024, description="Dimension of vector embedding")
 
     @model_validator(mode="after")
     def validate_config(self):
@@ -213,7 +213,7 @@ class PolarDBGraphDBConfig(BaseConfig):
 
 class GraphDBConfigFactory(BaseModel):
     backend: str = Field(..., description="Backend for graph database")
-    config: dict[str, Any] | BaseGraphDBConfig | PolarDBGraphDBConfig = Field(..., description="Configuration for the graph database backend")
+    config: dict[str, Any] | SerializeAsAny[BaseGraphDBConfig] | SerializeAsAny[PolarDBGraphDBConfig] = Field(..., description="Configuration for the graph database backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "neo4j": Neo4jGraphDBConfig,
@@ -235,3 +235,4 @@ class GraphDBConfigFactory(BaseModel):
         if isinstance(self.config, dict):
             self.config = config_class(**self.config)
         return self
+

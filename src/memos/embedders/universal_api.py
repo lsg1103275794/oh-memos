@@ -35,8 +35,7 @@ class UniversalAPIEmbedder(BaseEmbedder):
         log_extra_args={"model_name_or_path": "text-embedding-3-large"},
     )
     def embed(self, texts: list[str]) -> list[list[float]]:
-        # Truncate texts if max_tokens is configured
-        texts = self._truncate_texts(texts)
+        texts, spans = self._prepare_texts_for_embedding(texts)
 
         if self.provider == "openai" or self.provider == "azure":
             try:
@@ -44,7 +43,8 @@ class UniversalAPIEmbedder(BaseEmbedder):
                     model=getattr(self.config, "model_name_or_path", "text-embedding-3-large"),
                     input=texts,
                 )
-                return [r.embedding for r in response.data]
+                embeddings = [r.embedding for r in response.data]
+                return self._aggregate_embeddings(embeddings, spans)
             except Exception as e:
                 raise Exception(f"Embeddings request ended with error: {e}") from e
         else:

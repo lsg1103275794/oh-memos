@@ -81,7 +81,7 @@
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| 时间范围查询 | 🔥 High | `memos_search(query, time_range="last_week")` |
+| 时间范围查询 | High | `memos_search(query, time_range="last_week")` |
 | 时间线视图 | Medium | 按时间排序展示记忆演进 |
 | 版本对比 | Medium | 对比不同时间点的决策/配置变化 |
 | 周期性摘要 | Low | 自动生成日/周/月记忆摘要 |
@@ -113,7 +113,7 @@ memos_search(
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| Mermaid 图谱生成 | 🔥 High | 自动生成 Mermaid 语法的关系图 |
+| Mermaid 图谱生成 |  High | 自动生成 Mermaid 语法的关系图 |
 | D3.js 可视化组件 | Medium | 交互式 Web 图谱组件 |
 | ASCII 图谱 | Medium | 终端友好的文本图谱展示 |
 | 图谱导出 | Low | 导出为 PNG/SVG/JSON |
@@ -164,7 +164,7 @@ graph TD
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| 错误模式自动匹配 | 🔥 High | 检测到 Exception 时自动搜索 ERROR_PATTERN |
+| 错误模式自动匹配 |  High | 检测到 Exception 时自动搜索 ERROR_PATTERN |
 | 文件变更触发 | High | 编辑文件时自动搜索相关 GOTCHA |
 | 代码模式建议 | Medium | 识别代码结构，推荐 CODE_PATTERN |
 | 决策提醒 | Medium | 修改架构时提醒相关 DECISION |
@@ -222,7 +222,7 @@ User: "修复这个 ModuleNotFoundError"
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| 分层检索 | 🔥 High | 先粗筛再精排，减少 LLM 调用 |
+| 分层检索 |  High | 先粗筛再精排，减少 LLM 调用 |
 | 摘要压缩 | High | 长记忆自动生成摘要，减少 Token |
 | 相关性阈值 | High | 动态调整返回结果的相关性门槛 |
 | 去重合并 | Medium | 合并相似记忆，避免重复 |
@@ -289,7 +289,7 @@ User Query
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
-| 因果推断 | 🔥 High | 自动识别 A 导致 B 的关系 |
+| 因果推断 |  High | 自动识别 A 导致 B 的关系 |
 | 时间序列关联 | High | 时间相近的记忆自动关联 |
 | 实体链接 | Medium | 识别相同实体的不同引用 |
 | 冲突检测 | Medium | 自动发现矛盾的决策/配置 |
@@ -439,12 +439,12 @@ memos_save(
 
 | Priority | Description |
 |----------|-------------|
-| 🔥 High | 核心功能，影响用户体验 |
+|  High | 核心功能，影响用户体验 |
 | Medium | 重要功能，可以延后 |
 | Low | Nice to have |
 
 ---
 
-**Document Owner:** MemOS Team
+**Document Owner:** MemOSlocal Team
 **Last Review:** 2026-02-02
 **Next Review:** 2026-02-15

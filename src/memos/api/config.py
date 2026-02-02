@@ -557,7 +557,7 @@ class APIConfig:
             "password": os.getenv("NEO4J_PASSWORD", "12345678"),
             "auto_create": True,
             "use_multi_db": True,
-            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 3072)),
+            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 1024)),
         }
 
     @staticmethod
@@ -571,7 +571,7 @@ class APIConfig:
             "user_name": f"memos{user_id.replace('-', '')}",
             "auto_create": True,
             "use_multi_db": False,
-            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 3072)),
+            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 1024)),
         }
 
     @staticmethod
@@ -585,7 +585,7 @@ class APIConfig:
             "user_name": f"memos{user_id.replace('-', '')}",
             "use_multi_db": False,
             "auto_create": True,
-            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 3072)),
+            "embedding_dimension": int(os.getenv("EMBEDDING_DIMENSION", 1024)),
         }
 
     @staticmethod

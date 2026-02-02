@@ -5,8 +5,9 @@ Test script for keyword_enhancer module.
 Run: python test_keyword_enhancer.py
 """
 
-import sys
 import os
+import sys
+
 
 # Fix Windows console encoding
 if sys.platform == "win32":
@@ -16,13 +17,14 @@ if sys.platform == "win32":
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "mcp-server"))
 
 from keyword_enhancer import (
-    extract_keywords_enhanced,
-    keyword_match_score_enhanced,
-    detect_cube_from_path,
-    find_fuzzy_matches,
-    levenshtein_distance,
     ALL_STOPWORDS,
+    detect_cube_from_path,
+    extract_keywords_enhanced,
+    find_fuzzy_matches,
+    keyword_match_score_enhanced,
+    levenshtein_distance,
 )
+
 
 # Use ASCII-safe symbols
 PASS = "[OK]"
@@ -134,7 +136,7 @@ def test_fuzzy_matching():
             for word, score in matches[:3]:
                 print(f"    -> '{word}' (score: {score:.2f})")
         else:
-            print(f"    -> No matches found")
+            print("    -> No matches found")
 
     print()
     return True

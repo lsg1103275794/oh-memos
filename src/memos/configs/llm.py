@@ -1,6 +1,6 @@
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 
@@ -122,7 +122,7 @@ class LLMConfigFactory(BaseConfig):
     """Factory class for creating LLM configurations."""
 
     backend: str = Field(..., description="Backend for LLM")
-    config: dict[str, Any] | BaseLLMConfig = Field(..., description="Configuration for the LLM backend")
+    config: dict[str, Any] | SerializeAsAny[BaseLLMConfig] = Field(..., description="Configuration for the LLM backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "openai": OpenAILLMConfig,
@@ -150,3 +150,4 @@ class LLMConfigFactory(BaseConfig):
         if isinstance(self.config, dict):
             self.config = config_class(**self.config)
         return self
+

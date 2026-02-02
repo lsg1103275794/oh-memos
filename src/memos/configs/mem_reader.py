@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, ClassVar
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.configs.chunker import ChunkerConfigFactory
@@ -68,7 +68,7 @@ class MemReaderConfigFactory(BaseConfig):
     """Factory class for creating MemReader configurations."""
 
     backend: str = Field(..., description="Backend for MemReader")
-    config: dict[str, Any] | BaseMemReaderConfig = Field(..., description="Configuration for the MemReader backend")
+    config: dict[str, Any] | SerializeAsAny[BaseMemReaderConfig] = Field(..., description="Configuration for the MemReader backend")
 
     backend_to_class: ClassVar[dict[str, Any]] = {
         "simple_struct": SimpleStructMemReaderConfig,

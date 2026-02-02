@@ -8,30 +8,31 @@ memos_validate_cubes, memos_delete tools.
 
 import json
 import os
+
 from typing import Any
 
 import httpx
-from mcp.types import TextContent
 
 from config import (
-    MEMOS_URL,
-    MEMOS_USER,
-    MEMOS_DEFAULT_CUBE,
     MEMOS_CUBES_DIR,
+    MEMOS_DEFAULT_CUBE,
     MEMOS_ENABLE_DELETE,
     MEMOS_TIMEOUT_TOOL,
-    logger,
+    MEMOS_URL,
+    MEMOS_USER,
     _registered_cubes,
 )
 from cube_manager import (
-    list_available_cubes,
+    ensure_cube_registered,
     get_cube_path,
     get_cubes_base_dir,
-    verify_cube_loaded,
-    ensure_cube_registered,
+    list_available_cubes,
     validate_and_fix_cube_config,
+    verify_cube_loaded,
 )
-from handlers.utils import get_cube_id_from_args, error_response
+from mcp.types import TextContent
+
+from handlers.utils import error_response, get_cube_id_from_args
 
 
 async def handle_memos_list_cubes(
@@ -135,7 +136,7 @@ async def handle_memos_register_cube(
             return error_response(f"❌ API error: HTTP {response.status_code}")
 
     except Exception as e:
-        return error_response(f"❌ Registration error: {str(e)}")
+        return error_response(f"❌ Registration error: {e!s}")
 
 
 async def handle_memos_create_user(
@@ -177,7 +178,7 @@ async def handle_memos_create_user(
             return error_response(f"❌ API error: HTTP {response.status_code}")
 
     except Exception as e:
-        return error_response(f"❌ User creation error: {str(e)}")
+        return error_response(f"❌ User creation error: {e!s}")
 
 
 async def handle_memos_validate_cubes(
@@ -206,7 +207,7 @@ async def handle_memos_validate_cubes(
 
             # Read and check config
             try:
-                with open(config_path, "r", encoding="utf-8") as f:
+                with open(config_path, encoding="utf-8") as f:
                     config = json.load(f)
 
                 issues = []
@@ -244,7 +245,7 @@ async def handle_memos_validate_cubes(
                 error_count += 1
 
         # Summary
-        results.append(f"\n### Summary")
+        results.append("\n### Summary")
         results.append(f"- ✅ OK: {ok_count}")
         if fixed_count > 0:
             results.append(f"- 🔧 Fixed: {fixed_count}")
@@ -252,12 +253,12 @@ async def handle_memos_validate_cubes(
             results.append(f"- ⚠️ Issues: {error_count}")
 
         if fixed_count > 0:
-            results.append(f"\n**Note:** Fixed cubes need API restart to take effect for existing loaded cubes.")
+            results.append("\n**Note:** Fixed cubes need API restart to take effect for existing loaded cubes.")
 
         return [TextContent(type="text", text="\n".join(results))]
 
     except Exception as e:
-        return error_response(f"❌ Validation error: {str(e)}")
+        return error_response(f"❌ Validation error: {e!s}")
 
 
 async def handle_memos_delete(

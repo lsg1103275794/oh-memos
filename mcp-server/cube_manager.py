@@ -9,22 +9,23 @@ import json
 import os
 import re
 import time
+
 from typing import Any
 
 import httpx
 
 from config import (
+    KEYWORD_ENHANCER_AVAILABLE,
+    MEMOS_CUBES_DIR,
+    MEMOS_DEFAULT_CUBE,
     MEMOS_URL,
     MEMOS_USER,
-    MEMOS_DEFAULT_CUBE,
-    MEMOS_CUBES_DIR,
-    KEYWORD_ENHANCER_AVAILABLE,
-    detect_cube_from_path,
-    logger,
-    _registered_cubes,
-    _last_registration_attempt,
     REGISTRATION_RETRY_INTERVAL,
+    _last_registration_attempt,
+    _registered_cubes,
+    detect_cube_from_path,
     is_default_cube_from_env,
+    logger,
 )
 
 
@@ -261,7 +262,7 @@ def _build_cube_config(cube_id: str) -> dict[str, Any]:
     if template_path is not None:
         config_path = os.path.join(template_path, "config.json")
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
             config = _clone_config(config)
             return _update_config_for_cube(config, cube_id)
@@ -280,7 +281,7 @@ def validate_and_fix_cube_config(cube_id: str, config_path: str) -> tuple[bool, 
         - error_message: None if OK, error string if failed
     """
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
 
         modified = False

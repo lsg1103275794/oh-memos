@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
 from memos.configs.base import BaseConfig
 from memos.exceptions import ConfigurationError
@@ -73,7 +73,7 @@ class InternetRetrieverConfigFactory(BaseConfig):
     backend: str | None = Field(
         None, description="Backend for internet retriever (google, bing, etc.)"
     )
-    config: dict[str, Any] | BaseInternetRetrieverConfig | None = Field(
+    config: dict[str, Any] | SerializeAsAny[BaseInternetRetrieverConfig] | None = Field(
         None, description="Configuration for the internet retriever backend"
     )
 

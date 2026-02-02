@@ -1,7 +1,7 @@
 # MemOS Project Guide
 
 > This file provides project-specific context to Claude Code.
-
+保持中文交流
 ---
 
 ## Project Overview
