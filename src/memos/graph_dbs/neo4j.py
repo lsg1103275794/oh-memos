@@ -1364,6 +1364,171 @@ class Neo4jGraphDB(BaseGraphDB):
                 pass
             return []
 
+    def search_by_temporal(
+        self,
+        top_k: int = 10,
+        scope: str | None = None,
+        status: str | None = None,
+        user_name: str | None = None,
+        time_window_hours: int | None = None,
+        before_time: str | None = None,
+        after_time: str | None = None,
+        order: str = "DESC",
+    ) -> list[dict]:
+        """
+        Perform temporal-based search for recent or time-windowed memories.
+
+        Supports queries like:
+        - "最近的记忆" → top_k most recent
+        - "过去24小时的记忆" → time_window_hours=24
+        - "之前发生的" → before_time with FOLLOWS edges
+
+        Args:
+            top_k: Number of results to return
+            scope: Memory type filter (e.g., 'LongTermMemory')
+            status: Node status filter (e.g., 'activated')
+            user_name: User/cube namespace filter
+            time_window_hours: Only return memories within last N hours
+            before_time: ISO timestamp, return memories before this time
+            after_time: ISO timestamp, return memories after this time
+            order: 'DESC' (newest first) or 'ASC' (oldest first)
+
+        Returns:
+            list[dict]: Nodes with 'id' and 'updated_at', ordered by time
+        """
+        user_name = user_name if user_name else self.config.user_name
+
+        # Build WHERE clauses
+        where_clauses = []
+        params: dict[str, Any] = {}
+
+        if scope:
+            where_clauses.append("n.memory_type = $scope")
+            params["scope"] = scope
+        if status:
+            where_clauses.append("n.status = $status")
+            params["status"] = status
+        if not self.config.use_multi_db and (self.config.user_name or user_name):
+            where_clauses.append("n.user_name = $user_name")
+            params["user_name"] = user_name
+
+        # Time-based filters
+        if time_window_hours:
+            where_clauses.append(
+                "n.updated_at >= datetime() - duration({hours: $time_window_hours})"
+            )
+            params["time_window_hours"] = time_window_hours
+        if before_time:
+            where_clauses.append("n.updated_at < datetime($before_time)")
+            params["before_time"] = before_time
+        if after_time:
+            where_clauses.append("n.updated_at > datetime($after_time)")
+            params["after_time"] = after_time
+
+        where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        order_clause = "DESC" if order.upper() == "DESC" else "ASC"
+
+        query = f"""
+        MATCH (n:Memory)
+        {where_clause}
+        WHERE n.updated_at IS NOT NULL
+        RETURN n.id AS id, n.updated_at AS updated_at
+        ORDER BY n.updated_at {order_clause}
+        LIMIT $top_k
+        """
+        params["top_k"] = top_k
+
+        try:
+            with self.driver.session(database=self.db_name) as session:
+                result = session.run(query, params)
+                results = []
+                for record in result:
+                    updated_at = record["updated_at"]
+                    # Convert neo4j DateTime to ISO string
+                    if hasattr(updated_at, "isoformat"):
+                        updated_at = updated_at.isoformat()
+                    results.append({
+                        "id": record["id"],
+                        "updated_at": updated_at,
+                    })
+                logger.info(f"[Temporal] Found {len(results)} memories by time query")
+                return results
+        except Exception as e:
+            logger.error(f"[Temporal] Error during temporal search: {e}")
+            return []
+
+    def get_temporal_context(
+        self,
+        node_id: str,
+        direction: str = "BOTH",
+        max_hops: int = 3,
+        user_name: str | None = None,
+    ) -> dict:
+        """
+        Get temporal context around a memory node via FOLLOWS edges.
+
+        Args:
+            node_id: The center node ID
+            direction: 'BEFORE' (predecessors), 'AFTER' (successors), or 'BOTH'
+            max_hops: Maximum number of FOLLOWS edges to traverse
+            user_name: User/cube namespace filter
+
+        Returns:
+            dict with 'before' and 'after' lists of node IDs in temporal order
+        """
+        user_name = user_name if user_name else self.config.user_name
+        result = {"before": [], "after": [], "center": node_id}
+
+        user_filter = ""
+        params: dict[str, Any] = {"node_id": node_id, "max_hops": max_hops}
+        if not self.config.use_multi_db and (self.config.user_name or user_name):
+            user_filter = "AND all(x IN nodes(p) WHERE x.user_name = $user_name)"
+            params["user_name"] = user_name
+
+        try:
+            with self.driver.session(database=self.db_name) as session:
+                # Get predecessors (what happened before)
+                if direction in ("BEFORE", "BOTH"):
+                    before_query = f"""
+                    MATCH (center:Memory {{id: $node_id}})
+                    MATCH p = (predecessor:Memory)-[:FOLLOWS*1..{max_hops}]->(center)
+                    {user_filter}
+                    WITH predecessor, length(p) AS distance
+                    RETURN predecessor.id AS id, predecessor.updated_at AS updated_at, distance
+                    ORDER BY distance DESC, updated_at ASC
+                    """
+                    before_result = session.run(before_query, params)
+                    result["before"] = [
+                        {"id": r["id"], "updated_at": str(r["updated_at"]) if r["updated_at"] else None}
+                        for r in before_result
+                    ]
+
+                # Get successors (what happened after)
+                if direction in ("AFTER", "BOTH"):
+                    after_query = f"""
+                    MATCH (center:Memory {{id: $node_id}})
+                    MATCH p = (center)-[:FOLLOWS*1..{max_hops}]->(successor:Memory)
+                    {user_filter}
+                    WITH successor, length(p) AS distance
+                    RETURN successor.id AS id, successor.updated_at AS updated_at, distance
+                    ORDER BY distance ASC, updated_at ASC
+                    """
+                    after_result = session.run(after_query, params)
+                    result["after"] = [
+                        {"id": r["id"], "updated_at": str(r["updated_at"]) if r["updated_at"] else None}
+                        for r in after_result
+                    ]
+
+                logger.info(
+                    f"[Temporal] Context for {node_id[:8]}: "
+                    f"{len(result['before'])} before, {len(result['after'])} after"
+                )
+                return result
+
+        except Exception as e:
+            logger.error(f"[Temporal] Error getting temporal context: {e}")
+            return result
+
     def get_grouped_counts(
         self,
         group_fields: list[str],

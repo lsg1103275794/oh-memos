@@ -47,32 +47,27 @@ class GraphMemoryRetriever:
         id_filter: dict | None = None,
         use_fast_graph: bool = False,
         edge_types: list[str] | None = None,
+        temporal_intent: bool = False,
+        time_window_hours: int | None = None,
     ) -> list[TextualMemoryItem]:
         """
         Perform hybrid memory retrieval:
         - Run graph-based lookup from dispatch plan.
         - Run vector similarity search from embedded query.
         - Run PPR (Personalized PageRank) for associative retrieval (if enabled).
+        - Run temporal search for time-based queries (if temporal_intent=True).
         - Merge and return combined result set.
 
         Args:
-            query (str): Original task query.
-            parsed_goal (dict): parsed_goal.
-            top_k (int): Number of candidates to return.
-            memory_scope (str): One of ['working', 'long_term', 'user'].
-            query_embedding(list of embedding): list of embedding of query
-            search_filter (dict, optional): Optional metadata filters for search results.
-            edge_types (list[str], optional): Edge types for PPR traversal (multi-graph routing).
-        Returns:
-            list: Combined memory items.
-
-        Args:
-            query (str): Original task query.
-            parsed_goal (dict): parsed_goal.
-            top_k (int): Number of candidates to return.
-            memory_scope (str): One of ['working', 'long_term', 'user'].
-            query_embedding(list of embedding): list of embedding of query
-            search_filter (dict, optional): Optional metadata filters for search results.
+            query: Original task query.
+            parsed_goal: Parsed goal with keys and tags.
+            top_k: Number of candidates to return.
+            memory_scope: One of ['WorkingMemory', 'LongTermMemory', 'UserMemory'].
+            query_embedding: List of embedding vectors for query.
+            search_filter: Optional metadata filters for search results.
+            edge_types: Edge types for PPR traversal (multi-graph routing).
+            temporal_intent: If True, prioritize temporal (time-based) retrieval.
+            time_window_hours: For temporal queries, limit to last N hours.
         Returns:
             list: Combined memory items.
         """
@@ -96,7 +91,7 @@ class GraphMemoryRetriever:
             )
             return [TextualMemoryItem.from_dict(record) for record in working_memories[:top_k]]
 
-        with ContextThreadPoolExecutor(max_workers=4) as executor:
+        with ContextThreadPoolExecutor(max_workers=5) as executor:
             # Structured graph-based retrieval
             future_graph = executor.submit(
                 self._graph_recall,
@@ -148,16 +143,28 @@ class GraphMemoryRetriever:
                     edge_types=edge_types,
                 )
 
+            # Temporal retrieval for time-based queries
+            future_temporal = None
+            if temporal_intent:
+                future_temporal = executor.submit(
+                    self._temporal_recall,
+                    memory_scope,
+                    top_k=top_k,
+                    user_name=user_name,
+                    time_window_hours=time_window_hours,
+                )
+
             graph_results = future_graph.result()
             vector_results = future_vector.result()
             bm25_results = future_bm25.result() if self.use_bm25 else []
             fulltext_results = future_fulltext.result() if use_fast_graph else []
             ppr_results = future_ppr.result() if future_ppr else []
+            temporal_results = future_temporal.result() if future_temporal else []
 
         # Merge and deduplicate by ID
         combined = {
             item.id: item
-            for item in graph_results + vector_results + bm25_results + fulltext_results + ppr_results
+            for item in graph_results + vector_results + bm25_results + fulltext_results + ppr_results + temporal_results
         }
 
         return list(combined.values())
@@ -608,4 +615,68 @@ class GraphMemoryRetriever:
 
         except Exception as e:
             logger.warning(f"[PPR] PPR recall failed: {e}")
+            return []
+
+    def _temporal_recall(
+        self,
+        memory_scope: str,
+        top_k: int = 10,
+        user_name: str | None = None,
+        time_window_hours: int | None = None,
+    ) -> list[TextualMemoryItem]:
+        """
+        Perform temporal (time-based) retrieval for queries like "最近的记忆".
+
+        Args:
+            memory_scope: Memory type filter
+            top_k: Number of results to return
+            user_name: User/cube namespace
+            time_window_hours: Limit to last N hours (None = no limit)
+
+        Returns:
+            List of TextualMemoryItem ordered by recency
+        """
+        # Check if graph_store supports temporal search
+        if not hasattr(self.graph_store, "search_by_temporal"):
+            logger.debug("[Temporal] Graph store does not support temporal search, skipping")
+            return []
+
+        try:
+            temporal_hits = self.graph_store.search_by_temporal(
+                top_k=top_k,
+                scope=memory_scope,
+                status="activated",
+                user_name=user_name,
+                time_window_hours=time_window_hours,
+                order="DESC",  # Most recent first
+            )
+
+            if not temporal_hits:
+                logger.debug("[Temporal] No recent memories found")
+                return []
+
+            # Load full node data
+            temporal_ids = [hit["id"] for hit in temporal_hits]
+            node_dicts = self.graph_store.get_nodes(
+                temporal_ids,
+                include_embedding=self.include_embedding,
+                user_name=user_name,
+            ) or []
+
+            # Add temporal ranking info to metadata
+            temporal_order_map = {hit["id"]: i for i, hit in enumerate(temporal_hits)}
+            for node in node_dicts:
+                node_id = node.get("id")
+                if node_id in temporal_order_map:
+                    if "metadata" not in node:
+                        node["metadata"] = {}
+                    # Lower rank = more recent
+                    node["metadata"]["temporal_rank"] = temporal_order_map[node_id]
+                    node["metadata"]["temporal_boost"] = True
+
+            logger.info(f"[Temporal] Retrieved {len(node_dicts)} recent memories")
+            return [TextualMemoryItem.from_dict(n) for n in node_dicts]
+
+        except Exception as e:
+            logger.warning(f"[Temporal] Temporal recall failed: {e}")
             return []
