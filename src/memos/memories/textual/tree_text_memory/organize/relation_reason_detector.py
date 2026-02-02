@@ -1,4 +1,5 @@
 import json
+import os
 import traceback
 
 from memos.embedders.factory import OllamaEmbedder
@@ -23,6 +24,8 @@ class RelationAndReasoningDetector:
         self.graph_store = graph_store
         self.llm = llm
         self.embedder = embedder
+        self.relation_parse_strict = os.getenv("MOS_RELATION_PARSE_STRICT", "false").lower() == "true"
+        self.relation_parse_retry = os.getenv("MOS_RELATION_PARSE_RETRY", "false").lower() == "true"
 
     def process_node(self, node: GraphDBNode, exclude_ids: list[str], top_k: int = 5):
         """
@@ -102,22 +105,41 @@ class RelationAndReasoningDetector:
         response_text = self._call_llm(prompt)
         batch_results = self._parse_json_result(response_text)
 
-        if isinstance(batch_results, list):
-            for res in batch_results:
-                pair_id = res.get("pair_id")
-                relation_type = res.get("relation", "NONE").upper()
-                
-                if pair_id is not None and 0 <= pair_id < len(nearest_nodes):
-                    candidate = nearest_nodes[pair_id]
-                    if relation_type in {"CAUSE", "CONDITION", "RELATE", "CONFLICT"}:
-                        results["relations"].append(
-                            {
-                                "source_id": node.id,
-                                "target_id": candidate.id,
-                                "relation_type": relation_type,
-                            }
-                        )
-                        logger.info(f"[RelationDetector] Detected batch relation: {relation_type} between {node.id[:8]} and {candidate.id[:8]}")
+        if not isinstance(batch_results, list):
+            if self.relation_parse_retry:
+                response_text = self._call_llm(
+                    "Only output a JSON array of objects with keys pair_id and relation.\n" + prompt
+                )
+                batch_results = self._parse_json_result(response_text)
+
+        if not isinstance(batch_results, list) or len(batch_results) == 0:
+            self._log_parse_failure(
+                "pairwise",
+                node,
+                response_text,
+                len(nearest_nodes),
+            )
+            if self.relation_parse_strict:
+                raise ValueError("Relation parse failed in pairwise relation detection")
+            return results
+
+        for res in batch_results:
+            pair_id = res.get("pair_id")
+            relation_type = res.get("relation", "NONE").upper()
+
+            if pair_id is not None and 0 <= pair_id < len(nearest_nodes):
+                candidate = nearest_nodes[pair_id]
+                if relation_type in {"CAUSE", "CONDITION", "RELATE", "CONFLICT"}:
+                    results["relations"].append(
+                        {
+                            "source_id": node.id,
+                            "target_id": candidate.id,
+                            "relation_type": relation_type,
+                        }
+                    )
+                    logger.info(
+                        f"[RelationDetector] Detected batch relation: {relation_type} between {node.id[:8]} and {candidate.id[:8]}"
+                    )
 
         return results
 
@@ -232,6 +254,23 @@ class RelationAndReasoningDetector:
 
     def _parse_json_result(self, response_text):
         return parse_json_result(response_text)
+
+    def _log_parse_failure(
+        self,
+        stage: str,
+        node: GraphDBNode,
+        response_text: str,
+        pair_count: int,
+    ) -> None:
+        snippet = (response_text or "").strip().replace("\n", " ")[:300]
+        logger.warning(
+            "[RelationDetector] JSON parse failed at %s for node=%s pairs=%s response_len=%s response_snippet=%s",
+            stage,
+            node.id,
+            pair_count,
+            len(response_text or ""),
+            snippet,
+        )
 
     def _parse_relation_result(self, response_text: str) -> str:
         """

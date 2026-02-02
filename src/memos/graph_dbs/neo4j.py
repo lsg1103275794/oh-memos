@@ -1257,13 +1257,15 @@ class Neo4jGraphDB(BaseGraphDB):
             return []
 
         # Build node filter conditions
+        # Use escaped single quotes since these go inside a Cypher string literal
+        # passed to gds.graph.project.cypher()
         node_filter_parts = []
         if scope:
-            node_filter_parts.append(f"n.memory_type = '{scope}'")
+            node_filter_parts.append(f"n.memory_type = \\'{scope}\\'")
         if status:
-            node_filter_parts.append(f"n.status = '{status}'")
+            node_filter_parts.append(f"n.status = \\'{status}\\'")
         if not self.config.use_multi_db and (self.config.user_name or user_name):
-            node_filter_parts.append(f"n.user_name = '{user_name}'")
+            node_filter_parts.append(f"n.user_name = \\'{user_name}\\'")
 
         node_filter = " AND ".join(node_filter_parts) if node_filter_parts else "true"
 
