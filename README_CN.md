@@ -1,6 +1,6 @@
 # MemOS Windows 便携版部署指南
 
-基于 MemOS 的 Windows 便携式部署方案，使用本地 Python 环境 + Ollama 嵌入 + Qdrant 云服务。
+基于 MemOSLocal-SM 的 Windows 便携式部署方案，使用本地 Python 环境 + Ollama 嵌入 + Qdrant 云服务。
 
 ## 特点
 
@@ -271,7 +271,7 @@ neo4j-community\bin\neo4j console
 
 ## 🔗 项目仓库
 
-- **主仓库**: [https://github.com/lsg1103275794/MemOSlocal](https://github.com/lsg1103275794/MemOSlocal)
+- **主仓库**: [https://github.com/lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
 - **原项目**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
 
 ---
