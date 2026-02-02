@@ -161,7 +161,36 @@ data/memos_cubes/
 
 ---
 
-## 新建 Cube 快速步骤
+## 新建 Cube 方式
+
+### 方式一：自动创建（推荐）
+
+**新项目无需手动创建 Cube！** MCP 服务器会自动处理：
+
+```
+用户在 ~/projects/my-new-project/ 启动 Claude Code
+        ↓
+MCP 派生 cube_id: "my_new_project_cube"
+        ↓
+检测到 cube 不存在 → 自动从 dev_cube 克隆配置
+        ↓
+自动注册到 MemOS API
+        ↓
+立即可用！
+```
+
+**前提条件：**
+- `dev_cube` 必须存在作为模板（位于 `data/memos_cubes/dev_cube/`）
+- `.env` 已正确配置（API Key、数据库连接等）
+
+自动创建时会更新以下字段确保隔离：
+- `cube_id` → 新项目名
+- `graph_db.user_name` → 新项目名（Neo4j 命名空间）
+- `vec_config.collection_name` → `{cube_id}_graph`（Qdrant 集合）
+
+### 方式二：手动创建
+
+如需自定义配置，可手动创建：
 
 1. **创建目录：**
    ```bash
@@ -170,7 +199,7 @@ data/memos_cubes/
 
 2. **复制示例 config.json** 并修改：
    - `cube_id` → 你的项目名
-   - `user_name` → 你的用户名
+   - `user_name` → 你的用户名（通常与 cube_id 相同）
    - `collection_name` → `{cube_id}_graph`
 
 3. **配置 .env** 填写真实的 API Key 等敏感信息
@@ -181,6 +210,28 @@ data/memos_cubes/
      -H "Content-Type: application/json" \
      -d '{"user_id":"dev_user","mem_cube_name_or_path":"my_project_cube"}'
    ```
+
+---
+
+## 模板 Cube 要求
+
+`dev_cube` 作为自动创建的模板，需要满足：
+
+| 检查项 | 要求 |
+|--------|------|
+| 目录位置 | `data/memos_cubes/dev_cube/` |
+| 配置文件 | `config.json` 存在且格式正确 |
+| 后端配置 | `text_mem.backend` 设置正确 |
+| 向量维度 | `embedding_dims` 与实际模型匹配 |
+
+可通过以下命令验证：
+```bash
+# 检查模板是否存在
+ls data/memos_cubes/dev_cube/config.json
+
+# 验证配置格式
+python -c "import json; json.load(open('data/memos_cubes/dev_cube/config.json'))"
+```
 
 ---
 
