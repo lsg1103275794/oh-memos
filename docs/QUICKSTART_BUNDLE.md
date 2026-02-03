@@ -1,4 +1,4 @@
-# MemOS 整合包快速开始 | Quick Start Guide
+# MemOSLocal-SM 整合包快速开始 | Quick Start Guide
 
 > 让小白用户也能轻松使用 MemOS 项目记忆系统
 > Easy setup for MemOS project memory system

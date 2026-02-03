@@ -1090,7 +1090,7 @@ Tags: bugfix, auth, session, config
 ## 🔗 Repository
 
 - **Main Repo**: [https://github.com/lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
-- **Original Project**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
+- **Upstream Project**: [MemTensor/MemOS](https://github.com/MemTensor/MemOS)
 
 ---
 

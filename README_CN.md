@@ -272,13 +272,13 @@ neo4j-community\bin\neo4j console
 ## 🔗 项目仓库
 
 - **主仓库**: [https://github.com/lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
-- **原项目**: [BAI-LAB/MemoryOS](https://github.com/BAI-LAB/MemoryOS)
+- **上游项目**: [MemTensor/MemOS](https://github.com/MemTensor/MemOS)
 
 ---
 
 <div align="center">
 
-**MemOSlocal** • 为 AI 打造的隐私优先持久记忆系统
+**MemOSLocal-SM** • 为 AI 打造的隐私优先持久记忆系统
 
 Copyright © 2026 lsg1103275794. 采用 [MIT License](LICENSE) 开源协议。
 
