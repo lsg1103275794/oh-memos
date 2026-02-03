@@ -7,8 +7,9 @@ Claude Code hooks for enhanced memory integration.
 | Script | Event | Purpose |
 |--------|-------|---------|
 | `memos_user_prompt` | UserPromptSubmit | **Smart intent detection** - suggests memory actions |
-| `memos_block_sensitive` | PreToolUse | Warn on sensitive file edits |
+| `memos_block_sensitive` | PreToolUse | **Tiered sensitivity guard** - warns on sensitive edits |
 | `memos_log_commands` | PostToolUse | Log bash commands |
+| `memos_auto_save` | PostToolUse | **Smart save suggestions** - context-aware reminders |
 | `memos_notify_milestone` | PostToolUse | Suggest saving milestones |
 
 ## Smart Intent Detection (memos_user_prompt)
@@ -110,10 +111,20 @@ project-memory/hooks/
   → Consider saving: MILESTONE (big feature) / BUGFIX (fix) / FEATURE (new)
   ```
 
-### memos_block_sensitive
+### memos_block_sensitive (Enhanced)
 - **Trigger**: Before Edit/Write operations
-- **Action**: Warns when editing sensitive files (.env, credentials, keys)
-- **Output**: Warning message for sensitive files
+- **Action**: Smart sensitivity detection with tiered warnings
+- **Levels**:
+  - 🚨 CRITICAL: SSH keys, certificates, cloud credentials → strong warning
+  - ⚠️ HIGH: .env, passwords, secrets → warning + save reminder
+  - ⚙️ MEDIUM: Config files → save reminder
+  - 📦 LOW: Generated files (lock files, dist/) → overwrite warning
+- **Example Output**:
+  ```
+  🚨 CRITICAL: Editing SSH private key file!
+     File: ~/.ssh/id_rsa
+     → NEVER commit this file to git!
+  ```
 
 ### memos_log_commands
 - **Trigger**: After Bash commands
@@ -124,6 +135,22 @@ project-memory/hooks/
 - **Trigger**: After Edit/Write operations
 - **Action**: Suggests saving milestone for important files
 - **Files**: README.md, CHANGELOG.md, package.json, pyproject.toml, config.json
+
+### memos_auto_save (New)
+- **Trigger**: After Bash/Edit/Write operations
+- **Action**: Smart context analysis with save suggestions
+- **Detects**:
+  - Config file edits → suggest `CONFIG`
+  - Project file edits (README, package.json) → suggest `MILESTONE`
+  - Test file edits → suggest `BUGFIX` if fixing
+  - Command failures → suggest `memos_search(ERROR_PATTERN)`
+  - Successful fixes/tests → suggest `BUGFIX`
+  - Package installs → suggest `CONFIG`
+- **Example Output**:
+  ```
+  ❌ Command failed → Consider: memos_search(query="ERROR_PATTERN <error>") for solutions
+  ✅ Tests passed → If this fixed something: memos_save(..., memory_type="BUGFIX")
+  ```
 
 ## Customization
 
