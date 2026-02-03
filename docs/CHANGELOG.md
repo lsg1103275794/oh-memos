@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **📄 CLAUDE.md 精简 + SKILL.md 增强** (架构优化)
+  - **CLAUDE.md**: 372 行 → 122 行 (减少 67%)
+    - 保留：项目概述、核心记忆规则（简化版）、项目配置、服务端口表、API Endpoints
+    - 移除重复内容：决策树、错误/正确示范、详细触发规则、Graph Tools 说明
+    - 新增指向 `/project-memory` skill 的引用
+  - **SKILL.md**: 365 行 → 524 行 (增加 44%)
+    - 新增：置信度机制说明、健康检查说明
+    - 新增：Auto-Registration & Auto-Creation 说明
+    - 新增：完整的 MCP Server Environment Variables 表
+  - **职责划分**：
+    - `CLAUDE.md`: 项目配置兜底 (~100行)，快速上下文
+    - `SKILL.md`: MCP 操作规则详解 (~500行)，按需加载
+  - **收益**：随着项目发展，CLAUDE.md 可继续添加项目规则而不会因 MCP 操作规则过多导致模型"迷失"
+
+- **📝 README_CN.md 重构** (project-memory/)
+  - 新增：Skill 安装方式（从 MemOS 项目复制 vs 独立安装）
+  - 新增：CLAUDE.md 配合使用说明
+  - 新增：MCP 模式 vs Skill 模式对比
+  - 更新：目录结构反映当前架构
+
 ### Added
 
 - **🔄 Embedder 自动降级方案** (`src/memos/embedders/fallback.py`)

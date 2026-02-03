@@ -57,6 +57,31 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 ❌ **错误**: `memos_save(content="注意: fallbacks会自动切换")` → 可能落入 PROGRESS
 ✅ **正确**: `memos_save(content="注意: fallbacks会自动切换...", memory_type="GOTCHA")`
 
+### 置信度机制
+
+`detect_memory_type()` 返回 `(类型, 置信度)` 元组：
+
+| 置信度 | 含义 |
+|--------|------|
+| 1.0 | 显式指定类型 |
+| 0.85-0.95 | 强特征匹配（如 traceback、决定采用） |
+| 0.7-0.84 | 中等特征匹配 |
+| 0.3 | 默认 PROGRESS（无特征匹配，会触发警告） |
+
+**当置信度 < 0.6 且类型为 PROGRESS 时，系统会输出警告提示显式指定类型。**
+
+### 健康检查
+
+`memos_get_stats` 会在 PROGRESS 占比 >70% 时输出健康警告：
+
+```
+⚠️ 健康警告: PROGRESS 类型占比过高 (>70%)
+
+这可能导致 Neo4j 知识图谱无法建立有效关系。建议:
+1. 保存记忆时显式指定 memory_type 参数
+2. 参考类型选择决策树
+```
+
 ---
 
 ## Quick Reference: MCP Tools
@@ -319,7 +344,7 @@ Tags: gotcha, {category}
 │  Complete task   ───> memos_save      ───> Save MILESTONE       │
 │                       memory_type: "MILESTONE"                  │
 │                                                                 │
-│  "之前/上次"     ───> memos_search    ───> Find history         │
+│  "之前/上次"     ───> memos_search    ───> Find history          │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │
@@ -356,10 +381,55 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
-| `MEMOS_USER` | `dev_user` | User ID |
-| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API base URL |
+| `MEMOS_USER` | `dev_user` | Default user ID |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube ID |
 | `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage (for auto-registration) |
+| `NEO4J_HTTP_URL` | `http://localhost:7474/db/neo4j/tx/commit` | Neo4j HTTP endpoint |
+| `NEO4J_USER` | `neo4j` | Neo4j username |
+| `NEO4J_PASSWORD` | `12345678` | Neo4j password |
+| `MEMOS_ENABLE_DELETE` | `false` | Enable delete functionality |
+
+---
+
+## Auto-Registration & Auto-Creation
+
+The MCP server includes **smart cube management**:
+
+1. **Auto-Creation**: New projects automatically get their own cube (cloned from `dev_cube` template)
+2. **Automatic Registration**: Cubes are auto-registered on first use
+3. **Path Verification**: Checks if cube directory exists before registration
+4. **Helpful Error Messages**: If a cube is not found and cannot be created, shows available cubes
+5. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+
+**How it works for new projects:**
+```
+User starts Claude Code in ~/projects/my-new-project/
+        ↓
+MCP derives cube_id: "my_new_project_cube"
+        ↓
+Cube not found? Auto-create from dev_cube template
+        ↓
+Auto-register with MemOS API
+        ↓
+Ready to use!
+```
+
+**Requirements:**
+- `dev_cube` must exist as template in `MEMOS_CUBES_DIR`
+- Cubes directory must be writable
+
+If you see "Cube Registration Failed" error:
+1. Use `memos_list_cubes()` to see available cubes
+2. Verify `dev_cube` exists as template
+3. Check cubes directory permissions
+
+```bash
+# Manual registration (fallback)
+curl -X POST "http://localhost:18000/mem_cubes" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"dev_user","mem_cube_name_or_path":"G:/test/MemOS/data/memos_cubes/dev_cube"}'
+```
 
 ---
 

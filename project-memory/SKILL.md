@@ -57,6 +57,31 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 ❌ **错误**: `memos_save(content="注意: fallbacks会自动切换")` → 可能落入 PROGRESS
 ✅ **正确**: `memos_save(content="注意: fallbacks会自动切换...", memory_type="GOTCHA")`
 
+### 置信度机制
+
+`detect_memory_type()` 返回 `(类型, 置信度)` 元组：
+
+| 置信度 | 含义 |
+|--------|------|
+| 1.0 | 显式指定类型 |
+| 0.85-0.95 | 强特征匹配（如 traceback、决定采用） |
+| 0.7-0.84 | 中等特征匹配 |
+| 0.3 | 默认 PROGRESS（无特征匹配，会触发警告） |
+
+**当置信度 < 0.6 且类型为 PROGRESS 时，系统会输出警告提示显式指定类型。**
+
+### 健康检查
+
+`memos_get_stats` 会在 PROGRESS 占比 >70% 时输出健康警告：
+
+```
+⚠️ 健康警告: PROGRESS 类型占比过高 (>70%)
+
+这可能导致 Neo4j 知识图谱无法建立有效关系。建议:
+1. 保存记忆时显式指定 memory_type 参数
+2. 参考类型选择决策树
+```
+
 ---
 
 ## Quick Reference: MCP Tools
@@ -72,6 +97,34 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | `memos_get_graph` | View dependency/causal relationships | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
 | `memos_trace_path` | **Trace paths between memories** | `source_id: "...", target_id: "..."` |
 | `memos_export_schema` | **View graph structure and health** | Shows node/edge counts, types, connectivity |
+| `memos_register_cube` | **Manual cube registration (fallback)** | `cube_id: "my_project_cube"` |
+| `memos_create_user` | **Create user (fallback)** | `user_id: "dev_user"` |
+| `getGraphData` (IPC) | **Renderer-side graph data fetch** | `projectId: "ddsp-svc-6.3"` (Desktop App Only) |
+
+---
+
+## Desktop Integration: Knowledge Graph Visualization
+
+The desktop app now supports real-time Neo4j knowledge graph visualization.
+
+### Usage in Renderer
+```typescript
+const accomplish = getAccomplish();
+const graphData = await accomplish.getGraphData("ddsp-svc-6.3");
+```
+
+### UI Component
+The `<KnowledgeGraph />` component (located in `renderer/components/memory/KnowledgeGraph.tsx`) provides:
+- Force-directed graph layout
+- Node color-coding by memory type
+- Interactive tooltips with memory content
+- Color coding by type:
+    - **LongTermMemory**: Blue (#3b82f6)
+    - **WorkingMemory**: Emerald (#10b981)
+    - **ShortTermMemory**: Amber (#f59e0b)
+    - **Episodic/Semantic**: Violet/Pink
+- Zoom, pan, and center controls
+- Automatic data fetching for a given `projectId`
 
 ---
 
@@ -291,7 +344,7 @@ Tags: gotcha, {category}
 │  Complete task   ───> memos_save      ───> Save MILESTONE       │
 │                       memory_type: "MILESTONE"                  │
 │                                                                 │
-│  "之前/上次"     ───> memos_search    ───> Find history         │
+│  "之前/上次"     ───> memos_search    ───> Find history          │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │
@@ -328,37 +381,144 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
-| `MEMOS_USER` | `dev_user` | User ID |
-| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API base URL |
+| `MEMOS_USER` | `dev_user` | Default user ID |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube ID |
 | `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage (for auto-registration) |
+| `NEO4J_HTTP_URL` | `http://localhost:7474/db/neo4j/tx/commit` | Neo4j HTTP endpoint |
+| `NEO4J_USER` | `neo4j` | Neo4j username |
+| `NEO4J_PASSWORD` | `12345678` | Neo4j password |
+| `MEMOS_ENABLE_DELETE` | `false` | Enable delete functionality |
 
 ---
 
-## Troubleshooting
+## Auto-Registration & Auto-Creation
+
+The MCP server includes **smart cube management**:
+
+1. **Auto-Creation**: New projects automatically get their own cube (cloned from `dev_cube` template)
+2. **Automatic Registration**: Cubes are auto-registered on first use
+3. **Path Verification**: Checks if cube directory exists before registration
+4. **Helpful Error Messages**: If a cube is not found and cannot be created, shows available cubes
+5. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+
+**How it works for new projects:**
+```
+User starts Claude Code in ~/projects/my-new-project/
+        ↓
+MCP derives cube_id: "my_new_project_cube"
+        ↓
+Cube not found? Auto-create from dev_cube template
+        ↓
+Auto-register with MemOS API
+        ↓
+Ready to use!
+```
+
+**Requirements:**
+- `dev_cube` must exist as template in `MEMOS_CUBES_DIR`
+- Cubes directory must be writable
+
+If you see "Cube Registration Failed" error:
+1. Use `memos_list_cubes()` to see available cubes
+2. Verify `dev_cube` exists as template
+3. Check cubes directory permissions
+
+```bash
+# Manual registration (fallback)
+curl -X POST "http://localhost:18000/mem_cubes" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"dev_user","mem_cube_name_or_path":"G:/test/MemOS/data/memos_cubes/dev_cube"}'
+```
+
+---
+
+## Troubleshooting (MCP Tools Only)
+
+> **Note**: All error recovery uses MCP tools - no Bash/curl required. Works in isolated projects.
 
 ### Cube Not Found Error
 
-1. **Use `memos_list_cubes()` to see available cubes**
-2. Check if the cube directory exists with `config.json`
-3. Verify correct `cube_id` is being used
-4. MCP will show available cubes in error message
+**Error**: `Cube 'xxx' not found` or `Cube not registered`
 
-### MCP Tool Returns Error
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes()` → See available cubes
+2. If cube exists but not registered: `memos_register_cube(cube_id="xxx")`
+3. If cube doesn't exist: Create cube directory with config.json, then register
 
-1. **Check MemOS API is running**: `curl http://localhost:18000/users`
-2. **Check MCP connection**: In Claude Code, run `/mcp` to see server status
-3. **Restart Claude Code** if MCP shows as disconnected
+**Example**:
+```
+memos_list_cubes(include_status=true)
+→ Shows: dev_cube (registered), my_project (not registered)
+
+memos_register_cube(cube_id="my_project")
+→ "Cube 'my_project' registered successfully"
+```
+
+### User Does Not Exist Error
+
+**Error**: `User 'xxx' does not exist`
+
+**Recovery Steps** (all via MCP):
+1. `memos_create_user(user_id="xxx")` → Create the user
+2. Retry the original operation
+
+**Example**:
+```
+memos_save(content="...", cube_id="my_cube")
+→ Error: User 'dev_user' does not exist
+
+memos_create_user(user_id="dev_user")
+→ "User 'dev_user' created successfully"
+
+memos_save(content="...", cube_id="my_cube")
+→ Success
+```
+
+### MCP Connection Error
+
+**Error**: MCP tools not responding or timeout
+
+**Recovery Steps**:
+1. Wait a moment and retry (API may be starting)
+2. Try a simpler operation first: `memos_list_cubes()`
+3. If persistent, the MemOS API service may need restart (outside MCP scope)
 
 ### Memory Not Found
 
-1. Use `memos_list` to see what's in the cube
-2. Try `memos_search_context` with conversation context for smarter search
-3. Try broader search terms
-4. Check if searching correct `cube_id`
+**Error**: Search returns empty results
+
+**Recovery Steps** (all via MCP):
+1. `memos_list(cube_id="xxx", limit=20)` → Check what memories exist
+2. `memos_list_cubes()` → Verify using correct cube_id
+3. `memos_search_context(query="...", context=[...])` → Use context-aware search
+4. Try broader search terms or different memory types
 
 ### Save Failed
 
-1. Check API is running
-2. MCP auto-registers cubes, but verify with `memos_list_cubes`
-3. Check error message for details
+**Error**: `Save operation failed`
+
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes(include_status=true)` → Check cube status
+2. If not registered: `memos_register_cube(cube_id="xxx")`
+3. If user error: `memos_create_user(user_id="xxx")`
+4. Retry save operation
+
+### Quick Recovery Flowchart
+
+```
+Error occurred
+    │
+    ├─ "Cube not found" ────────────> memos_list_cubes()
+    │                                      │
+    │                                      ├─ Found? → memos_register_cube()
+    │                                      └─ Not found? → Create cube first
+    │
+    ├─ "User does not exist" ───────> memos_create_user(user_id="xxx")
+    │
+    ├─ "Save failed" ───────────────> memos_list_cubes(include_status=true)
+    │                                      │
+    │                                      └─ Check cube/user, then retry
+    │
+    └─ "No results" ────────────────> memos_list() to verify data exists
+```
