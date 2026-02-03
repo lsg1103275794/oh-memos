@@ -135,10 +135,9 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
                     },
                     "memory_type": {
                         "type": "string",
-                        "description": "**MUST specify explicitly!** Type of memory. Do NOT rely on auto-detection. Use the decision tree: Bug fix → BUGFIX/ERROR_PATTERN, Technical decision → DECISION, Gotcha → GOTCHA, etc.",
+                        "description": "**REQUIRED** - Type of memory. Decision tree: Bug fix → BUGFIX/ERROR_PATTERN, Technical decision → DECISION, Gotcha → GOTCHA, Code template → CODE_PATTERN, Config change → CONFIG, New feature → FEATURE, Achievement → MILESTONE, Pure progress update → PROGRESS",
                         "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
-                                "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"],
-                        "default": "PROGRESS"
+                                "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
                     },
                     "cube_id": {
                         "type": "string",
@@ -146,7 +145,7 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
-                "required": ["content"]
+                "required": ["content", "memory_type"]
             }
         ),
         Tool(

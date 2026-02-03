@@ -14,7 +14,6 @@ from config import MEMOS_URL, MEMOS_USER
 from cube_manager import ensure_cube_registered
 from formatters import format_memories_for_display
 from mcp.types import TextContent
-from memory_analysis import detect_memory_type
 from query_processing import compute_memory_stats
 
 from handlers.utils import error_response, get_cube_id_from_args
@@ -27,30 +26,22 @@ async def handle_memos_save(
     """Handle memos_save tool call."""
     cube_id = get_cube_id_from_args(arguments)
     content = arguments.get("content", "")
-    explicit_type = arguments.get("memory_type")
+    memory_type = arguments.get("memory_type")
 
-    # Detect type and confidence
-    if explicit_type:
-        memory_type = explicit_type
-        confidence = 1.0
-    else:
-        memory_type, confidence = detect_memory_type(content)
-
-    # Reject low-confidence PROGRESS - require explicit type
-    if confidence < 0.6 and memory_type == "PROGRESS":
+    # memory_type is now REQUIRED - reject if not provided
+    if not memory_type:
         return error_response(
-            "## 需要显式指定 memory_type\n\n"
-            f"内容分析未能确定准确的记忆类型 (置信度: {confidence:.0%})，默认为 PROGRESS。\n\n"
-            "**请显式指定 `memory_type` 参数**，可选类型：\n"
-            "- `ERROR_PATTERN` - 错误模式 + 解决方案\n"
-            "- `BUGFIX` - Bug 修复详情\n"
-            "- `DECISION` - 技术决策 + 理由\n"
-            "- `GOTCHA` - 非显而易见的陷阱\n"
-            "- `CODE_PATTERN` - 可复用代码模板\n"
-            "- `CONFIG` - 配置变更\n"
-            "- `FEATURE` - 新功能\n"
-            "- `MILESTONE` - 重大里程碑\n"
-            "- `PROGRESS` - 仅用于纯进度汇报\n\n"
+            "## ❌ memory_type 参数必填\n\n"
+            "保存记忆时**必须显式指定** `memory_type` 参数。\n\n"
+            "**类型选择决策树**：\n"
+            "- 修复 Bug → `BUGFIX` 或 `ERROR_PATTERN`\n"
+            "- 技术决策 → `DECISION`\n"
+            "- 发现陷阱 → `GOTCHA`\n"
+            "- 代码模板 → `CODE_PATTERN`\n"
+            "- 配置变更 → `CONFIG`\n"
+            "- 新功能 → `FEATURE`\n"
+            "- 重大成就 → `MILESTONE`\n"
+            "- 纯进度汇报 → `PROGRESS`\n\n"
             "**示例**: `memos_save(content=\"...\", memory_type=\"BUGFIX\")`"
         )
 
@@ -73,7 +64,7 @@ async def handle_memos_save(
     )
 
     if success:
-        return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}] (confidence: {confidence:.0%})")]
+        return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}]")]
     elif data:
         return error_response(f"Save failed: {data.get('message', 'Unknown error')}")
     else:
