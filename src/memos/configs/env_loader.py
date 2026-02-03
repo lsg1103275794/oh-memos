@@ -213,6 +213,19 @@ class EnvConfig:
     embedder_api_key: str = ""
     embedding_dimension: int = 1024
 
+    # Embedder Fallback Configuration
+    embedder_fallback_enabled: bool = False
+    embedder_fallback_backend: str = "ollama"
+    embedder_fallback_model: str = "nomic-embed-text:latest"
+    embedder_fallback_api_base: str = "http://localhost:11434"
+    embedder_fallback_embedding_dims: int | None = None
+    embedder_fallback_max_retries: int = 3
+    embedder_fallback_initial_delay_ms: int = 1000
+    embedder_fallback_max_delay_ms: int = 30000
+    embedder_fallback_backoff_multiplier: float = 2.0
+    embedder_fallback_jitter: bool = True
+    embedder_fallback_dimension_strategy: str = "error"
+
     # -------------------------------------------------------------------------
     # Reranker Configuration
     # -------------------------------------------------------------------------
@@ -337,6 +350,19 @@ def _load_config_from_env() -> EnvConfig:
         embedder_api_base=_get_env("MOS_EMBEDDER_API_BASE", ""),
         embedder_api_key=_get_env("MOS_EMBEDDER_API_KEY", ""),
         embedding_dimension=_get_env_int("EMBEDDING_DIMENSION", 1024),
+
+        # Embedder Fallback
+        embedder_fallback_enabled=_get_env_bool("MOS_EMBEDDER_FALLBACK_ENABLED", False),
+        embedder_fallback_backend=_get_env("MOS_EMBEDDER_FALLBACK_BACKEND", "ollama"),
+        embedder_fallback_model=_get_env("MOS_EMBEDDER_FALLBACK_MODEL", "nomic-embed-text:latest"),
+        embedder_fallback_api_base=_get_env("MOS_EMBEDDER_FALLBACK_API_BASE", "http://localhost:11434"),
+        embedder_fallback_embedding_dims=_get_env_int("MOS_EMBEDDER_FALLBACK_EMBEDDING_DIMS", 0) or None,
+        embedder_fallback_max_retries=_get_env_int("MOS_EMBEDDER_FALLBACK_MAX_RETRIES", 3),
+        embedder_fallback_initial_delay_ms=_get_env_int("MOS_EMBEDDER_FALLBACK_INITIAL_DELAY_MS", 1000),
+        embedder_fallback_max_delay_ms=_get_env_int("MOS_EMBEDDER_FALLBACK_MAX_DELAY_MS", 30000),
+        embedder_fallback_backoff_multiplier=_get_env_float("MOS_EMBEDDER_FALLBACK_BACKOFF_MULTIPLIER", 2.0),
+        embedder_fallback_jitter=_get_env_bool("MOS_EMBEDDER_FALLBACK_JITTER", True),
+        embedder_fallback_dimension_strategy=_get_env("MOS_EMBEDDER_FALLBACK_DIMENSION_STRATEGY", "error"),
 
         # Reranker
         reranker_backend=_get_env("MOS_RERANKER_BACKEND", "http_bge"),
@@ -476,6 +502,24 @@ def get_embedder_config() -> dict[str, Any]:
         "base_url": cfg.embedder_api_base,
         "api_key": cfg.embedder_api_key,
         "embedding_dims": cfg.embedding_dimension,
+    }
+
+
+def get_embedder_fallback_config() -> dict[str, Any]:
+    """Get embedder fallback configuration as a dictionary."""
+    cfg = get_config()
+    return {
+        "enabled": cfg.embedder_fallback_enabled,
+        "fallback_backend": cfg.embedder_fallback_backend,
+        "fallback_model": cfg.embedder_fallback_model,
+        "fallback_api_base": cfg.embedder_fallback_api_base,
+        "fallback_embedding_dims": cfg.embedder_fallback_embedding_dims,
+        "max_retries": cfg.embedder_fallback_max_retries,
+        "initial_delay_ms": cfg.embedder_fallback_initial_delay_ms,
+        "max_delay_ms": cfg.embedder_fallback_max_delay_ms,
+        "backoff_multiplier": cfg.embedder_fallback_backoff_multiplier,
+        "jitter": cfg.embedder_fallback_jitter,
+        "dimension_mismatch_strategy": cfg.embedder_fallback_dimension_strategy,
     }
 
 

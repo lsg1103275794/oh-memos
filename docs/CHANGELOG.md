@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **🔄 Embedder 自动降级方案** (`src/memos/embedders/fallback.py`)
+  - 当云端嵌入服务(SiliconFlow/OpenAI)失败时，自动回退到本地 Ollama
+  - **错误分类**: `classify_error()` 区分瞬态错误(timeout/429/503)和永久错误(401/404)
+  - **重试策略**: `RetryPolicy` 实现指数退避 + 随机抖动 (可配置 max_retries, initial_delay, backoff_multiplier)
+  - **维度适配**: `DimensionAdapter` 支持三种策略处理主备 embedder 维度不匹配
+    - `error`: 报错 (默认，保证数据一致性)
+    - `warn_and_continue`: 警告但继续
+    - `pad_or_truncate`: 填充或截断
+  - **FallbackEmbedder**: 装饰器模式无侵入包装主 embedder
+  - **新增异常类型** (`src/memos/exceptions.py`):
+    - `TransientEmbedderError`: 可重试错误 (timeout, 429, 500-504)
+    - `PermanentEmbedderError`: 立即降级错误 (401, 403, 404)
+    - `EmbeddingDimensionMismatchError`: 维度不匹配错误
+  - **新增配置类** (`src/memos/configs/embedder.py`): `FallbackConfig`
+  - **新增环境变量** (`src/memos/configs/env_loader.py`): 11 个 fallback 相关配置
+  - **启用方式**:
+    ```bash
+    MOS_EMBEDDER_FALLBACK_ENABLED=true
+    MOS_EMBEDDER_FALLBACK_MODEL=nomic-embed-text:latest
+    ollama pull nomic-embed-text:latest
+    ```
+  - **重试时序示例**:
+    ```
+    T=0ms:    Try 1 → 失败 (timeout)
+    T=1000ms: Try 2 → 失败 (delay 1s)
+    T=3000ms: Try 3 → 失败 (delay 2s)
+    T=7000ms: Fallback to Ollama → 成功
+    ```
+
 - **🛡️ MCP Fallback Tools for Isolated Projects** (`mcp-server/memos_mcp_server.py`)
   - `memos_register_cube`: Manual cube registration when auto-registration fails
     - Parameters: `cube_id` (required), `cube_path` (optional, auto-detected from MEMOS_CUBES_DIR)

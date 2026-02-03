@@ -1,4 +1,4 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import Field, SerializeAsAny, field_validator, model_validator
 
@@ -57,6 +57,25 @@ class UniversalAPIEmbedderConfig(BaseEmbedderConfig):
     api_key: str = Field(..., description="API key for the embedding provider")
     base_url: str | None = Field(
         default=None, description="Optional base URL for custom or proxied endpoint"
+    )
+
+
+class FallbackConfig(BaseConfig):
+    """Configuration for embedder fallback behavior."""
+
+    enabled: bool = Field(default=False, description="Enable automatic fallback to backup embedder")
+    fallback_backend: str = Field(default="ollama", description="Backend to use for fallback (e.g., 'ollama')")
+    fallback_model: str = Field(default="nomic-embed-text:latest", description="Model name for fallback embedder")
+    fallback_api_base: str = Field(default="http://localhost:11434", description="API base URL for fallback embedder")
+    fallback_embedding_dims: int | None = Field(default=None, description="Embedding dimensions for fallback (None = auto)")
+    max_retries: int = Field(default=3, ge=1, le=10, description="Maximum retry attempts for transient errors")
+    initial_delay_ms: int = Field(default=1000, ge=100, le=60000, description="Initial retry delay in milliseconds")
+    max_delay_ms: int = Field(default=30000, ge=1000, le=300000, description="Maximum retry delay in milliseconds")
+    backoff_multiplier: float = Field(default=2.0, ge=1.0, le=5.0, description="Exponential backoff multiplier")
+    jitter: bool = Field(default=True, description="Add random jitter to retry delays")
+    dimension_mismatch_strategy: Literal["error", "warn_and_continue", "pad_or_truncate"] = Field(
+        default="error",
+        description="Strategy when primary and fallback have different embedding dimensions"
     )
 
 
