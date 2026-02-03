@@ -544,7 +544,70 @@ MCP (Model Context Protocol) allows AI to **proactively** use memory tools.
 
 ## 🚀 Quick Start
 
-### 1️⃣ Deploy MemOS Backend
+### 📦 Bundle Install (Recommended for Beginners | 推荐新手使用)
+
+The easiest way to get started - everything included, no manual dependency setup!
+
+整合包方式最简单 - 包含所有依赖，无需手动配置！
+
+<div align="center">
+
+#### 📥 Download Bundle | 下载整合包
+
+| Platform | Download Link | Includes |
+|----------|---------------|----------|
+| **Windows x64** | [**夸克网盘下载**](https://pan.quark.cn/s/d24876f7c167) | Neo4j + JRE + Qdrant + Conda + 免费API申请指引 |
+
+> 整合包包含完整运行环境和详细安装指引，小白用户推荐使用！
+>
+> Bundle includes complete runtime environment and detailed setup guide, recommended for beginners!
+
+</div>
+
+<details open>
+<summary><b>Windows</b></summary>
+
+```cmd
+:: 1. 解压整合包到任意目录 / Extract bundle to any directory
+:: 2. 运行安装脚本 / Run install script
+scripts\bundle\install.bat
+
+:: 3. 编辑 .env 配置 LLM API Key / Edit .env for LLM API Key
+notepad .env
+
+:: 4. 配置 MCP 到 Claude Code / Configure MCP for Claude Code
+scripts\bundle\configure_mcp.bat
+
+:: 5. 启动所有服务 / Start all services
+scripts\bundle\start.bat
+```
+
+</details>
+
+<details>
+<summary><b>Linux / macOS</b></summary>
+
+```bash
+# 1. Run install script
+bash scripts/bundle/install.sh
+
+# 2. Edit .env for LLM API Key
+nano .env
+
+# 3. Configure MCP for Claude Code
+bash scripts/bundle/configure_mcp.sh
+
+# 4. Start all services
+bash scripts/bundle/start.sh
+```
+
+</details>
+
+> 📖 **Detailed Guide**: [Bundle Quick Start Guide](docs/QUICKSTART_BUNDLE.md)
+
+---
+
+### 1️⃣ Deploy MemOS Backend (Manual Setup)
 
 <details>
 <summary><b>Windows (Portable Recommended)</b></summary>

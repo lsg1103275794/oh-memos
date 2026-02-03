@@ -224,6 +224,12 @@ venv.bak/
 !poetry.lock
 !requirements.txt
 verify_mems.py
+# ========== Bundle Runtime (DO NOT UPLOAD - contains binaries + personal data) ==========
+# Neo4j, Qdrant, JRE, Conda environments
+src/bin/
+runtime/
+temp/
+
 # ========== Local Scripts (machine-specific) ==========
 scripts/local/
 start_db.bat

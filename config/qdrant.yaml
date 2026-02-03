@@ -1,0 +1,15 @@
+# Qdrant Configuration for MemOS Bundle
+# Qdrant 整合包配置
+
+storage:
+  # 数据存储路径（由启动脚本通过命令行参数覆盖）
+  storage_path: ./data/qdrant
+
+service:
+  # gRPC 端口
+  grpc_port: 6334
+  # REST API 端口
+  http_port: 6333
+
+# 日志配置
+log_level: INFO
