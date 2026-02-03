@@ -6,10 +6,24 @@ Claude Code hooks for enhanced memory integration.
 
 | Script | Event | Purpose |
 |--------|-------|---------|
-| `memos_user_prompt` | UserPromptSubmit | Confirm memory system active |
+| `memos_user_prompt` | UserPromptSubmit | **Smart intent detection** - suggests memory actions |
 | `memos_block_sensitive` | PreToolUse | Warn on sensitive file edits |
 | `memos_log_commands` | PostToolUse | Log bash commands |
 | `memos_notify_milestone` | PostToolUse | Suggest saving milestones |
+
+## Smart Intent Detection (memos_user_prompt)
+
+The enhanced `memos_user_prompt` hook analyzes user prompts and suggests relevant memory actions:
+
+| Intent | Trigger Keywords | Suggestion |
+|--------|------------------|------------|
+| **History Query** | 之前, 上次, previously, how did we | `memos_search` for past work |
+| **Error Report** | error, 错误, failed, bug, traceback | `memos_search(ERROR_PATTERN)` |
+| **Decision Making** | 应该用, should we use, vs, 方案 | Save as `DECISION` |
+| **Task Completion** | 完成了, fixed, implemented | Save as `MILESTONE/BUGFIX/FEATURE` |
+| **Relationship Query** | 为什么失败, what caused, 依赖 | `memos_get_graph` |
+| **Status Query** | 进度, progress, 总结 | `memos_list` |
+| **Config Topic** | 配置, config, 环境变量 | Save as `CONFIG` |
 
 ## Platform Support
 
@@ -84,10 +98,17 @@ project-memory/hooks/
 
 ## Hook Descriptions
 
-### memos_user_prompt
+### memos_user_prompt (Enhanced)
 - **Trigger**: Every user message
-- **Action**: Returns success to confirm memory system is active
-- **Output**: Silent (suppressed)
+- **Action**: Analyzes prompt for intent patterns
+- **Detects**: 7 intent types (history, error, decision, completion, relationship, status, config)
+- **Output**: Memory hints when relevant patterns detected (max 2 suggestions)
+- **Example Output**:
+  ```
+  🧠 Memory hints:
+  → Consider: memos_search(query="ERROR_PATTERN ...") for past solutions
+  → Consider saving: MILESTONE (big feature) / BUGFIX (fix) / FEATURE (new)
+  ```
 
 ### memos_block_sensitive
 - **Trigger**: Before Edit/Write operations
