@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ BREAKING CHANGES
+
+- **🚨 `memos_save` 强制要求 `memory_type` 参数** (`mcp-server/tools_registry.py`, `handlers/memory.py`)
+  - `memory_type` 从可选参数变为**必填参数**
+  - 移除 `default: "PROGRESS"` 默认值
+  - 不带 `memory_type` 的保存请求会被立即拒绝，并返回类型选择决策树
+  - 移除自动检测降级逻辑（`detect_memory_type` 不再作为保存时的 fallback）
+  - **迁移指南**：
+    ```python
+    # ❌ 旧用法（不再支持）
+    memos_save(content="修复了登录问题")
+
+    # ✅ 新用法（必须指定类型）
+    memos_save(content="修复了登录问题", memory_type="BUGFIX")
+    ```
+  - **背景**：历史数据中 532 条记忆全部为 PROGRESS 类型（100%），导致知识图谱语义分类缺失。此变更从 Schema 层和 Handler 层双重强制分类，防止无效记忆堆积
+
+### Added
+
+- **🪝 Claude Code Hooks 增强** (`.claude/hooks/`)
+  - `memos_auto_save.js/sh` (新增): PostToolUse 智能保存建议
+    - 检测配置文件编辑 → 建议 CONFIG
+    - 检测项目文件更新 → 建议 MILESTONE
+    - 检测命令失败 → 建议搜索 ERROR_PATTERN
+    - 检测依赖安装 → 建议 CONFIG
+  - `memos_block_sensitive.js/sh` (增强): 四级敏感度检测
+    - 🚨 CRITICAL: SSH 密钥、证书、云凭证
+    - ⚠️ HIGH: .env、密码、secrets
+    - ⚙️ MEDIUM: 配置文件（带保存提醒）
+    - 📦 LOW: 自动生成文件（覆盖警告）
+  - Hooks 全局部署：WSL `~/.claude/hooks/node/` + Windows `AppData/Roaming/Claude/hooks/node/`
+
+- **📄 README.md 重构** (主页)
+  - 从 1400+ 行精简至 ~210 行
+  - 添加架构思维导图、特性展示等可视化图片 (`docs/images/`)
+  - 详细内容链接至 docs/ 目录
+
 ### Changed
 
 - **📄 CLAUDE.md 精简 + SKILL.md 增强** (架构优化)
