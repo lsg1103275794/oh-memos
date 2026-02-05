@@ -32,7 +32,15 @@ from cube_manager import (
 )
 from mcp.types import TextContent
 
-from handlers.utils import error_response, get_cube_id_from_args
+from handlers.utils import (
+    ERR_CUBE_NOT_FOUND,
+    ERR_DELETE_DISABLED,
+    ERR_PARAM_MISSING,
+    api_error_response,
+    cube_registration_error,
+    error_response,
+    get_cube_id_from_args,
+)
 
 
 async def handle_memos_list_cubes(
@@ -84,7 +92,14 @@ async def handle_memos_register_cube(
     cube_path = arguments.get("cube_path")
 
     if not cube_id:
-        return error_response("❌ `cube_id` is required")
+        return error_response(
+            "cube_id parameter is required",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Use memos_list_cubes() to find available cubes",
+                "Example: `memos_register_cube(cube_id=\"dev_cube\")`",
+            ],
+        )
 
     # If path not provided, try to find it
     if not cube_path:
@@ -131,12 +146,16 @@ async def handle_memos_register_cube(
                     hint = "\n\n**Hint**: Edit the cube's config.json and change `reranker.backend` to `http_bge` or `noop`."
                 elif "user" in error_msg.lower():
                     hint = "\n\n**Hint**: Use `memos_create_user` tool to create the user first."
-                return error_response(f"❌ Registration failed: {error_msg}{hint}")
+                return error_response(
+                    f"Registration failed: {error_msg}",
+                    error_code=ERR_CUBE_NOT_FOUND if "not found" in error_msg.lower() else None,
+                    suggestions=[s for s in [hint.replace("\n\n**Hint**: ", "") if hint else None] if s],
+                )
         else:
-            return error_response(f"❌ API error: HTTP {response.status_code}")
+            return api_error_response("Registration", f"HTTP {response.status_code}")
 
     except Exception as e:
-        return error_response(f"❌ Registration error: {e!s}")
+        return api_error_response("Registration", str(e))
 
 
 async def handle_memos_create_user(
@@ -173,12 +192,12 @@ async def handle_memos_create_user(
                 # Check if user already exists
                 if "exist" in error_msg.lower():
                     return [TextContent(type="text", text=f"ℹ️ User `{user_id}` already exists. You can proceed with cube registration.")]
-                return error_response(f"❌ User creation failed: {error_msg}")
+                return error_response(f"User creation failed: {error_msg}")
         else:
-            return error_response(f"❌ API error: HTTP {response.status_code}")
+            return api_error_response("User creation", f"HTTP {response.status_code}")
 
     except Exception as e:
-        return error_response(f"❌ User creation error: {e!s}")
+        return api_error_response("User creation", str(e))
 
 
 async def handle_memos_validate_cubes(
@@ -190,7 +209,14 @@ async def handle_memos_validate_cubes(
     cubes_dir = get_cubes_base_dir()
 
     if not cubes_dir or not os.path.isdir(cubes_dir):
-        return error_response(f"❌ Cubes directory not found: {cubes_dir}")
+        return error_response(
+            f"Cubes directory not found: {cubes_dir}",
+            error_code=ERR_CUBE_NOT_FOUND,
+            suggestions=[
+                "Set MEMOS_CUBES_DIR in .env",
+                "Verify the directory exists on disk",
+            ],
+        )
 
     results = ["## 🔍 Cube Configuration Validation\n"]
     fixed_count = 0
@@ -258,7 +284,7 @@ async def handle_memos_validate_cubes(
         return [TextContent(type="text", text="\n".join(results))]
 
     except Exception as e:
-        return error_response(f"❌ Validation error: {e!s}")
+        return api_error_response("Validation", str(e))
 
 
 async def handle_memos_delete(
@@ -268,7 +294,14 @@ async def handle_memos_delete(
     """Handle memos_delete tool call."""
     # Safety check - only allow if explicitly enabled
     if not MEMOS_ENABLE_DELETE:
-        return error_response("❌ Delete functionality is DISABLED. Set MEMOS_ENABLE_DELETE=true in environment to enable.")
+        return error_response(
+            "Delete functionality is disabled",
+            error_code=ERR_DELETE_DISABLED,
+            suggestions=[
+                "Set MEMOS_ENABLE_DELETE=true in environment to enable",
+                "This is a safety feature to prevent accidental data loss",
+            ],
+        )
 
     cube_id = get_cube_id_from_args(arguments)
     memory_id = arguments.get("memory_id")
@@ -285,7 +318,7 @@ async def handle_memos_delete(
     # Auto-register cube
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     if delete_all:
         # Delete ALL memories - very dangerous!
@@ -341,4 +374,12 @@ async def handle_memos_delete(
         return [TextContent(type="text", text="\n".join(results))]
 
     else:
-        return error_response("❌ Must provide either `memory_id`, `memory_ids` or `delete_all=true`")
+        return error_response(
+            "No target specified for deletion",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Provide `memory_id` for single delete",
+                "Provide `memory_ids` for batch delete",
+                "Set `delete_all=true` to delete all memories (dangerous)",
+            ],
+        )

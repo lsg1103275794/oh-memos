@@ -47,10 +47,27 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     try:
         return await dispatch_tool(client, name, arguments)
     except httpx.ConnectError:
-        return [TextContent(type="text", text=f"❌ Cannot connect to MemOS API at {MEMOS_URL}. Is the server running?")]
+        return [TextContent(
+            type="text",
+            text=(
+                f"❌ [API_UNREACHABLE] Cannot connect to MemOS API at {MEMOS_URL}\n\n"
+                "💡 Suggestions:\n"
+                "- Check if MemOS API is running: `curl http://localhost:18000/health`\n"
+                "- Start with: `scripts/local/start.bat`\n"
+                "- Check port availability"
+            )
+        )]
     except Exception as e:
         logger.exception("Tool call failed")
-        return [TextContent(type="text", text=f"Error: {e!s}")]
+        return [TextContent(
+            type="text",
+            text=(
+                f"❌ [UNEXPECTED_ERROR] {e!s}\n\n"
+                "💡 Suggestions:\n"
+                "- Check MCP server logs for details\n"
+                "- Verify MemOS API is healthy: `curl http://localhost:18000/health/detail`"
+            )
+        )]
 
 
 async def _background_init():

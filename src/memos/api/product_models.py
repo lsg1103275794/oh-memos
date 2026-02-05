@@ -1317,3 +1317,47 @@ class ExistMemCubeIdRequest(BaseRequest):
 
 class ExistMemCubeIdResponse(BaseResponse[dict[str, bool]]):
     """Response model for checking if mem cube id exists."""
+
+
+# ─── Health Check Models ───────────────────────────────────────────────────────
+
+
+class ComponentHealth(BaseModel):
+    """Health status for a single component."""
+
+    status: Literal["ok", "error", "unavailable"] = Field(
+        ..., description="Component status: ok, error, or unavailable"
+    )
+    latency_ms: float | None = Field(None, description="Response latency in milliseconds")
+    error: str | None = Field(None, description="Error message if status is not ok")
+    version: str | None = Field(None, description="Component version if available")
+
+
+class HealthStatus(BaseModel):
+    """Simple health status data."""
+
+    status: Literal["ok", "degraded", "down"] = Field(
+        ..., description="Overall system status"
+    )
+    timestamp: str = Field(..., description="ISO 8601 timestamp")
+
+
+class HealthDetailData(BaseModel):
+    """Detailed health check data."""
+
+    overall_status: Literal["ok", "degraded", "down"] = Field(
+        ..., description="Overall system status"
+    )
+    timestamp: str = Field(..., description="ISO 8601 timestamp")
+    uptime_seconds: float = Field(..., description="Server uptime in seconds")
+    components: dict[str, ComponentHealth] = Field(
+        ..., description="Health status of each component"
+    )
+
+
+class HealthResponse(BaseResponse[HealthStatus]):
+    """Response model for simple health check."""
+
+
+class HealthDetailResponse(BaseResponse[HealthDetailData]):
+    """Response model for detailed health check."""

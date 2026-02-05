@@ -23,6 +23,7 @@ from memos.api.handlers.base_handler import HandlerDependencies
 from memos.api.handlers.chat_handler import ChatHandler
 from memos.api.handlers.feedback_handler import FeedbackHandler
 from memos.api.handlers.graph_handler import GraphHandler
+from memos.api.handlers.health_handler import HealthHandler
 from memos.api.handlers.search_handler import SearchHandler
 from memos.api.product_models import (
     AllStatusResponse,
@@ -45,6 +46,8 @@ from memos.api.product_models import (
     GetUserNamesByMemoryIdsRequest,
     GetUserNamesByMemoryIdsResponse,
     GraphResponse,
+    HealthDetailResponse,
+    HealthResponse,
     MemoryResponse,
     SchemaResponse,
     SearchResponse,
@@ -89,6 +92,7 @@ chat_handler = (
     else None
 )
 feedback_handler = FeedbackHandler(dependencies)
+health_handler = HealthHandler(dependencies, redis_client=redis_client, llm=llm)
 # Extract commonly used components for function-based handlers
 # (These can be accessed from the components dict without unpacking all of them)
 mem_scheduler: BaseScheduler = components["mem_scheduler"]
@@ -98,6 +102,38 @@ redis_client = components["redis_client"]
 status_tracker = TaskStatusTracker(redis_client=redis_client)
 graph_db = components["graph_db"]
 vector_db = components["vector_db"]
+
+
+# =============================================================================
+# Health Check API Endpoints
+# =============================================================================
+
+
+@router.get("/health", summary="Health check", response_model=HealthResponse)
+def health_check():
+    """
+    Simple health check for load balancers and k8s probes.
+
+    Returns overall system status:
+    - ok: All components operational
+    - degraded: Non-critical components unavailable
+    - down: Critical components (Neo4j/Qdrant) unavailable
+    """
+    return health_handler.handle_health()
+
+
+@router.get("/health/detail", summary="Detailed health check", response_model=HealthDetailResponse)
+def health_check_detail():
+    """
+    Detailed health check showing all component statuses.
+
+    Returns status, latency, and error information for each component:
+    - neo4j: Graph database
+    - qdrant: Vector database
+    - redis: Cache/scheduler (if configured)
+    - ollama: LLM service (if configured)
+    """
+    return health_handler.handle_health_detail()
 
 
 # =============================================================================

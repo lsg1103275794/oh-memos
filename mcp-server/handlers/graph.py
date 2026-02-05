@@ -27,7 +27,14 @@ from query_processing import (
     get_intent_description,
 )
 
-from handlers.utils import error_response, get_cube_id_from_args
+from handlers.utils import (
+    ERR_NEO4J_CONFIG,
+    ERR_PARAM_MISSING,
+    api_error_response,
+    cube_registration_error,
+    error_response,
+    get_cube_id_from_args,
+)
 
 
 async def handle_memos_trace_path(
@@ -41,12 +48,19 @@ async def handle_memos_trace_path(
     max_depth = min(arguments.get("max_depth", 3), 10)
 
     if not source_id or not target_id:
-        return error_response("❌ Both source_id and target_id are required.")
+        return error_response(
+            "Both source_id and target_id are required",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Get node IDs from memos_search or memos_get_graph",
+                "Example: `memos_trace_path(source_id=\"uuid-1\", target_id=\"uuid-2\")`",
+            ],
+        )
 
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     # Call the trace_path API endpoint
     try:
@@ -115,15 +129,22 @@ async def handle_memos_trace_path(
 
                 return [TextContent(type="text", text="\n".join(results))]
             else:
-                return error_response(f"Trace path failed: {data.get('message', 'Unknown error')}")
+                return api_error_response("Trace path", data.get("message", "Unknown error"))
         else:
-            return error_response(f"API error: {response.status_code}")
+            return api_error_response("Trace path", f"HTTP {response.status_code}")
 
     except Exception as e:
         logger.warning(f"Falling back to direct Neo4j query: {e}")
 
         if not NEO4J_HTTP_URL or not NEO4J_USER or not NEO4J_PASSWORD:
-            return error_response("Neo4j fallback requires NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env")
+            return error_response(
+                "Neo4j configuration missing",
+                error_code=ERR_NEO4J_CONFIG,
+                suggestions=[
+                    "Set NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env",
+                    "Example: NEO4J_HTTP_URL=http://localhost:7474/db/neo4j/tx/commit",
+                ],
+            )
 
         neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
 
@@ -190,10 +211,17 @@ async def handle_memos_get_graph(
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     if not NEO4J_HTTP_URL or not NEO4J_USER or not NEO4J_PASSWORD:
-        return error_response("Neo4j query requires NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env")
+        return error_response(
+            "Neo4j configuration missing",
+            error_code=ERR_NEO4J_CONFIG,
+            suggestions=[
+                "Set NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env",
+                "Example: NEO4J_HTTP_URL=http://localhost:7474/db/neo4j/tx/commit",
+            ],
+        )
 
     neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
 
@@ -318,7 +346,7 @@ async def handle_memos_export_schema(
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     try:
         response = await client.post(
@@ -404,10 +432,10 @@ async def handle_memos_export_schema(
 
                 return [TextContent(type="text", text="\n".join(results))]
             else:
-                return error_response(f"Schema export failed: {data.get('message', 'Unknown error')}")
+                return api_error_response("Schema export", data.get("message", "Unknown error"))
         else:
-            return error_response(f"API error: {response.status_code}")
+            return api_error_response("Schema export", f"HTTP {response.status_code}")
 
     except Exception as e:
         logger.error(f"Schema export error: {e}")
-        return error_response(f"Schema export error: {e!s}")
+        return api_error_response("Schema export", str(e))

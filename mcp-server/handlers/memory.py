@@ -16,7 +16,13 @@ from formatters import format_memories_for_display
 from mcp.types import TextContent
 from query_processing import compute_memory_stats
 
-from handlers.utils import error_response, get_cube_id_from_args
+from handlers.utils import (
+    ERR_PARAM_MISSING,
+    api_error_response,
+    cube_registration_error,
+    error_response,
+    get_cube_id_from_args,
+)
 
 
 async def handle_memos_save(
@@ -31,18 +37,19 @@ async def handle_memos_save(
     # memory_type is now REQUIRED - reject if not provided
     if not memory_type:
         return error_response(
-            "## ❌ memory_type 参数必填\n\n"
-            "保存记忆时**必须显式指定** `memory_type` 参数。\n\n"
-            "**类型选择决策树**：\n"
-            "- 修复 Bug → `BUGFIX` 或 `ERROR_PATTERN`\n"
-            "- 技术决策 → `DECISION`\n"
-            "- 发现陷阱 → `GOTCHA`\n"
-            "- 代码模板 → `CODE_PATTERN`\n"
-            "- 配置变更 → `CONFIG`\n"
-            "- 新功能 → `FEATURE`\n"
-            "- 重大成就 → `MILESTONE`\n"
-            "- 纯进度汇报 → `PROGRESS`\n\n"
-            "**示例**: `memos_save(content=\"...\", memory_type=\"BUGFIX\")`"
+            "memory_type parameter is required",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Bug fix -> `BUGFIX` or `ERROR_PATTERN`",
+                "Technical decision -> `DECISION`",
+                "Gotcha/trap -> `GOTCHA`",
+                "Code template -> `CODE_PATTERN`",
+                "Config change -> `CONFIG`",
+                "New feature -> `FEATURE`",
+                "Major achievement -> `MILESTONE`",
+                "Pure progress update -> `PROGRESS`",
+                "Example: `memos_save(content=\"...\", memory_type=\"BUGFIX\")`",
+            ],
         )
 
     # Prepend memory type if not already present
@@ -52,7 +59,7 @@ async def handle_memos_save(
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     success, data, status = await api_call_with_retry(
         client, "POST", f"{MEMOS_URL}/memories", cube_id,
@@ -66,9 +73,9 @@ async def handle_memos_save(
     if success:
         return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}]")]
     elif data:
-        return error_response(f"Save failed: {data.get('message', 'Unknown error')}")
+        return api_error_response("Save", data.get("message", "Unknown error"))
     else:
-        return error_response(f"API error: {status}")
+        return api_error_response("Save", f"HTTP {status}")
 
 
 async def handle_memos_list(
@@ -83,7 +90,7 @@ async def handle_memos_list(
     # Auto-register cube
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     params = {
         "user_id": MEMOS_USER,
@@ -102,9 +109,9 @@ async def handle_memos_list(
         formatted = format_memories_for_display(data.get("data", {}))
         return [TextContent(type="text", text=formatted)]
     elif data:
-        return error_response(f"List failed: {data.get('message', 'Unknown error')}")
+        return api_error_response("List", data.get("message", "Unknown error"))
     else:
-        return error_response(f"API error: {status}")
+        return api_error_response("List", f"HTTP {status}")
 
 
 async def handle_memos_get_stats(
@@ -117,7 +124,7 @@ async def handle_memos_get_stats(
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     success, data, status = await api_call_with_retry(
         client, "GET", f"{MEMOS_URL}/memories", cube_id,
@@ -156,6 +163,6 @@ async def handle_memos_get_stats(
 
         return [TextContent(type="text", text="\n".join(result))]
     elif data:
-        return error_response(f"Stats failed: {data.get('message', 'Unknown error')}")
+        return api_error_response("Stats", data.get("message", "Unknown error"))
     else:
-        return error_response(f"API error: {status}")
+        return api_error_response("Stats", f"HTTP {status}")

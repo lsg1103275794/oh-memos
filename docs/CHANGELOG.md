@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🏥 Health Check & Observability
+
+- **`/health` 健康检查端点** (`src/memos/api/start_api.py`)
+  - **Feature**: 返回服务整体状态 (`up` / `degraded` / `down`)
+  - **组件检查**: Neo4j (核心), Qdrant (核心), Ollama (非核心)
+  - **状态逻辑**:
+    - 所有核心组件 healthy → `up`
+    - 核心组件均可用但有非核心组件失败 → `degraded`
+    - 任一核心组件失败 → `down`
+  - **无需认证**: 便于监控系统 (Prometheus/Kubernetes) 调用
+
+- **`/health/detail` 详细健康检查端点** (`src/memos/api/start_api.py`)
+  - **Feature**: 返回每个组件的详细状态、响应时间、错误信息
+  - **超时控制**: 每个组件独立 5 秒超时
+  - **响应模型**: `HealthResponse`, `HealthDetailResponse`, `ComponentHealth` (`product_models.py`)
+
+- **Health Handler 备份实现** (`src/memos/api/handlers/health_handler.py`)
+  - 用于 `server_router.py` 的健康检查处理器类
+  - 组件状态检测方法 (`_check_neo4j`, `_check_qdrant`, `_check_ollama`)
+
+### 🛡️ Unified MCP Error Handling
+
+- **标准化错误码** (`mcp-server/handlers/utils.py`)
+  - 10 个错误码: `API_UNREACHABLE`, `API_ERROR`, `CUBE_NOT_FOUND`, `CUBE_REGISTRATION_FAILED`, `PARAM_MISSING`, `PARAM_INVALID`, `MEMORY_SAVE_FAILED`, `MEMORY_DELETE_FAILED`, `SEARCH_FAILED`, `GRAPH_QUERY_FAILED`
+  - **统一错误格式**:
+    ```
+    ❌ [ERROR_CODE] Error message
+
+    💡 Suggestions:
+    - actionable suggestion 1
+    - actionable suggestion 2
+    ```
+  - **辅助函数**: `cube_registration_error()`, `api_error_response()`
+
+- **Handler 更新** (`mcp-server/handlers/`)
+  - `memory.py`: 保存/删除错误使用 `MEMORY_SAVE_FAILED` / `MEMORY_DELETE_FAILED`
+  - `search.py`: 搜索错误使用 `SEARCH_FAILED`
+  - `graph.py`: 图查询错误使用 `GRAPH_QUERY_FAILED`
+  - `admin.py`: Cube 操作错误使用 `CUBE_NOT_FOUND` / `CUBE_REGISTRATION_FAILED`
+
+- **顶层异常处理** (`mcp-server/memos_mcp_server.py`)
+  - 全局 try-catch 返回统一格式错误
+  - 区分 API 不可达 vs 其他异常
+
+### 🗄️ PROGRESS Auto-Archive
+
+- **归档配置** (`.env.example`)
+  - `MEMOS_AUTO_ARCHIVE=true` - 启用自动归档
+  - `MEMOS_ARCHIVE_TTL_DAYS=7` - 归档阈值 (天)
+  - `MEMOS_ARCHIVE_INTERVAL=3600` - 扫描间隔 (秒)
+  - `MEMOS_ARCHIVE_TYPES=PROGRESS` - 需要归档的类型 (逗号分隔)
+
+- **归档逻辑模块** (`src/memos/mem_scheduler/archiver.py`)
+  - `archive_expired_memories_sync()` - 将过期记忆状态改为 `archived`
+  - `get_archive_stats_sync()` - 获取各状态记忆数量统计
+  - `restore_archived_memory_sync()` - 恢复被归档的记忆
+  - `periodic_archive_task()` - 后台定期归档任务
+
+- **归档 API 端点** (`src/memos/api/start_api.py`)
+  - `POST /archive/run` - 手动触发归档
+  - `GET /archive/stats` - 查询归档统计
+  - `POST /archive/restore/{memory_id}` - 恢复被归档记忆
+
+- **后台任务** (`src/memos/api/start_api.py`)
+  - API 启动时自动创建后台归档任务
+  - 默认 1 小时扫描一次
+  - 支持通过环境变量配置
+
+- **设计文档**
+  - `docs/design/phase1_health_check.md` - 健康检查详细设计
+  - `docs/design/phase3_auto_archive.md` - 自动归档详细设计
+
+### 🚀 Technical Evolution (Paper-Inspired)
+
+We have introduced significant architectural upgrades inspired by the latest 2025-2026 RAG and Memory research papers (EverMemOS, MAGMA, HippoRAG 2).
+
+- **🔍 Multi-Graph View Routing (Inspired by MAGMA)** (`query_processing.py`, `handlers/search.py`)
+  - **Feature**: Automatically detects query intent (causal, temporal, conflict, related) and routes the search to specific sub-graphs in Neo4j.
+  - **Impact**: Reduces token consumption and significantly improves precision by filtering irrelevant relationship types (e.g., "Why" queries only traverse `CAUSE` and `CONDITION` edges).
+  - **Mapping**:
+    - `causal` → `CAUSE`, `CONDITION`
+    - `temporal` → `FOLLOWS`
+    - `conflict` → `CONFLICT`
+    - `related` → `RELATE`
+
+- **🧠 HippoRAG 2 PPR Retrieval (Inspired by HippoRAG 2)** (`src/memos/storage/graph_db/neo4j.py`, `recall.py`)
+  - **Feature**: Integrated **Personalized PageRank (PPR)** algorithm via Neo4j GDS plugin.
+  - **Impact**: Beyond simple vector similarity, it allows the AI to discover multi-hop causal chains (e.g., tracing from "Java not installed" to "API timeout").
+  - **Workflow**: Vector search finds "seed nodes" → PPR propagates scores along relationship edges → Returns top-ranked contextual memories.
+
+- **📅 Temporal Graph Enhancement (Inspired by MAGMA)** (`mcp-server/handlers/graph.py`)
+  - **Feature**: Direct Neo4j temporal queries via MCP, supporting natural language time windows (e.g., "recently", "today", "this week").
+  - **Impact**: Efficiently retrieves chronologically linked memories using the `FOLLOWS` relationship.
+
 ### ⚠️ BREAKING CHANGES
 
 - **🚨 `memos_save` 强制要求 `memory_type` 参数** (`mcp-server/tools_registry.py`, `handlers/memory.py`)

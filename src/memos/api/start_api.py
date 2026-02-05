@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import time
 import warnings
 
 from typing import Any, Generic, TypeVar
@@ -17,8 +19,13 @@ from memos.api.product_models import (
     APIGraphRequest,
     APISchemaRequest,
     APITracePathRequest,
+    ComponentHealth,
     GraphData,
     GraphResponse,
+    HealthDetailData,
+    HealthDetailResponse,
+    HealthResponse,
+    HealthStatus,
     PathEdge,
     PathNode,
     SchemaData,
@@ -119,6 +126,321 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestContextMiddleware)
+
+
+# Server start time for uptime calculation
+_server_start_time = time.time()
+
+
+# =============================================================================
+# Health Check Endpoints
+# =============================================================================
+
+
+@app.get("/health", summary="Health check", response_model=HealthResponse)
+async def health_check():
+    """
+    Simple health check for load balancers and k8s probes.
+
+    Returns overall system status:
+    - ok: All components operational
+    - degraded: Non-critical components unavailable
+    - down: Critical components unavailable
+    """
+    from datetime import datetime, timezone
+
+    components = _check_all_components()
+    overall = _compute_overall_status(components)
+
+    return HealthResponse(
+        code=200,
+        message=overall,
+        data=HealthStatus(
+            status=overall,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+
+
+@app.get("/health/detail", summary="Detailed health check", response_model=HealthDetailResponse)
+async def health_check_detail():
+    """
+    Detailed health check showing all component statuses.
+
+    Returns status, latency, and error information for each component:
+    - neo4j: Graph database
+    - qdrant: Vector database
+    """
+    from datetime import datetime, timezone
+
+    components = _check_all_components()
+    overall = _compute_overall_status(components)
+
+    messages = {
+        "ok": "All systems operational",
+        "degraded": "Some non-critical components unavailable",
+        "down": "Critical components unavailable",
+    }
+
+    return HealthDetailResponse(
+        code=200,
+        message=messages.get(overall, "Unknown status"),
+        data=HealthDetailData(
+            overall_status=overall,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            uptime_seconds=round(time.time() - _server_start_time, 2),
+            components=components,
+        ),
+    )
+
+
+def _check_all_components() -> dict[str, ComponentHealth]:
+    """Check health of all components."""
+    components = {}
+    components["neo4j"] = _check_neo4j()
+    components["qdrant"] = _check_qdrant()
+    return components
+
+
+def _compute_overall_status(components: dict[str, ComponentHealth]) -> str:
+    """Compute overall system status."""
+    critical = {"neo4j", "qdrant"}
+
+    for comp_name in critical:
+        comp = components.get(comp_name)
+        if comp is None or comp.status != "ok":
+            return "down"
+
+    all_ok = all(c.status == "ok" for c in components.values())
+    return "ok" if all_ok else "degraded"
+
+
+def _check_neo4j() -> ComponentHealth:
+    """Check Neo4j connection."""
+    import time as _time
+
+    try:
+        mos = get_mos_instance()
+        graph_db = None
+
+        # Find graph_db from any cube
+        for cube in mos.mem_cubes.values():
+            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                graph_db = cube.text_mem.graph_store
+                break
+
+        if graph_db is None:
+            return ComponentHealth(status="unavailable", error="No graph database configured")
+
+        driver = getattr(graph_db, "driver", None)
+        if driver is None:
+            return ComponentHealth(status="unavailable", error="No driver available")
+
+        start = _time.perf_counter()
+        with driver.session() as session:
+            result = session.run("RETURN 1 AS health_check")
+            result.single()
+        latency = (_time.perf_counter() - start) * 1000
+
+        return ComponentHealth(status="ok", latency_ms=round(latency, 2))
+
+    except Exception as e:
+        logger.warning(f"Neo4j health check failed: {e}")
+        return ComponentHealth(status="error", error=str(e)[:200])
+
+
+def _check_qdrant() -> ComponentHealth:
+    """Check Qdrant connection."""
+    import time as _time
+
+    try:
+        mos = get_mos_instance()
+        vector_db = None
+
+        # Find vector_db from any cube
+        for cube in mos.mem_cubes.values():
+            if hasattr(cube, "text_mem"):
+                # Try to find vec_db in graph_store (for Neo4jCommunity)
+                graph_store = getattr(cube.text_mem, "graph_store", None)
+                if graph_store and hasattr(graph_store, "vec_db"):
+                    vector_db = graph_store.vec_db
+                    break
+
+        if vector_db is None:
+            return ComponentHealth(status="unavailable", error="No vector database configured")
+
+        client = getattr(vector_db, "client", None)
+        if client is None:
+            return ComponentHealth(status="unavailable", error="No client available")
+
+        start = _time.perf_counter()
+        client.get_collections()
+        latency = (_time.perf_counter() - start) * 1000
+
+        return ComponentHealth(status="ok", latency_ms=round(latency, 2))
+
+    except Exception as e:
+        logger.warning(f"Qdrant health check failed: {e}")
+        return ComponentHealth(status="error", error=str(e)[:200])
+
+
+# =============================================================================
+# Auto-Archive Background Task
+# =============================================================================
+
+_archive_task = None
+
+
+def _get_neo4j_driver():
+    """Get Neo4j driver from MOS instance for archiver."""
+    try:
+        mos = get_mos_instance()
+        for cube in mos.mem_cubes.values():
+            if hasattr(cube, "text_mem"):
+                graph_store = getattr(cube.text_mem, "graph_store", None)
+                if graph_store and hasattr(graph_store, "driver"):
+                    return graph_store.driver
+    except Exception as e:
+        logger.warning(f"Could not get Neo4j driver for archiver: {e}")
+    return None
+
+
+@app.on_event("startup")
+async def startup_archiver():
+    """Start background archive task if enabled."""
+    global _archive_task
+
+    auto_archive = os.environ.get("MEMOS_AUTO_ARCHIVE", "true").lower() == "true"
+    if not auto_archive:
+        logger.info("Startup: Auto-archive is disabled")
+        return
+
+    try:
+        from memos.mem_scheduler.archiver import periodic_archive_task
+
+        _archive_task = asyncio.create_task(
+            periodic_archive_task(_get_neo4j_driver)
+        )
+        logger.info("Startup: Archive background task started")
+    except Exception as e:
+        logger.warning(f"Startup: Failed to start archive task: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_archiver():
+    """Cancel archive task on shutdown."""
+    global _archive_task
+    if _archive_task:
+        _archive_task.cancel()
+        try:
+            await _archive_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Shutdown: Archive task cancelled")
+
+
+# =============================================================================
+# Archive API Endpoints
+# =============================================================================
+
+
+@app.post("/archive/run", summary="Run archive manually")
+async def run_archive():
+    """
+    Manually trigger the archive process.
+
+    Archives expired memories based on configured TTL and types.
+    """
+    driver = _get_neo4j_driver()
+    if not driver:
+        return {"code": 500, "message": "Neo4j driver not available", "data": None}
+
+    try:
+        from memos.mem_scheduler.archiver import archive_expired_memories_sync, get_archive_config
+
+        config = get_archive_config()
+        archived_count = archive_expired_memories_sync(
+            driver,
+            ttl_days=config["ttl_days"],
+            archive_types=config["archive_types"],
+        )
+
+        return {
+            "code": 200,
+            "message": f"Archive completed: {archived_count} memories archived",
+            "data": {
+                "archived_count": archived_count,
+                "ttl_days": config["ttl_days"],
+                "archive_types": config["archive_types"],
+            }
+        }
+    except Exception as e:
+        logger.error(f"Manual archive failed: {e}")
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@app.get("/archive/stats", summary="Get archive statistics")
+async def get_archive_stats():
+    """
+    Get statistics about archived vs active memories.
+    """
+    driver = _get_neo4j_driver()
+    if not driver:
+        return {"code": 500, "message": "Neo4j driver not available", "data": None}
+
+    try:
+        from memos.mem_scheduler.archiver import get_archive_stats_sync, get_archive_config
+
+        stats = get_archive_stats_sync(driver)
+        config = get_archive_config()
+
+        return {
+            "code": 200,
+            "message": "Stats retrieved",
+            "data": {
+                "status_counts": stats,
+                "config": {
+                    "enabled": config["enabled"],
+                    "ttl_days": config["ttl_days"],
+                    "archive_types": config["archive_types"],
+                    "interval_seconds": config["interval_seconds"],
+                }
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to get archive stats: {e}")
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@app.post("/archive/restore/{memory_id}", summary="Restore archived memory")
+async def restore_archived_memory(memory_id: str):
+    """
+    Restore an archived memory back to active status.
+    """
+    driver = _get_neo4j_driver()
+    if not driver:
+        return {"code": 500, "message": "Neo4j driver not available", "data": None}
+
+    try:
+        from memos.mem_scheduler.archiver import restore_archived_memory_sync
+
+        restored = restore_archived_memory_sync(driver, memory_id)
+
+        if restored:
+            return {
+                "code": 200,
+                "message": f"Memory {memory_id} restored",
+                "data": {"memory_id": memory_id, "restored": True}
+            }
+        else:
+            return {
+                "code": 404,
+                "message": f"Memory {memory_id} not found or not archived",
+                "data": {"memory_id": memory_id, "restored": False}
+            }
+    except Exception as e:
+        logger.error(f"Failed to restore memory {memory_id}: {e}")
+        return {"code": 500, "message": str(e), "data": None}
 
 
 # Auto-register default cube on startup

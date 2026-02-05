@@ -27,7 +27,11 @@ from query_processing import (
     parse_memory_type_prefix,
 )
 
-from handlers.utils import error_response, get_cube_id_from_args
+from handlers.utils import (
+    api_error_response,
+    cube_registration_error,
+    get_cube_id_from_args,
+)
 
 
 async def _get_temporal_memories(
@@ -195,7 +199,7 @@ async def handle_memos_search(
     # Auto-register cube if needed (with helpful error message)
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     success, data, status = await api_call_with_retry(
         client, "POST", f"{MEMOS_URL}/search", cube_id,
@@ -242,9 +246,9 @@ async def handle_memos_search(
 
         return [TextContent(type="text", text=formatted)]
     elif data:
-        return error_response(f"Search failed: {data.get('message', 'Unknown error')}")
+        return api_error_response("Search", data.get("message", "Unknown error"))
     else:
-        return error_response(f"API error: {status}")
+        return api_error_response("Search", f"HTTP {status}")
 
 
 async def handle_memos_search_context(
@@ -265,7 +269,7 @@ async def handle_memos_search_context(
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
-        return error_response(f"## Cube Registration Failed\n\n{reg_error}")
+        return cube_registration_error(cube_id, reg_error)
 
     # Format context as chat_history for the API
     chat_history = []
@@ -335,9 +339,9 @@ async def handle_memos_search_context(
                     result_data = apply_keyword_rerank(result_data, keyword_query)
                     formatted = format_memories_for_display(result_data)
                     return [TextContent(type="text", text=f"## Search Results (fallback)\n\n{formatted}")]
-            return error_response(f"Search failed: {data.get('message', 'Unknown error')}")
+            return api_error_response("Context search", data.get("message", "Unknown error"))
     else:
-        return error_response(f"API error: {response.status_code}")
+        return api_error_response("Context search", f"HTTP {response.status_code}")
 
 
 async def handle_memos_suggest(
