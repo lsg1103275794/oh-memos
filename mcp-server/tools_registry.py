@@ -24,11 +24,8 @@ USE THIS TOOL PROACTIVELY when:
 - You see similar code patterns (search for CODE_PATTERN)
 - Working with configuration files (search for CONFIG)
 
-The tool returns relevant memories that can help you:
-- Avoid repeating past mistakes
-- Follow established patterns
-- Understand architectural decisions
-- Find solutions to similar problems""",
+Results are automatically compacted when exceeding threshold (15+ items).
+Use memos_get(memory_id) to retrieve full details of specific memories.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -45,6 +42,11 @@ The tool returns relevant memories that can help you:
                         "type": "integer",
                         "description": "Maximum number of results to return (default: 10)",
                         "default": 10
+                    },
+                    "compact": {
+                        "type": "boolean",
+                        "description": "Enable context compression for large results (default: true). Set to false to get full results.",
+                        "default": True
                     }
                 },
                 "required": ["query"]
@@ -150,7 +152,12 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
         ),
         Tool(
             name="memos_list_v2",
-            description="""List memories from a memory cube (v2 with improved formatting).""",
+            description="""List memories from a memory cube with context compression.
+
+Results are automatically compacted when exceeding threshold (15+ items) to save context window.
+Use memos_get(memory_id) to retrieve full details of specific memories.
+
+Set compact=false to disable compression and get full results.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -168,37 +175,38 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
                         "type": "string",
                         "description": "Optional: Filter by memory type (e.g., DECISION, ERROR_PATTERN).",
                         "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX", "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
+                    },
+                    "compact": {
+                        "type": "boolean",
+                        "description": "Enable context compression for large results (default: true). Set to false to get full results.",
+                        "default": True
                     }
                 },
                 "required": []
             }
         ),
         Tool(
-            name="memos_list",
-            description="""List all memories in a project cube.
+            name="memos_get",
+            description="""Get full details of a single memory by ID.
 
-Use this to get an overview of what's been recorded for the project.
-You can filter by memory type to find specific categories like decisions or errors.""",
+Use this after memos_search or memos_list_v2 returns compacted results.
+Retrieves complete memory content, metadata, background, and relations.
+
+Example: memos_get(memory_id="abc123-def456-...")""",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "memory_id": {
+                        "type": "string",
+                        "description": "The full memory ID to retrieve (from memos_search or memos_list_v2 results)"
+                    },
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path.",
                         "default": MEMOS_DEFAULT_CUBE
-                    },
-                    "memory_type": {
-                        "type": "string",
-                        "description": "Filter by memory type (e.g., 'DECISION', 'ERROR_PATTERN')",
-                        "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
-                                "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of memories to return",
-                        "default": 10
                     }
-                }
+                },
+                "required": ["memory_id"]
             }
         ),
         Tool(

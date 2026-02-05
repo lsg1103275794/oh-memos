@@ -2,7 +2,9 @@
 """
 MemOS MCP Server Memory Handlers
 
-Handles memos_save, memos_list, memos_list_v2, memos_get_stats tools.
+Handles memos_save, memos_list, memos_list_v2, memos_get, memos_get_stats tools.
+
+Phase 1 Enhancement: Context compression for efficient token usage.
 """
 
 from typing import Any
@@ -10,10 +12,18 @@ from typing import Any
 import httpx
 
 from api_client import api_call_with_retry
-from config import MEMOS_URL, MEMOS_USER
+from config import MEMOS_URL, MEMOS_USER, logger
 from cube_manager import ensure_cube_registered
 from formatters import format_memories_for_display
 from mcp.types import TextContent
+from models import (
+    COMPACTION_THRESHOLD,
+    PREVIEW_COUNT,
+    CompactedSearchResult,
+    should_compact,
+    to_full,
+    to_minimal,
+)
 from query_processing import compute_memory_stats
 
 from handlers.utils import (
@@ -82,10 +92,11 @@ async def handle_memos_list(
     client: httpx.AsyncClient,
     arguments: dict[str, Any]
 ) -> list[TextContent]:
-    """Handle memos_list and memos_list_v2 tool calls."""
+    """Handle memos_list and memos_list_v2 tool calls with context compression."""
     cube_id = get_cube_id_from_args(arguments)
     limit = arguments.get("limit", 20)
     memory_type = arguments.get("memory_type")
+    compact = arguments.get("compact", True)  # Default to compact mode
 
     # Auto-register cube
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
@@ -106,7 +117,28 @@ async def handle_memos_list(
     )
 
     if success and data:
-        formatted = format_memories_for_display(data.get("data", {}))
+        result_data = data.get("data", {})
+
+        # Extract all memories for counting
+        all_memories = _extract_memories_from_data(result_data)
+        total_count = len(all_memories)
+
+        # Apply context compression if enabled and threshold exceeded
+        if compact and should_compact(total_count):
+            logger.debug(f"Compacting list results: {total_count} > {COMPACTION_THRESHOLD}")
+            preview = [to_minimal(m) for m in all_memories[:PREVIEW_COUNT]]
+            compacted = CompactedSearchResult(
+                preview=preview,
+                total_count=total_count,
+                omitted_count=total_count - len(preview),
+                message="Use memos_get(memory_id=\"<id>\") for full details",
+                query=f"list (type={memory_type})" if memory_type else "list all",
+                cube_id=cube_id,
+            )
+            return [TextContent(type="text", text=compacted.to_display_text())]
+
+        # Standard full display
+        formatted = format_memories_for_display(result_data)
         return [TextContent(type="text", text=formatted)]
     elif data:
         return api_error_response("List", data.get("message", "Unknown error"))
@@ -166,3 +198,135 @@ async def handle_memos_get_stats(
         return api_error_response("Stats", data.get("message", "Unknown error"))
     else:
         return api_error_response("Stats", f"HTTP {status}")
+
+
+def _extract_memories_from_data(data: dict) -> list[dict]:
+    """
+    Extract flat list of memories from API response data.
+
+    Handles both tree_text mode (nested nodes) and flat list responses.
+    """
+    memories = []
+
+    text_mems = data.get("text_mem", [])
+    for cube_data in text_mems:
+        memories_data = cube_data.get("memories", [])
+
+        # Handle tree_text mode (dict with nodes)
+        if isinstance(memories_data, dict) and "nodes" in memories_data:
+            memories.extend(memories_data["nodes"])
+        elif isinstance(memories_data, list):
+            memories.extend(memories_data)
+
+    return memories
+
+
+async def handle_memos_get(
+    client: httpx.AsyncClient,
+    arguments: dict[str, Any]
+) -> list[TextContent]:
+    """
+    Handle memos_get tool call - get full details of a single memory by ID.
+
+    This is the complement to compacted search/list results.
+    When search returns a CompactedSearchResult, use this to get full details.
+    """
+    cube_id = get_cube_id_from_args(arguments)
+    memory_id = arguments.get("memory_id", "")
+
+    if not memory_id:
+        return error_response(
+            "memory_id parameter is required",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Get memory_id from memos_search or memos_list_v2 results",
+                "Example: `memos_get(memory_id=\"abc123-...\")`",
+            ],
+        )
+
+    # Auto-register cube if needed
+    reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+    if not reg_success:
+        return cube_registration_error(cube_id, reg_error)
+
+    # Try to get the specific memory by ID
+    # First, search by ID (most APIs support this)
+    success, data, status = await api_call_with_retry(
+        client, "POST", f"{MEMOS_URL}/search", cube_id,
+        json={
+            "user_id": MEMOS_USER,
+            "query": memory_id,  # Search by ID
+            "install_cube_ids": [cube_id],
+            "top_k": 10
+        }
+    )
+
+    if success and data:
+        result_data = data.get("data", {})
+        all_memories = _extract_memories_from_data(result_data)
+
+        # Find the exact memory by ID
+        target_memory = None
+        for mem in all_memories:
+            if mem.get("id") == memory_id:
+                target_memory = mem
+                break
+
+        if not target_memory:
+            # ID not found in search results, try partial match
+            for mem in all_memories:
+                if memory_id in str(mem.get("id", "")):
+                    target_memory = mem
+                    break
+
+        if target_memory:
+            # Convert to full model and format
+            full_mem = to_full(target_memory, cube_id=cube_id, user_id=MEMOS_USER)
+
+            lines = [
+                f"## 📝 Memory Details",
+                f"",
+                f"**ID**: `{full_mem.id}`",
+                f"**Type**: {full_mem.memory_type}",
+                f"**Cube**: {full_mem.cube_id}",
+            ]
+
+            if full_mem.key:
+                lines.append(f"**Key**: {full_mem.key}")
+            if full_mem.tags:
+                lines.append(f"**Tags**: {', '.join(full_mem.tags)}")
+            if full_mem.created_at:
+                lines.append(f"**Created**: {full_mem.created_at}")
+
+            lines.append("")
+            lines.append("### Content")
+            lines.append("")
+            lines.append(full_mem.content)
+
+            if full_mem.background:
+                lines.append("")
+                lines.append("### Background")
+                lines.append("")
+                lines.append(full_mem.background)
+
+            if full_mem.relations:
+                lines.append("")
+                lines.append("### Relations")
+                lines.append("")
+                for rel in full_mem.relations[:5]:  # Limit relations
+                    lines.append(f"- {rel}")
+
+            return [TextContent(type="text", text="\n".join(lines))]
+        else:
+            return [TextContent(
+                type="text",
+                text=f"❌ Memory not found: `{memory_id}`\n\n"
+                     f"💡 **Tips**:\n"
+                     f"- Verify the ID is correct (copy from memos_search results)\n"
+                     f"- The memory may have been deleted\n"
+                     f"- Try `memos_search` to find the memory again"
+            )]
+    elif data:
+        return api_error_response("Get", data.get("message", "Unknown error"))
+    else:
+        return api_error_response("Get", f"HTTP {status}")

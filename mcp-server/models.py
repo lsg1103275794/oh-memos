@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""
+MemOS MCP Server Models Module
+
+Context Engineering Optimization: Layered memory models for efficient token usage.
+Inspired by beads project's context compression patterns.
+
+Model Hierarchy:
+- MemoryMinimal: List views (~80% token reduction)
+- MemoryBrief: Standard search results
+- MemoryFull: Full details (memos_get only)
+"""
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
+
+
+class MemoryType(str, Enum):
+    """Memory type enumeration."""
+    ERROR_PATTERN = "ERROR_PATTERN"
+    DECISION = "DECISION"
+    MILESTONE = "MILESTONE"
+    BUGFIX = "BUGFIX"
+    FEATURE = "FEATURE"
+    CONFIG = "CONFIG"
+    CODE_PATTERN = "CODE_PATTERN"
+    GOTCHA = "GOTCHA"
+    PROGRESS = "PROGRESS"
+
+
+# ============================================
+# Layered Models: Minimal → Brief → Full
+# ============================================
+
+class MemoryMinimal(BaseModel):
+    """
+    Minimal model for list views (~80% token reduction).
+
+    Used in:
+    - CompactedSearchResult preview
+    - Large result set summaries
+    """
+    id: str
+    memory_type: str = "PROGRESS"
+    summary: str = Field(description="First 100 chars of content")
+    created_at: Optional[str] = None
+
+    class Config:
+        extra = "ignore"
+
+
+class MemoryBrief(MemoryMinimal):
+    """
+    Brief model for standard search results.
+
+    Includes key metadata without full content.
+    """
+    key: Optional[str] = None
+    tags: list[str] = []
+    relevance: float = 1.0
+
+
+class MemoryFull(MemoryBrief):
+    """
+    Full model - only returned by memos_get.
+
+    Contains complete memory content and all metadata.
+    """
+    content: str = ""
+    background: Optional[str] = None
+    cube_id: str = ""
+    user_id: str = ""
+    relations: list[dict] = []
+
+
+# ============================================
+# Compacted Result Wrappers
+# ============================================
+
+class CompactedSearchResult(BaseModel):
+    """
+    Compacted result for large search result sets.
+
+    Returns preview + summary instead of full results to save context window.
+    """
+    preview: list[MemoryMinimal]
+    total_count: int
+    omitted_count: int
+    message: str = "Use memos_get(<id>) for full memory details"
+    query: str = ""
+    cube_id: str = ""
+
+    def to_display_text(self) -> str:
+        """Format for MCP response."""
+        lines = [
+            f"## 🔍 Search Results (Compacted)",
+            f"",
+            f"**Query**: `{self.query}`",
+            f"**Total**: {self.total_count} memories found",
+            f"**Showing**: Top {len(self.preview)} (omitted {self.omitted_count})",
+            f"",
+            f"### Preview",
+            f"",
+        ]
+
+        for i, mem in enumerate(self.preview, 1):
+            mem_type_icon = _get_type_icon(mem.memory_type)
+            lines.append(f"{i}. {mem_type_icon} **[{mem.memory_type}]** {mem.summary}")
+            lines.append(f"   ID: `{mem.id}`")
+            lines.append("")
+
+        lines.append("---")
+        lines.append("")
+        lines.append(f"💡 **Tip**: Use `memos_get(memory_id=\"<id>\")` to get full details of a specific memory.")
+
+        return "\n".join(lines)
+
+
+class SearchResult(BaseModel):
+    """Standard search result (non-compacted)."""
+    memories: list[MemoryBrief]
+    total_count: int
+    query: str = ""
+    cube_id: str = ""
+
+
+# ============================================
+# Compaction Configuration
+# ============================================
+
+# Threshold: compact results when count exceeds this
+COMPACTION_THRESHOLD = 15
+
+# Number of items to show in compacted preview
+PREVIEW_COUNT = 5
+
+
+def should_compact(count: int) -> bool:
+    """Determine if results should be compacted."""
+    return count > COMPACTION_THRESHOLD
+
+
+def _get_type_icon(memory_type: str) -> str:
+    """Get emoji icon for memory type."""
+    icons = {
+        "ERROR_PATTERN": "🔴",
+        "BUGFIX": "🐛",
+        "DECISION": "📋",
+        "GOTCHA": "⚠️",
+        "CODE_PATTERN": "📝",
+        "CONFIG": "⚙️",
+        "FEATURE": "✨",
+        "MILESTONE": "🎯",
+        "PROGRESS": "📊",
+    }
+    return icons.get(memory_type, "📌")
+
+
+# ============================================
+# Conversion Utilities
+# ============================================
+
+def to_minimal(memory: dict) -> MemoryMinimal:
+    """Convert raw memory dict to minimal model."""
+    content = memory.get("memory", "") or memory.get("content", "")
+
+    # Extract memory type from [TYPE] prefix
+    memory_type = "PROGRESS"
+    if content.startswith("["):
+        import re
+        match = re.match(r"^\[([A-Z_]+)\]", content)
+        if match:
+            memory_type = match.group(1)
+            content = re.sub(r"^\[[A-Z_]+\]\s*", "", content)
+
+    # Create summary (first line, max 100 chars)
+    first_line = content.split("\n")[0]
+    summary = first_line[:100] + "..." if len(first_line) > 100 else first_line
+
+    return MemoryMinimal(
+        id=memory.get("id", ""),
+        memory_type=memory_type,
+        summary=summary,
+        created_at=memory.get("updated_at") or memory.get("created_at"),
+    )
+
+
+def to_brief(memory: dict) -> MemoryBrief:
+    """Convert raw memory dict to brief model."""
+    minimal = to_minimal(memory)
+
+    return MemoryBrief(
+        id=minimal.id,
+        memory_type=minimal.memory_type,
+        summary=minimal.summary,
+        created_at=minimal.created_at,
+        key=memory.get("key"),
+        tags=memory.get("tags", []) or [],
+        relevance=memory.get("metadata", {}).get("relativity", 1.0),
+    )
+
+
+def to_full(memory: dict, cube_id: str = "", user_id: str = "") -> MemoryFull:
+    """Convert raw memory dict to full model."""
+    brief = to_brief(memory)
+    content = memory.get("memory", "") or memory.get("content", "")
+
+    # Remove [TYPE] prefix from content for clean display
+    import re
+    clean_content = re.sub(r"^\[[A-Z_]+\]\s*", "", content)
+
+    return MemoryFull(
+        id=brief.id,
+        memory_type=brief.memory_type,
+        summary=brief.summary,
+        created_at=brief.created_at,
+        key=brief.key,
+        tags=brief.tags,
+        relevance=brief.relevance,
+        content=clean_content,
+        background=memory.get("background"),
+        cube_id=cube_id,
+        user_id=user_id,
+        relations=memory.get("relations", []),
+    )

@@ -4,6 +4,7 @@ MemOS MCP Server Search Handlers
 
 Handles memos_search, memos_search_context, memos_suggest tools.
 Enhanced with P2: Temporal Graph Search for time-based queries.
+Phase 1 Enhancement: Context compression for efficient token usage.
 """
 
 from typing import Any
@@ -18,6 +19,13 @@ from cube_manager import ensure_cube_registered
 from formatters import format_memories_for_display
 from mcp.types import TextContent
 from memory_analysis import suggest_search_queries
+from models import (
+    COMPACTION_THRESHOLD,
+    PREVIEW_COUNT,
+    CompactedSearchResult,
+    should_compact,
+    to_minimal,
+)
 from query_processing import (
     apply_keyword_rerank,
     detect_query_intent,
@@ -186,10 +194,11 @@ async def handle_memos_search(
     client: httpx.AsyncClient,
     arguments: dict[str, Any]
 ) -> list[TextContent]:
-    """Handle memos_search tool call with multi-graph view routing and temporal enhancement."""
+    """Handle memos_search tool call with multi-graph view routing, temporal enhancement, and context compression."""
     cube_id = get_cube_id_from_args(arguments)
     raw_query = arguments.get("query", "")
     top_k = arguments.get("top_k", 10)
+    compact = arguments.get("compact", True)  # Default to compact mode
     mem_type, cleaned_query = parse_memory_type_prefix(raw_query)
     query = cleaned_query if cleaned_query else raw_query
 
@@ -233,10 +242,36 @@ async def handle_memos_search(
 
         # Apply multi-graph view filtering based on intent
         result_data = filter_edges_by_intent(result_data, intent)
-
         result_data = filter_memories_by_type(result_data, mem_type)
         keyword_query = cleaned_query if mem_type else query
         result_data = apply_keyword_rerank(result_data, keyword_query)
+
+        # Extract all memories for counting and potential compression
+        all_memories = _extract_search_memories(result_data)
+        total_count = len(all_memories)
+
+        # Apply context compression if enabled and threshold exceeded
+        if compact and should_compact(total_count):
+            logger.debug(f"Compacting search results: {total_count} > {COMPACTION_THRESHOLD}")
+            preview = [to_minimal(m) for m in all_memories[:PREVIEW_COUNT]]
+            compacted = CompactedSearchResult(
+                preview=preview,
+                total_count=total_count,
+                omitted_count=total_count - len(preview),
+                message="Use memos_get(memory_id=\"<id>\") for full details",
+                query=raw_query,
+                cube_id=cube_id,
+            )
+            text = compacted.to_display_text()
+
+            # Add intent indicator if not default
+            if intent != "default":
+                intent_desc = get_intent_description(intent)
+                text = f"*{intent_desc}*\n\n{text}"
+
+            return [TextContent(type="text", text=text)]
+
+        # Standard full display
         formatted = format_memories_for_display(result_data)
 
         # Add intent indicator if not default
@@ -249,6 +284,23 @@ async def handle_memos_search(
         return api_error_response("Search", data.get("message", "Unknown error"))
     else:
         return api_error_response("Search", f"HTTP {status}")
+
+
+def _extract_search_memories(data: dict) -> list[dict]:
+    """Extract flat list of memories from search response data."""
+    memories = []
+
+    text_mems = data.get("text_mem", [])
+    for cube_data in text_mems:
+        memories_data = cube_data.get("memories", [])
+
+        # Handle tree_text mode (dict with nodes)
+        if isinstance(memories_data, dict) and "nodes" in memories_data:
+            memories.extend(memories_data["nodes"])
+        elif isinstance(memories_data, list):
+            memories.extend(memories_data)
+
+    return memories
 
 
 async def handle_memos_search_context(

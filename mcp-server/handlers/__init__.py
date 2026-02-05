@@ -24,6 +24,7 @@ from handlers.graph import (
     handle_memos_trace_path,
 )
 from handlers.memory import (
+    handle_memos_get,
     handle_memos_get_stats,
     handle_memos_list,
     handle_memos_save,
@@ -44,8 +45,8 @@ HANDLER_REGISTRY = {
 
     # Memory handlers
     "memos_save": handle_memos_save,
-    "memos_list": handle_memos_list,
-    "memos_list_v2": handle_memos_list,  # Same handler as memos_list
+    "memos_list_v2": handle_memos_list,
+    "memos_get": handle_memos_get,
     "memos_get_stats": handle_memos_get_stats,
 
     # Graph handlers
