@@ -5,8 +5,11 @@ MemOS MCP Server Memory Handlers
 Handles memos_save, memos_list, memos_list_v2, memos_get, memos_get_stats tools.
 
 Phase 1 Enhancement: Context compression for efficient token usage.
+Phase 1.1: Deduplication to prevent duplicate saves from hooks + manual calls.
 """
 
+import hashlib
+import time
 from typing import Any
 
 import httpx
@@ -34,12 +37,56 @@ from handlers.utils import (
     get_cube_id_from_args,
 )
 
+# ============================================================================
+# Deduplication Cache
+# ============================================================================
+# Prevents duplicate saves within a short time window (e.g., hook + manual save)
+
+# Cache: {content_hash: (cube_id, timestamp)}
+_save_dedup_cache: dict[str, tuple[str, float]] = {}
+DEDUP_TTL_SECONDS = 60  # Ignore duplicate saves within 60 seconds
+
+
+def _content_hash(content: str, cube_id: str) -> str:
+    """Generate hash for content + cube_id combination."""
+    key = f"{cube_id}:{content}"
+    return hashlib.md5(key.encode()).hexdigest()
+
+
+def _is_duplicate_save(content: str, cube_id: str) -> bool:
+    """
+    Check if this content was recently saved (within TTL).
+    Returns True if duplicate, False if new.
+    """
+    content_key = _content_hash(content, cube_id)
+    now = time.time()
+
+    # Clean expired entries
+    expired = [k for k, (_, ts) in _save_dedup_cache.items() if now - ts > DEDUP_TTL_SECONDS]
+    for k in expired:
+        del _save_dedup_cache[k]
+
+    # Check if duplicate
+    if content_key in _save_dedup_cache:
+        _, saved_at = _save_dedup_cache[content_key]
+        if now - saved_at < DEDUP_TTL_SECONDS:
+            logger.debug(f"Duplicate save detected (within {DEDUP_TTL_SECONDS}s), skipping")
+            return True
+
+    return False
+
+
+def _mark_saved(content: str, cube_id: str) -> None:
+    """Mark content as saved in dedup cache."""
+    content_key = _content_hash(content, cube_id)
+    _save_dedup_cache[content_key] = (cube_id, time.time())
+
 
 async def handle_memos_save(
     client: httpx.AsyncClient,
     arguments: dict[str, Any]
 ) -> list[TextContent]:
-    """Handle memos_save tool call."""
+    """Handle memos_save tool call with deduplication."""
     cube_id = get_cube_id_from_args(arguments)
     content = arguments.get("content", "")
     memory_type = arguments.get("memory_type")
@@ -66,6 +113,13 @@ async def handle_memos_save(
     if not content.startswith(f"[{memory_type}]"):
         content = f"[{memory_type}] {content}"
 
+    # Deduplication check - prevent duplicate saves within TTL
+    if _is_duplicate_save(content, cube_id):
+        return [TextContent(
+            type="text",
+            text=f"⏭️ Skipped: Same content was saved within {DEDUP_TTL_SECONDS}s (dedup protection)"
+        )]
+
     # Auto-register cube if needed
     reg_success, reg_error = await ensure_cube_registered(client, cube_id)
     if not reg_success:
@@ -81,6 +135,8 @@ async def handle_memos_save(
     )
 
     if success:
+        # Mark as saved in dedup cache
+        _mark_saved(content, cube_id)
         return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}]")]
     elif data:
         return api_error_response("Save", data.get("message", "Unknown error"))
