@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🗜️ Context Compression (Phase 1 - Beads Inspired)
+
+借鉴 [beads](https://github.com/steveyegge/beads) 项目的上下文工程模式，实现 Token 高效使用。
+
+- **分层内存模型** (`mcp-server/models.py`)
+  - `MemoryMinimal`: 列表视图 (~80% token 减少)，仅包含 id、type、summary
+  - `MemoryBrief`: 标准搜索结果，包含 key、tags、relevance
+  - `MemoryFull`: 完整详情 (仅 memos_get 返回)
+  - `CompactedSearchResult`: 大结果集包装器，返回预览 + 摘要
+
+- **自动压缩逻辑** (`mcp-server/handlers/memory.py`, `search.py`)
+  - **阈值**: 结果 >15 条时自动压缩
+  - **预览**: 显示 Top 5 条 (id + type + 摘要)
+  - **提示**: 引导使用 `memos_get(memory_id="<id>")` 获取完整详情
+  - **Token 节省**: 560 条记忆从 ~10,000 tokens → ~300 tokens (~97% 减少)
+
+- **新增 MCP 工具: `memos_get`** (`mcp-server/handlers/memory.py`, `tools_registry.py`)
+  - 通过 ID 获取单条记忆的完整详情
+  - 与压缩结果配合使用，实现渐进式详情检索
+  - 使用直接 API 端点: `GET /memories/{cube_id}/{memory_id}`
+
+- **API 修复** (`src/memos/api/start_api.py`)
+  - 修复 `/memories/{cube_id}/{memory_id}` 端点返回 Pydantic 验证错误
+  - 问题: 返回 `TextualMemoryItem` 对象而非字典
+  - 解决: 调用 `model_dump()` 转换为字典
+
+- **工具清理**
+  - 移除已废弃的 `memos_list` (v1)，统一使用 `memos_list_v2`
+  - 添加 `compact` 参数到 `memos_search` 和 `memos_list_v2` (默认 true)
+
+- **Skill 更新** (`.claude/skills/project-memory/SKILL.md`)
+  - 添加 `memos_get` 工具说明
+  - 添加上下文压缩功能文档
+  - 更新工作流图
+
+**Commits:**
+- `733ba99` - feat(mcp): add context compression for efficient token usage
+- `aeac160` - fix(mcp): use direct API for memos_get instead of search
+- `bbeeac1` - fix(api): convert TextualMemoryItem to dict in /memories/{cube_id}/{memory_id}
+- `d1ad465` - docs(skill): add memos_get tool and context compression feature
+
 ### 🏥 Health Check & Observability
 
 - **`/health` 健康检查端点** (`src/memos/api/start_api.py`)

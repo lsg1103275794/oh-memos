@@ -114,6 +114,18 @@ AI **auto-retrieves** history before work:
 
 ---
 
+## 🔬 Technical Evolution
+
+MemOSLocal-SM is constantly evolving based on the latest academic research. We have recently implemented:
+
+- **MAGMA Multi-Graph Routing**: Intent-based sub-graph filtering to boost precision and reduce latency.
+- **HippoRAG 2 PPR**: Personalized PageRank for deep causality tracing and associative memory.
+- **EverMemOS Self-Organization**: (Experimental) Memory lifecycle management and episodic trace consolidation.
+
+> 📖 View the full list of research-inspired changes in [**Changelog**](docs/CHANGELOG.md).
+
+---
+
 ## 🚀 Quick Start
 
 ### Option 1: Bundle Install (Recommended)
@@ -162,9 +174,10 @@ AI uses these tools **automatically** when MCP is configured:
 
 | Tool | Function |
 |------|----------|
-| `memos_search` | Search project memories |
+| `memos_search` | Search project memories (auto-compresses >15 results) |
 | `memos_save` | Save memories (BUGFIX, DECISION, MILESTONE...) |
-| `memos_list` | List all memories |
+| `memos_list_v2` | List all memories (with compression) |
+| `memos_get` | Get full memory details by ID |
 | `memos_get_graph` | Query knowledge graph relationships |
 
 > 📖 Full setup: [MCP Configuration Guide](docs/MCP_GUIDE.md)
