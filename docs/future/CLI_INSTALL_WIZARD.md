@@ -1,7 +1,8 @@
 # CLI 安装向导设计文档
 
-> **Status**: Planning
+> **Status**: Implementing (Phase 1-3 Complete)
 > **Created**: 2026-02-06
+> **Updated**: 2026-02-06
 > **Author**: Claude Opus + 李死狗
 
 ---
@@ -9,6 +10,15 @@
 ## 概述
 
 创建一个交互式 CLI 安装向导 (`memosctl`)，让用户根据使用场景选择数据库配置，降低入门门槛，实现场景化定制。
+
+## 当前实现状态
+
+已完成:
+- ✅ Phase 1: CLI 框架 (init, start, stop, status)
+- ✅ Phase 2: MCP 服务器启动器
+- ✅ Phase 3: 学生模式日历视图
+
+详见 `docs/plans/` 目录中的各阶段计划。
 
 ## 动机
 
@@ -20,9 +30,11 @@
 
 ## 目标用户场景
 
-### 1. 编码开发 (Coding)
+### 1. 编码开发 (Coding) ✅ 已实现
 
 **用户画像**: 程序员、AI 助手用户（如 Claude Code）
+
+**端口**: 18001
 
 **Memory Types**:
 | Type | 用途 | 示例 |
@@ -45,7 +57,35 @@
 
 ---
 
-### 2. 写作创作 (Writing)
+### 2. 学生学习 (Student) ✅ 已实现
+
+**用户画像**: 学生、课程学习者、知识整理者
+
+**端口**: 18002
+
+**Memory Types**:
+| Type | 用途 | 示例 |
+|------|------|------|
+| `NOTE` | 课堂笔记 | 线性代数第三章笔记 |
+| `CONCEPT` | 概念解释 | 什么是特征值 |
+| `FORMULA` | 公式定理 | 欧拉公式 e^(iπ)+1=0 |
+| `EXAMPLE` | 例题/案例 | 积分例题解法 |
+| `SUMMARY` | 章节总结 | 第一单元知识点汇总 |
+| `QUESTION` | 疑问待解 | 为什么要用拉格朗日乘数法 |
+| `INSIGHT` | 理解感悟 | 微积分和物理的联系 |
+| `REVIEW` | 复习记录 | 期中考试复习 |
+
+**关系类型**: `PREREQUISITE`, `EXPLAINS`, `APPLIES`, `EXTENDS`, `CONTRADICTS`
+
+**特殊功能**:
+- 📅 学期日历视图 (`memosctl calendar`)
+- 按周/课程过滤
+- 复习提醒
+- 知识图谱可视化
+
+---
+
+### 3. 写作创作 (Writing)
 
 **用户画像**: 小说作者、博客写手、剧本创作者
 
@@ -71,7 +111,7 @@
 
 ---
 
-### 3. 日常记录 (Daily Journal)
+### 4. 日常记录 (Daily Journal)
 
 **用户画像**: 个人用户、生活记录者、习惯追踪者
 
@@ -97,7 +137,7 @@
 
 ---
 
-### 4. 企业备忘 (Enterprise)
+### 5. 企业备忘 (Enterprise)
 
 **用户画像**: 团队、企业用户、项目管理者
 
@@ -126,7 +166,34 @@
 
 ## CLI 设计
 
-### 命令结构
+### 已实现命令
+
+```bash
+# 初始化新项目（交互式向导）
+memosctl init
+memosctl init --name my_project --mode coding --password mypass --yes
+
+# 启动/停止服务
+memosctl start                    # 启动所有模式
+memosctl start --mode coding      # 启动指定模式
+memosctl stop                     # 停止所有服务
+
+# 查看状态
+memosctl status                   # 显示服务和 MCP 状态
+
+# 学生模式日历视图
+memosctl calendar                         # 当前学期笔记
+memosctl calendar -s 2026-Spring          # 指定学期
+memosctl calendar -c "数学"               # 按课程过滤
+memosctl calendar -w 3                    # 第3周笔记
+memosctl calendar -v week                 # 周视图
+memosctl calendar -v month                # 月度概览
+
+# 查看版本
+memosctl version
+```
+
+### 命令结构（含规划中）
 
 ```bash
 # 初始化新项目
@@ -200,24 +267,32 @@ memosctl migrate --from daily --to writing
 
 **推荐**: Python + Typer + Rich（与现有代码库一致）
 
-### 目录结构
+### 目录结构（实际实现）
 
 ```
 memos-cli/
 ├── memosctl/
-│   ├── __init__.py
-│   ├── __main__.py       # Entry point
-│   ├── cli.py            # Main CLI commands
-│   ├── init_wizard.py    # Interactive init wizard
-│   ├── service.py        # Start/stop services
-│   └── templates/        # Config templates
-│       ├── coding/
-│       │   ├── config.json
-│       │   ├── .env.template
-│       │   └── SKILL.md
-│       ├── writing/
-│       ├── daily/
-│       └── enterprise/
+│   ├── __init__.py           # 版本信息
+│   ├── __main__.py           # Entry point
+│   ├── cli.py                # Main CLI commands (Typer)
+│   ├── config.py             # TOML 配置管理
+│   ├── modes.py              # 模式定义 (coding, student, ...)
+│   ├── init_wizard.py        # Interactive init wizard
+│   ├── service.py            # Start/stop/status 服务管理
+│   ├── mcp_launcher.py       # MCP 服务器进程管理
+│   ├── generators.py         # SKILL.md/Hook 模板生成
+│   ├── calendar_cmd.py       # 学生模式日历视图
+│   └── templates/            # Jinja2 模板
+│       ├── skill.md.j2
+│       └── hook.js.j2
+├── tests/
+│   ├── test_config.py
+│   ├── test_modes.py
+│   ├── test_init_wizard.py
+│   ├── test_service.py
+│   ├── test_mcp_launcher.py
+│   ├── test_generators.py
+│   └── test_calendar.py
 ├── pyproject.toml
 └── README.md
 ```
@@ -264,22 +339,50 @@ memos-cli/
 
 ## 实现路线图
 
-### Phase 1: CLI 框架 + 密码配置 (1-2 天)
+### Phase 1: CLI 框架 ✅ 完成
 
-- [ ] 创建 `memos-cli` 项目结构
-- [ ] 实现 `memosctl init` 基础框架
-- [ ] 支持自定义 Neo4j/Qdrant 密码
-- [ ] 生成 `.env` 文件
-- [ ] 编码模式模板（复用现有）
+- [x] 创建 `memos-cli` 项目结构
+- [x] 实现 `memosctl init` 交互式向导
+- [x] 支持自定义 Neo4j/Qdrant 密码
+- [x] 生成 `.env` 文件
+- [x] 编码模式 (coding) 和学生模式 (student) 定义
+- [x] TOML 配置管理
+- [x] SKILL.md 和 Hook 模板生成
+- [x] 18 个单元测试通过
 
-### Phase 2: 日常记录模式 (2-3 天)
+**提交**: `90df4df` - feat(cli): complete Phase 1 CLI framework
+
+### Phase 2: MCP 服务器集成 ✅ 完成
+
+- [x] PID 文件管理进程
+- [x] 跨平台进程启动 (Windows/Linux)
+- [x] 模式专属端口 (coding:18001, student:18002)
+- [x] 后台/前台启动支持
+- [x] 优雅关闭处理
+- [x] 6 个新测试通过
+
+**提交**: `2734d77` - feat(cli): add MCP server launcher for process management
+
+### Phase 3: 学生模式日历视图 ✅ 完成
+
+- [x] `memos_calendar` MCP 工具
+- [x] `memosctl calendar` CLI 命令
+- [x] 学期/周/日过滤
+- [x] list/week/month 三种视图
+- [x] 课程过滤功能
+- [x] 9 个新测试通过
+
+**提交**: `5713d43` - feat(cli): add student mode calendar view (Phase 3)
+
+### Phase 4: 日常记录模式 (Planned)
 
 - [ ] 设计日常模式的 memory types
 - [ ] 创建日常模式配置模板
 - [ ] 调整 LLM 提取 prompt
 - [ ] 创建日常模式 SKILL.md
+- [ ] 日历视图复用
 
-### Phase 3: 写作模式 (3-5 天)
+### Phase 5: 写作模式 (Planned)
 
 - [ ] 设计写作模式的 memory types
 - [ ] 实现角色关系图功能
@@ -287,7 +390,7 @@ memos-cli/
 - [ ] 创建写作模式 SKILL.md
 - [ ] 调整 LLM 提取 prompt（适配创作语境）
 
-### Phase 4: 企业模式 (5-7 天)
+### Phase 6: 企业模式 (Planned)
 
 - [ ] 设计企业模式的 memory types
 - [ ] 实现多用户/权限系统
@@ -295,7 +398,7 @@ memos-cli/
 - [ ] 飞书/钉钉集成
 - [ ] 审计日志
 
-### Phase 5: 分发与文档 (2-3 天)
+### Phase 7: 分发与文档 (Planned)
 
 - [ ] PyPI 发布
 - [ ] 可选：打包为独立二进制（PyInstaller）
@@ -340,25 +443,30 @@ memos-cli/
 │                                                                 │
 │  ? 选择使用场景 (Use arrow keys)                                 │
 │                                                                 │
-│    ❯ 🖥️  编码开发                                               │
-│         适合程序员、AI助手用户                                    │
+│    ❯ 🖥️  编码开发 (coding)                                      │
+│         适合程序员、AI助手用户 · Port 18001                      │
 │         Memory Types: BUGFIX, ERROR_PATTERN, DECISION...        │
 │                                                                 │
-│      ✍️  写作创作                                                │
+│      📚  学生学习 (student) ✓ 已实现                             │
+│         适合学生、课程学习者 · Port 18002                        │
+│         Memory Types: NOTE, CONCEPT, FORMULA...                 │
+│         特色: 日历视图 (memosctl calendar)                       │
+│                                                                 │
+│      ✍️  写作创作 (writing) ○ 规划中                             │
 │         适合小说作者、博客写手                                    │
 │         Memory Types: DRAFT, OUTLINE, CHARACTER...              │
 │                                                                 │
-│      📅  日常记录                                                │
+│      📅  日常记录 (daily) ○ 规划中                               │
 │         适合个人日记、习惯追踪                                    │
 │         Memory Types: JOURNAL, THOUGHT, PLAN...                 │
 │                                                                 │
-│      🏢  企业备忘                                                │
+│      🏢  企业备忘 (enterprise) ○ 规划中                          │
 │         适合团队协作、项目管理                                    │
 │         Memory Types: MEETING, ACTION_ITEM, POLICY...           │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ? 项目名称: my_novel                                            │
+│  ? 项目名称: my_study                                            │
 │                                                                 │
 │  ? 设置 Neo4j 密码: ••••••••                                    │
 │    (至少8位，包含字母和数字)                                      │
@@ -372,14 +480,14 @@ memos-cli/
 │                                                                 │
 │  ✅ 配置完成！                                                   │
 │                                                                 │
-│  📁 配置文件: ~/.memos/my_novel/                                 │
-│  🧊 Cube ID:   my_novel_cube                                    │
-│  📝 模式:      写作创作                                          │
+│  📁 配置文件: ~/.memos/my_study/                                 │
+│  🧊 Cube ID:   my_study_cube                                    │
+│  📝 模式:      学生学习                                          │
 │                                                                 │
 │  🚀 下一步:                                                      │
 │     1. 启动服务:  memosctl start                                 │
-│     2. 配置 MCP:  见 ~/.memos/my_novel/MCP_GUIDE.md             │
-│     3. 开始使用!                                                 │
+│     2. 查看日历:  memosctl calendar                              │
+│     3. 配置 MCP:  见 ~/.memos/my_study/MCP_GUIDE.md             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
