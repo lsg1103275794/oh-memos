@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph or memos_trace_path for relationships, (8) Cube not found - memos_list_cubes to discover available cubes. Available MCP tools: memos_search, memos_search_context, memos_save, memos_list, memos_suggest, memos_list_cubes, memos_get_graph, memos_trace_path, memos_export_schema."
+description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph or memos_trace_path for relationships, (8) Cube not found - memos_list_cubes to discover available cubes, (9) Need full memory details - memos_get with memory_id. Available MCP tools: memos_search, memos_search_context, memos_save, memos_list_v2, memos_get, memos_suggest, memos_list_cubes, memos_get_graph, memos_trace_path, memos_export_schema."
 ---
 
 # Project Memory (MCP Powered)
@@ -91,7 +91,8 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN ModuleNotFoundError"` |
 | `memos_search_context` | **Smart search with conversation context** | `query: "what was the solution?"` |
 | `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |
-| `memos_list` | See all memories in project | `cube_id: "dev_cube", limit: 10` |
+| `memos_list_v2` | See all memories in project (with compression) | `cube_id: "dev_cube", limit: 10` |
+| `memos_get` | **Get full memory details by ID** | `memory_id: "uuid..."` (after compacted results) |
 | `memos_list_cubes` | **Discover available cubes** | `include_status: true` |
 | `memos_suggest` | Get search suggestions | `context: "Connection refused error"` |
 | `memos_get_graph` | View dependency/causal relationships | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
@@ -100,6 +101,32 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | `memos_register_cube` | **Manual cube registration (fallback)** | `cube_id: "my_project_cube"` |
 | `memos_create_user` | **Create user (fallback)** | `user_id: "dev_user"` |
 | `getGraphData` (IPC) | **Renderer-side graph data fetch** | `projectId: "ddsp-svc-6.3"` (Desktop App Only) |
+
+### Context Compression (NEW!)
+
+When search/list returns **>15 results**, automatic compression activates:
+- Shows **top 5 previews** with ID, type, and summary
+- Displays total count and omitted count
+- Use `memos_get(memory_id="<id>")` to retrieve full details
+
+**Example compressed output:**
+```
+## 🔍 Search Results (Compacted)
+
+**Query**: `Neo4j`
+**Total**: 25 memories found
+**Showing**: Top 5 (omitted 20)
+
+### Preview
+
+1. 🐛 **[BUGFIX]** Fixed Neo4j connection timeout...
+   ID: `abc123-def456-...`
+...
+
+💡 **Tip**: Use `memos_get(memory_id="<id>")` to get full details.
+```
+
+To disable compression: `memos_search(query="...", compact=false)`
 
 ---
 
@@ -320,6 +347,9 @@ Tags: gotcha, {category}
 │                                                                 │
 │  Need context    ───> memos_search_context ─> Smart search      │
 │                       with conversation history                 │
+│                                                                 │
+│  Need full detail ──> memos_get       ───> Get by memory_id     │
+│                       (after compacted results)                 │
 │                                                                 │
 │  Need root cause ───> memos_get_graph ───> View CAUSE chain     │
 │                       query: "{error_keyword}"                  │

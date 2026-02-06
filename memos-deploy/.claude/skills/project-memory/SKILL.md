@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history. Available MCP tools: memos_search, memos_save, memos_list, memos_suggest."
+description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph or memos_trace_path for relationships, (8) Cube not found - memos_list_cubes to discover available cubes, (9) Need full memory details - memos_get with memory_id. Available MCP tools: memos_search, memos_search_context, memos_save, memos_list_v2, memos_get, memos_suggest, memos_list_cubes, memos_get_graph, memos_trace_path, memos_export_schema."
 ---
 
 # Project Memory (MCP Powered)
@@ -9,14 +9,149 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ---
 
+## 🚨 强制规则 (MUST/MUST NOT)
+
+### MUST (必须遵守)
+
+1. **修复 Bug 后必须保存为 `BUGFIX` 或 `ERROR_PATTERN`**，不得使用 PROGRESS
+2. **做出技术决策后必须保存为 `DECISION`**，包含理由和备选方案
+3. **发现非显而易见的陷阱必须保存为 `GOTCHA`**
+4. **保存时必须显式指定 `memory_type` 参数**，不依赖自动检测
+
+### MUST NOT (禁止)
+
+1. **禁止将 PROGRESS 作为默认/万能类型**
+2. **禁止省略 memory_type 参数** (除非是纯进度汇报)
+3. **禁止在 PROGRESS 中包含错误解决方案、技术决策、陷阱警告**
+
+### 类型选择决策树
+
+```
+是否解决了一个错误/Bug？
+├─ 是 → 是否有通用价值？
+│       ├─ 是 → ERROR_PATTERN (错误模式，可复用)
+│       └─ 否 → BUGFIX (一次性修复)
+└─ 否 → 是否做出了技术选择？
+        ├─ 是 → DECISION
+        └─ 否 → 是否发现了非显而易见的问题？
+                ├─ 是 → GOTCHA
+                └─ 否 → 是否是可复用的代码模板？
+                        ├─ 是 → CODE_PATTERN
+                        └─ 否 → 是否修改了配置？
+                                ├─ 是 → CONFIG
+                                └─ 否 → 是否完成了重大里程碑？
+                                        ├─ 是 → MILESTONE
+                                        └─ 否 → 是否新增了功能？
+                                                ├─ 是 → FEATURE
+                                                └─ 否 → PROGRESS (仅限纯进度)
+```
+
+### 错误示范 vs 正确示范
+
+❌ **错误**: `memos_save(content="修复了模型路径问题")` → 默认 PROGRESS
+✅ **正确**: `memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")`
+
+❌ **错误**: `memos_save(content="决定采用三轨架构")` → 可能被误检测
+✅ **正确**: `memos_save(content="决定采用三轨架构...", memory_type="DECISION")`
+
+❌ **错误**: `memos_save(content="注意: fallbacks会自动切换")` → 可能落入 PROGRESS
+✅ **正确**: `memos_save(content="注意: fallbacks会自动切换...", memory_type="GOTCHA")`
+
+### 置信度机制
+
+`detect_memory_type()` 返回 `(类型, 置信度)` 元组：
+
+| 置信度 | 含义 |
+|--------|------|
+| 1.0 | 显式指定类型 |
+| 0.85-0.95 | 强特征匹配（如 traceback、决定采用） |
+| 0.7-0.84 | 中等特征匹配 |
+| 0.3 | 默认 PROGRESS（无特征匹配，会触发警告） |
+
+**当置信度 < 0.6 且类型为 PROGRESS 时，系统会输出警告提示显式指定类型。**
+
+### 健康检查
+
+`memos_get_stats` 会在 PROGRESS 占比 >70% 时输出健康警告：
+
+```
+⚠️ 健康警告: PROGRESS 类型占比过高 (>70%)
+
+这可能导致 Neo4j 知识图谱无法建立有效关系。建议:
+1. 保存记忆时显式指定 memory_type 参数
+2. 参考类型选择决策树
+```
+
+---
+
 ## Quick Reference: MCP Tools
 
 | Tool | When to Use | Example |
 |------|-------------|---------|
 | `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN ModuleNotFoundError"` |
+| `memos_search_context` | **Smart search with conversation context** | `query: "what was the solution?"` |
 | `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |
-| `memos_list` | See all memories in project | `cube_id: "dev_cube", limit: 10` |
+| `memos_list_v2` | See all memories in project (with compression) | `cube_id: "dev_cube", limit: 10` |
+| `memos_get` | **Get full memory details by ID** | `memory_id: "uuid..."` (after compacted results) |
+| `memos_list_cubes` | **Discover available cubes** | `include_status: true` |
 | `memos_suggest` | Get search suggestions | `context: "Connection refused error"` |
+| `memos_get_graph` | View dependency/causal relationships | `query: "Neo4j"` → shows CAUSE/RELATE/CONFLICT |
+| `memos_trace_path` | **Trace paths between memories** | `source_id: "...", target_id: "..."` |
+| `memos_export_schema` | **View graph structure and health** | Shows node/edge counts, types, connectivity |
+| `memos_register_cube` | **Manual cube registration (fallback)** | `cube_id: "my_project_cube"` |
+| `memos_create_user` | **Create user (fallback)** | `user_id: "dev_user"` |
+| `getGraphData` (IPC) | **Renderer-side graph data fetch** | `projectId: "ddsp-svc-6.3"` (Desktop App Only) |
+
+### Context Compression (NEW!)
+
+When search/list returns **>15 results**, automatic compression activates:
+- Shows **top 5 previews** with ID, type, and summary
+- Displays total count and omitted count
+- Use `memos_get(memory_id="<id>")` to retrieve full details
+
+**Example compressed output:**
+```
+## 🔍 Search Results (Compacted)
+
+**Query**: `Neo4j`
+**Total**: 25 memories found
+**Showing**: Top 5 (omitted 20)
+
+### Preview
+
+1. 🐛 **[BUGFIX]** Fixed Neo4j connection timeout...
+   ID: `abc123-def456-...`
+...
+
+💡 **Tip**: Use `memos_get(memory_id="<id>")` to get full details.
+```
+
+To disable compression: `memos_search(query="...", compact=false)`
+
+---
+
+## Desktop Integration: Knowledge Graph Visualization
+
+The desktop app now supports real-time Neo4j knowledge graph visualization.
+
+### Usage in Renderer
+```typescript
+const accomplish = getAccomplish();
+const graphData = await accomplish.getGraphData("ddsp-svc-6.3");
+```
+
+### UI Component
+The `<KnowledgeGraph />` component (located in `renderer/components/memory/KnowledgeGraph.tsx`) provides:
+- Force-directed graph layout
+- Node color-coding by memory type
+- Interactive tooltips with memory content
+- Color coding by type:
+    - **LongTermMemory**: Blue (#3b82f6)
+    - **WorkingMemory**: Emerald (#10b981)
+    - **ShortTermMemory**: Amber (#f59e0b)
+    - **Episodic/Semantic**: Violet/Pink
+- Zoom, pan, and center controls
+- Automatic data fetching for a given `projectId`
 
 ---
 
@@ -32,6 +167,54 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 | "类似", "similar" | `CODE_PATTERN {pattern}` |
 | Working with config file | `CONFIG {filename}` |
 | Opening file for editing | `{filename} gotcha` |
+
+### When to Get Graph (`memos_get_graph`) - NEW!
+
+| User Says / Context | Query | Returns |
+|---------------------|-------|---------|
+| "依赖关系", "dependencies" | `{component}` | CAUSE/RELATE relationships |
+| "为什么失败", "why failed", "root cause" | `{error/feature}` | Causal chain (A→B→C) |
+| "相关的", "related to", "关联" | `{topic}` | RELATE relationships |
+| "冲突", "conflict", "矛盾" | `{topic}` | CONFLICT relationships |
+| "影响", "impact", "会影响什么" | `{change}` | What depends on this |
+| Debugging complex issues | `{error_keyword}` | Full context graph |
+
+**Example Output:**
+```
+[Neo4j需要Java 17+]
+    ──CAUSE──>
+[Neo4j启动失败, JAVA_HOME not set]
+```
+
+### When to Trace Path (`memos_trace_path`) - NEW!
+
+| Scenario | Use Case |
+|----------|----------|
+| 追溯根因 | `source_id: "症状ID", target_id: "根因ID"` → 显示完整因果链 |
+| 理解影响 | 从决策A到结果B的路径 |
+| 调试复杂问题 | 找到错误之间的关联 |
+
+**Example:**
+```
+memos_trace_path(source_id="uuid1", target_id="uuid2", max_depth=5)
+→ [决策A] ──CAUSE──> [变更B] ──CAUSE──> [问题C]
+```
+
+### When to List Cubes (`memos_list_cubes`) - NEW!
+
+| Scenario | Action |
+|----------|--------|
+| 遇到 "cube not found" 错误 | `memos_list_cubes()` 查看可用 cubes |
+| 切换项目 | `memos_list_cubes(include_status=true)` 查看注册状态 |
+| 初始化项目 | 确认 cube 是否存在 |
+
+### When to Export Schema (`memos_export_schema`) - NEW!
+
+| Scenario | What You Get |
+|----------|--------------|
+| 理解知识库结构 | 节点/边总数, 类型分布 |
+| 检查健康状态 | 孤立节点数, 连接度 |
+| 查看常用标签 | Top 20 tags |
 
 ### When to Save (`memos_save`)
 
@@ -162,6 +345,26 @@ Tags: gotcha, {category}
 │  Hit error       ───> memos_search    ───> Find ERROR_PATTERN   │
 │                       query: "ERROR_PATTERN {type}"             │
 │                                                                 │
+│  Need context    ───> memos_search_context ─> Smart search      │
+│                       with conversation history                 │
+│                                                                 │
+│  Need full detail ──> memos_get       ───> Get by memory_id     │
+│                       (after compacted results)                 │
+│                                                                 │
+│  Need root cause ───> memos_get_graph ───> View CAUSE chain     │
+│                       query: "{error_keyword}"                  │
+│                                                                 │
+│  Trace path      ───> memos_trace_path ──> A→B→C chain          │
+│                       source_id, target_id                      │
+│                                                                 │
+│  Check deps      ───> memos_get_graph ───> View relationships   │
+│                       query: "{component}"                      │
+│                                                                 │
+│  Cube not found  ───> memos_list_cubes ──> Discover cubes       │
+│                       include_status: true                      │
+│                                                                 │
+│  Graph health    ───> memos_export_schema > Stats & structure   │
+│                                                                 │
 │  Solved error    ───> memos_save      ───> Save ERROR_PATTERN   │
 │                       memory_type: "ERROR_PATTERN"              │
 │                                                                 │
@@ -171,7 +374,7 @@ Tags: gotcha, {category}
 │  Complete task   ───> memos_save      ───> Save MILESTONE       │
 │                       memory_type: "MILESTONE"                  │
 │                                                                 │
-│  "之前/上次"     ───> memos_search    ───> Find history         │
+│  "之前/上次"     ───> memos_search    ───> Find history          │
 │                                                                 │
 │  Unsure search   ───> memos_suggest   ───> Get suggestions      │
 │                                                                 │
@@ -208,29 +411,144 @@ The following scripts in `scripts/` folder still work but MCP is preferred:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMOS_URL` | `http://localhost:18000` | MemOS API URL |
-| `MEMOS_USER` | `dev_user` | User ID |
-| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube |
+| `MEMOS_URL` | `http://localhost:18000` | MemOS API base URL |
+| `MEMOS_USER` | `dev_user` | Default user ID |
+| `MEMOS_DEFAULT_CUBE` | `dev_cube` | Default memory cube ID |
 | `MEMOS_CUBES_DIR` | `G:/test/MemOS/data/memos_cubes` | Cube storage (for auto-registration) |
+| `NEO4J_HTTP_URL` | `http://localhost:7474/db/neo4j/tx/commit` | Neo4j HTTP endpoint |
+| `NEO4J_USER` | `neo4j` | Neo4j username |
+| `NEO4J_PASSWORD` | `12345678` | Neo4j password |
+| `MEMOS_ENABLE_DELETE` | `false` | Enable delete functionality |
 
 ---
 
-## Troubleshooting
+## Auto-Registration & Auto-Creation
 
-### MCP Tool Returns Error
+The MCP server includes **smart cube management**:
 
-1. **Check MemOS API is running**: `curl http://localhost:18000/users`
-2. **Check MCP connection**: In Claude Code, run `/mcp` to see server status
-3. **Restart Claude Code** if MCP shows as disconnected
+1. **Auto-Creation**: New projects automatically get their own cube (cloned from `dev_cube` template)
+2. **Automatic Registration**: Cubes are auto-registered on first use
+3. **Path Verification**: Checks if cube directory exists before registration
+4. **Helpful Error Messages**: If a cube is not found and cannot be created, shows available cubes
+5. **Cube Discovery**: Use `memos_list_cubes` to see all available cubes
+
+**How it works for new projects:**
+```
+User starts Claude Code in ~/projects/my-new-project/
+        ↓
+MCP derives cube_id: "my_new_project_cube"
+        ↓
+Cube not found? Auto-create from dev_cube template
+        ↓
+Auto-register with MemOS API
+        ↓
+Ready to use!
+```
+
+**Requirements:**
+- `dev_cube` must exist as template in `MEMOS_CUBES_DIR`
+- Cubes directory must be writable
+
+If you see "Cube Registration Failed" error:
+1. Use `memos_list_cubes()` to see available cubes
+2. Verify `dev_cube` exists as template
+3. Check cubes directory permissions
+
+```bash
+# Manual registration (fallback)
+curl -X POST "http://localhost:18000/mem_cubes" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"dev_user","mem_cube_name_or_path":"G:/test/MemOS/data/memos_cubes/dev_cube"}'
+```
+
+---
+
+## Troubleshooting (MCP Tools Only)
+
+> **Note**: All error recovery uses MCP tools - no Bash/curl required. Works in isolated projects.
+
+### Cube Not Found Error
+
+**Error**: `Cube 'xxx' not found` or `Cube not registered`
+
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes()` → See available cubes
+2. If cube exists but not registered: `memos_register_cube(cube_id="xxx")`
+3. If cube doesn't exist: Create cube directory with config.json, then register
+
+**Example**:
+```
+memos_list_cubes(include_status=true)
+→ Shows: dev_cube (registered), my_project (not registered)
+
+memos_register_cube(cube_id="my_project")
+→ "Cube 'my_project' registered successfully"
+```
+
+### User Does Not Exist Error
+
+**Error**: `User 'xxx' does not exist`
+
+**Recovery Steps** (all via MCP):
+1. `memos_create_user(user_id="xxx")` → Create the user
+2. Retry the original operation
+
+**Example**:
+```
+memos_save(content="...", cube_id="my_cube")
+→ Error: User 'dev_user' does not exist
+
+memos_create_user(user_id="dev_user")
+→ "User 'dev_user' created successfully"
+
+memos_save(content="...", cube_id="my_cube")
+→ Success
+```
+
+### MCP Connection Error
+
+**Error**: MCP tools not responding or timeout
+
+**Recovery Steps**:
+1. Wait a moment and retry (API may be starting)
+2. Try a simpler operation first: `memos_list_cubes()`
+3. If persistent, the MemOS API service may need restart (outside MCP scope)
 
 ### Memory Not Found
 
-1. Use `memos_list` to see what's in the cube
-2. Try broader search terms
-3. Check if searching correct `cube_id`
+**Error**: Search returns empty results
+
+**Recovery Steps** (all via MCP):
+1. `memos_list(cube_id="xxx", limit=20)` → Check what memories exist
+2. `memos_list_cubes()` → Verify using correct cube_id
+3. `memos_search_context(query="...", context=[...])` → Use context-aware search
+4. Try broader search terms or different memory types
 
 ### Save Failed
 
-1. Check API is running
-2. MCP auto-registers cubes, but verify with `memos_list`
-3. Check error message for details
+**Error**: `Save operation failed`
+
+**Recovery Steps** (all via MCP):
+1. `memos_list_cubes(include_status=true)` → Check cube status
+2. If not registered: `memos_register_cube(cube_id="xxx")`
+3. If user error: `memos_create_user(user_id="xxx")`
+4. Retry save operation
+
+### Quick Recovery Flowchart
+
+```
+Error occurred
+    │
+    ├─ "Cube not found" ────────────> memos_list_cubes()
+    │                                      │
+    │                                      ├─ Found? → memos_register_cube()
+    │                                      └─ Not found? → Create cube first
+    │
+    ├─ "User does not exist" ───────> memos_create_user(user_id="xxx")
+    │
+    ├─ "Save failed" ───────────────> memos_list_cubes(include_status=true)
+    │                                      │
+    │                                      └─ Check cube/user, then retry
+    │
+    └─ "No results" ────────────────> memos_list() to verify data exists
+```
