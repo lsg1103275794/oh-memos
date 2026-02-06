@@ -19,6 +19,7 @@ from memosctl.service import (
     start_services,
     stop_services,
 )
+from memosctl.calendar_cmd import run_calendar
 
 app = typer.Typer(
     name="memosctl",
@@ -84,10 +85,30 @@ def stop(
 def status():
     """Show status of MemOS services."""
     from memosctl.service import get_service_status, get_mode_status, display_status
-    
+
     svc_status = get_service_status()
     mode_status = get_mode_status()
     display_status(svc_status, mode_status)
+
+
+@app.command()
+def calendar(
+    semester: Optional[str] = typer.Option("current", "--semester", "-s", help="Semester (e.g., 2026-Spring, current)"),
+    course: Optional[str] = typer.Option(None, "--course", "-c", help="Filter by course name"),
+    week: Optional[int] = typer.Option(None, "--week", "-w", help="Filter by week number"),
+    view: str = typer.Option("list", "--view", "-v", help="View: list, week, month"),
+    cube: Optional[str] = typer.Option(None, "--cube", help="Memory cube ID"),
+):
+    """View learning notes in calendar format (student mode)."""
+    success = run_calendar(
+        semester=semester,
+        course=course,
+        week=week,
+        view=view,
+        cube_id=cube,
+    )
+    if not success:
+        raise typer.Exit(1)
 
 
 @app.callback(invoke_without_command=True)

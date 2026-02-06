@@ -477,6 +477,56 @@ Returns:
                 },
                 "required": []
             }
+        ),
+        Tool(
+            name="memos_calendar",
+            description="""View student learning notes in calendar format.
+
+USE THIS TOOL for student mode to:
+- View notes by semester (Spring/Fall/Summer)
+- Filter by specific course
+- Browse by week number
+- Get calendar overview of learning progress
+
+Perfect for:
+- "Show me this semester's notes"
+- "What did I learn in week 3?"
+- "List all notes for Math 101"
+
+Views:
+- list: Simple chronological list
+- week: Day-by-day view with weekday headers
+- month: Summary with note counts per day""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "semester": {
+                        "type": "string",
+                        "description": "Semester to view. Format: 'YYYY-Season' (e.g., '2026-Spring', '2025-Fall') or 'current' for auto-detect",
+                        "default": "current"
+                    },
+                    "course": {
+                        "type": "string",
+                        "description": "Optional: Filter by course name or tag"
+                    },
+                    "week": {
+                        "type": "integer",
+                        "description": "Optional: Specific week number in semester (1-18)"
+                    },
+                    "view": {
+                        "type": "string",
+                        "description": "View format: 'list' (chronological), 'week' (by day), 'month' (summary)",
+                        "enum": ["list", "week", "month"],
+                        "default": "list"
+                    },
+                    "cube_id": {
+                        "type": "string",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path.",
+                        "default": MEMOS_DEFAULT_CUBE
+                    }
+                },
+                "required": []
+            }
         )
     ]
 

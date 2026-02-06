@@ -18,6 +18,7 @@ from handlers.admin import (
     handle_memos_register_cube,
     handle_memos_validate_cubes,
 )
+from handlers.calendar import handle_memos_calendar
 from handlers.graph import (
     handle_memos_export_schema,
     handle_memos_get_graph,
@@ -60,6 +61,9 @@ HANDLER_REGISTRY = {
     "memos_create_user": handle_memos_create_user,
     "memos_validate_cubes": handle_memos_validate_cubes,
     "memos_delete": handle_memos_delete,
+
+    # Calendar handler (student mode)
+    "memos_calendar": handle_memos_calendar,
 }
 
 
