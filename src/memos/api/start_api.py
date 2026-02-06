@@ -779,6 +779,9 @@ async def get_memory(mem_cube_id: str, memory_id: str, user_id: str | None = Non
     """Retrieve a specific memory by ID from a MemCube."""
     mos_instance = get_mos_instance()
     result = mos_instance.get(mem_cube_id=mem_cube_id, memory_id=memory_id, user_id=user_id)
+    # Convert Pydantic model to dict for JSON serialization
+    if result is not None and hasattr(result, "model_dump"):
+        result = result.model_dump()
     return MemoryResponse(message="Memory retrieved successfully", data=result)
 
 
