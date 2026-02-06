@@ -15,6 +15,7 @@ from memosctl.service import (
     check_port_in_use,
     display_status,
     get_service_status,
+    get_mode_status,
     start_services,
     stop_services,
 )
@@ -69,10 +70,12 @@ def start(
 
 @app.command()
 def stop(
+    mode: Optional[str] = typer.Option(None, "--mode", "-m", help="Mode(s) to stop (comma-separated)"),
     project: Optional[Path] = typer.Option(None, "--project", "-p", help="Project directory"),
 ):
     """Stop running MemOS services."""
-    success = stop_services(project_dir=project)
+    modes = mode.split(",") if mode else None
+    success = stop_services(modes=modes, project_dir=project)
     if not success:
         raise typer.Exit(1)
 
@@ -80,17 +83,10 @@ def stop(
 @app.command()
 def status():
     """Show status of MemOS services."""
-    from memosctl.config import load_config
+    from memosctl.service import get_service_status, get_mode_status, display_status
     
     svc_status = get_service_status()
-
-    mode_status = {}
-    config = load_config()
-    for mode_name in config.active_modes:
-        mode = get_mode(mode_name)
-        is_running = check_port_in_use(mode.port)
-        mode_status[mode_name] = ServiceStatus.RUNNING if is_running else ServiceStatus.STOPPED
-
+    mode_status = get_mode_status()
     display_status(svc_status, mode_status)
 
 

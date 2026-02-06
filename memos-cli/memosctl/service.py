@@ -11,6 +11,7 @@ from rich.table import Table
 
 from .config import DEFAULT_CONFIG_DIR, load_config
 from .modes import get_mode
+from .mcp_launcher import start_mcp_server, stop_mcp_server, get_mcp_status
 
 console = Console()
 
@@ -68,12 +69,25 @@ def get_service_status() -> dict[str, ServiceStatus]:
     return status
 
 
-def display_status(status: dict[str, ServiceStatus], mode_status: dict[str, ServiceStatus] | None = None):
+def get_mode_status() -> dict[str, tuple[ServiceStatus, int | None]]:
+    """Get status of all mode MCP servers."""
+    config = load_config()
+    mode_status = {}
+    
+    for mode_name in config.active_modes:
+        running, pid = get_mcp_status(mode_name)
+        status = ServiceStatus.RUNNING if running else ServiceStatus.STOPPED
+        mode_status[mode_name] = (status, pid)
+    
+    return mode_status
+
+
+def display_status(status: dict[str, ServiceStatus], mode_status: dict[str, tuple[ServiceStatus, int | None]] | None = None):
     """Display service status in a table."""
     table = Table(title="MemOS Service Status")
     table.add_column("Service", style="cyan")
     table.add_column("Status", style="bold")
-    table.add_column("Port/URL")
+    table.add_column("Info")
 
     config = load_config()
 
@@ -97,9 +111,12 @@ def display_status(status: dict[str, ServiceStatus], mode_status: dict[str, Serv
 
     if mode_status:
         table.add_section()
-        for mode_name, s in mode_status.items():
+        for mode_name, (s, pid) in mode_status.items():
             mode = get_mode(mode_name)
-            table.add_row(f"MCP:{mode_name}", status_icons[s], f":{mode.port}")
+            info = f":{mode.port}"
+            if pid:
+                info += f" (PID {pid})"
+            table.add_row(f"MCP:{mode_name}", status_icons[s], info)
 
     console.print(table)
 
@@ -107,36 +124,55 @@ def display_status(status: dict[str, ServiceStatus], mode_status: dict[str, Serv
 def start_services(modes: list[str] | None = None, project_dir: Path | None = None) -> bool:
     """Start MemOS services."""
     project_dir = project_dir or DEFAULT_CONFIG_DIR
-    config = load_config(project_dir / "config.toml")
+    config_path = project_dir / "config.toml"
+    config = load_config(config_path) if config_path.exists() else load_config()
 
     console.print("[bold]Starting MemOS services...[/bold]")
 
+    # Check dependencies
     status = get_service_status()
 
     if status["neo4j"] != ServiceStatus.RUNNING:
-        console.print("[yellow]⚠ Neo4j is not running. Please start Neo4j first.[/yellow]")
-        return False
+        console.print("[yellow]⚠ Neo4j is not running.[/yellow]")
+        console.print("  Start Neo4j first: scripts/local/start.bat or neo4j console")
+        # Don't return False - let user decide
 
     if status["qdrant"] != ServiceStatus.RUNNING:
-        console.print("[yellow]⚠ Qdrant is not running. Please start Qdrant first.[/yellow]")
-        return False
+        console.print("[yellow]⚠ Qdrant is not running.[/yellow]")
+        # Don't return False - let user decide
 
-    if status["api"] != ServiceStatus.RUNNING:
-        console.print("Starting MemOS API...")
-        console.print("[yellow]TODO: Implement API server startup[/yellow]")
+    # Start MCP servers for each mode
+    modes = modes or config.active_modes
+    success = True
+    
+    for mode_name in modes:
+        pid = start_mcp_server(mode_name, project_dir)
+        if pid is None:
+            console.print(f"[red]✗ Failed to start MCP for {mode_name}[/red]")
+            success = False
+
+    if success:
+        console.print("[green]✅ All MCP servers started[/green]")
+    
+    return success
+
+
+def stop_services(modes: list[str] | None = None, project_dir: Path | None = None) -> bool:
+    """Stop MemOS services."""
+    project_dir = project_dir or DEFAULT_CONFIG_DIR
+    config_path = project_dir / "config.toml"
+    config = load_config(config_path) if config_path.exists() else load_config()
+
+    console.print("[bold]Stopping MemOS services...[/bold]")
 
     modes = modes or config.active_modes
+    success = True
+    
     for mode_name in modes:
-        mode = get_mode(mode_name)
-        console.print(f"Starting MCP server for {mode.emoji} {mode.display_name} on port {mode.port}...")
-        console.print("[yellow]TODO: Implement MCP server startup[/yellow]")
+        if not stop_mcp_server(mode_name):
+            success = False
 
-    console.print("[green]✅ Services started[/green]")
-    return True
-
-
-def stop_services(project_dir: Path | None = None) -> bool:
-    """Stop MemOS services."""
-    console.print("[bold]Stopping MemOS services...[/bold]")
-    console.print("[yellow]TODO: Implement service stopping[/yellow]")
-    return True
+    if success:
+        console.print("[green]✅ All MCP servers stopped[/green]")
+    
+    return success
