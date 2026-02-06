@@ -279,6 +279,10 @@ def run_init_wizard(
     global_config = MemosConfig(neo4j_password=neo4j_password, default_mode=mode, active_modes=[mode], cubes_dir=str(cubes_dir))
     save_config(global_config, project_dir / "config.toml")
     
+    # Generate Claude Code files (skills, hooks)
+    from .generators import generate_claude_files
+    claude_files = generate_claude_files(mode=mode, cube_id=cube_id, project_dir=project_dir)
+    
     # 6. Show completion message
     if not non_interactive:
         console.print()
@@ -288,6 +292,12 @@ def run_init_wizard(
 📁 配置目录: [cyan]{project_dir}[/cyan]
 🧊 Cube ID:   [cyan]{cube_id}[/cyan]
 📝 模式:      [cyan]{mode_obj.emoji} {mode_obj.display_name}[/cyan]
+
+📄 生成的文件:
+   - Cube Config: {config_path}
+   - .env: {env_path}
+   - SKILL.md: {claude_files.get('skill', 'N/A')}
+   - Hook: {claude_files.get('hook', 'N/A')}
 
 🚀 下一步:
    1. 启动服务:  [bold]memosctl start[/bold]
@@ -305,4 +315,5 @@ def run_init_wizard(
         "cube_dir": str(cube_dir),
         "config_path": str(config_path),
         "env_path": str(env_path),
+        "claude_files": {k: str(v) for k, v in claude_files.items()},
     }

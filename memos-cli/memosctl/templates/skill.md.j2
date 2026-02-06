@@ -1,0 +1,28 @@
+---
+name: {{ skill_name }}
+description: "{{ description }}"
+---
+
+# {{ title }}
+
+## Memory Types
+
+| Type | When to Use |
+|------|-------------|
+{% for mtype in mode_obj.memory_types %}
+| `{{ mtype }}` | Use for {{ mtype }} type memories |
+{% endfor %}
+
+---
+
+## Configuration
+
+- **Cube ID**: `{{ cube_id }}`
+- **Mode**: {{ mode_obj.emoji }} {{ mode_obj.display_name }}
+- **MCP Port**: {{ mode_obj.port }}
+
+## Available MCP Tools
+
+{% for tool in mode_obj.mcp_tools %}
+- `{{ tool }}`
+{% endfor %}
