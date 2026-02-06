@@ -249,39 +249,17 @@ async def handle_memos_get(
     if not reg_success:
         return cube_registration_error(cube_id, reg_error)
 
-    # Try to get the specific memory by ID
-    # First, search by ID (most APIs support this)
+    # Use direct API endpoint: GET /memories/{mem_cube_id}/{memory_id}
     success, data, status = await api_call_with_retry(
-        client, "POST", f"{MEMOS_URL}/search", cube_id,
-        json={
-            "user_id": MEMOS_USER,
-            "query": memory_id,  # Search by ID
-            "install_cube_ids": [cube_id],
-            "top_k": 10
-        }
+        client, "GET", f"{MEMOS_URL}/memories/{cube_id}/{memory_id}", cube_id
     )
 
     if success and data:
         result_data = data.get("data", {})
-        all_memories = _extract_memories_from_data(result_data)
 
-        # Find the exact memory by ID
-        target_memory = None
-        for mem in all_memories:
-            if mem.get("id") == memory_id:
-                target_memory = mem
-                break
-
-        if not target_memory:
-            # ID not found in search results, try partial match
-            for mem in all_memories:
-                if memory_id in str(mem.get("id", "")):
-                    target_memory = mem
-                    break
-
-        if target_memory:
+        if result_data:
             # Convert to full model and format
-            full_mem = to_full(target_memory, cube_id=cube_id, user_id=MEMOS_USER)
+            full_mem = to_full(result_data, cube_id=cube_id, user_id=MEMOS_USER)
 
             lines = [
                 f"## 📝 Memory Details",
@@ -327,6 +305,16 @@ async def handle_memos_get(
                      f"- Try `memos_search` to find the memory again"
             )]
     elif data:
-        return api_error_response("Get", data.get("message", "Unknown error"))
+        error_msg = data.get("message", "Unknown error")
+        if "not found" in error_msg.lower() or status == 404:
+            return [TextContent(
+                type="text",
+                text=f"❌ Memory not found: `{memory_id}`\n\n"
+                     f"💡 **Tips**:\n"
+                     f"- Verify the ID is correct (copy from memos_search results)\n"
+                     f"- The memory may have been deleted\n"
+                     f"- Try `memos_search` to find the memory again"
+            )]
+        return api_error_response("Get", error_msg)
     else:
         return api_error_response("Get", f"HTTP {status}")
