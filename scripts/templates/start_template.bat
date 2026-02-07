@@ -6,8 +6,12 @@ setlocal EnableDelayedExpansion
 ::
 :: INSTRUCTIONS:
 :: 1. Copy this file to scripts/local/start.bat
-:: 2. Edit the paths below to match your system
+:: 2. Edit the database paths below to match your system
 :: 3. Double-click to run
+::
+:: PYTHON ENVIRONMENT:
+:: - .venv (preferred): run VENV_scripts\setup_venv.bat first
+:: - conda_venv (legacy): still supported as fallback
 :: ============================================================
 
 title MemOS - AI Memory System
@@ -19,17 +23,32 @@ echo  ============================================================
 echo.
 
 :: ============================================================
-:: CONFIGURATION - EDIT THESE PATHS
+:: CONFIGURATION - EDIT DATABASE PATHS ONLY
 :: ============================================================
 set "MEMOS_ROOT=%~dp0..\.."
-set "PYTHON_EXE=%MEMOS_ROOT%\conda_venv\python.exe"
+cd /d "%MEMOS_ROOT%"
+
+:: Auto-detect Python environment: venv > conda_venv
+if exist "%MEMOS_ROOT%\.venv\Scripts\python.exe" (
+    set "PYTHON_EXE=%MEMOS_ROOT%\.venv\Scripts\python.exe"
+    set "ENV_TYPE=venv"
+) else if exist "%MEMOS_ROOT%\conda_venv\python.exe" (
+    set "PYTHON_EXE=%MEMOS_ROOT%\conda_venv\python.exe"
+    set "ENV_TYPE=conda_venv (legacy)"
+) else (
+    echo  [ERROR] No Python environment found!
+    echo.
+    echo  Please run setup first:
+    echo    VENV_scripts\setup_venv.bat
+    echo.
+    pause
+    exit /b 1
+)
 
 :: Database paths - MODIFY FOR YOUR SYSTEM
 set "NEO4J_HOME=D:\User\neo4j-community-5.15.0"
 set "QDRANT_HOME=D:\User\Qdrant"
 :: ============================================================
-
-cd /d "%MEMOS_ROOT%"
 
 :: Check Python
 echo  [1/4] Checking Python environment...
@@ -38,7 +57,8 @@ if not exist "%PYTHON_EXE%" (
     pause
     exit /b 1
 )
-echo        [OK] Python found
+for /f "tokens=2" %%v in ('"%PYTHON_EXE%" --version 2^>^&1') do set PYVER=%%v
+echo        [OK] Python %PYVER% (%ENV_TYPE%)
 
 :: Start Qdrant (silent)
 echo  [2/4] Starting Qdrant...
