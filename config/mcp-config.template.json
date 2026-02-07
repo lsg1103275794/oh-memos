@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "memoslocal": {
-      "command": "${BUNDLE_ROOT}/runtime/conda/python",
+      "command": "${BUNDLE_ROOT}/.venv/Scripts/python.exe",
       "args": ["${BUNDLE_ROOT}/mcp-server/memos_mcp_server.py"],
       "env": {
         "MEMOS_URL": "http://localhost:18000",

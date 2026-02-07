@@ -107,7 +107,7 @@ The wrapper script (`run_mcp.sh`) handles WSL/Windows path translation:
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": ["G:/test/MemOS/mcp-server/memos_mcp_server.py"],
       "env": {
         "MEMOS_URL": "http://localhost:18000",

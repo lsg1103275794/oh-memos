@@ -15,8 +15,12 @@ MEMOS_TIMEOUT_STARTUP="${MEMOS_TIMEOUT_STARTUP:?MEMOS_TIMEOUT_STARTUP required}"
 MEMOS_TIMEOUT_HEALTH="${MEMOS_TIMEOUT_HEALTH:?MEMOS_TIMEOUT_HEALTH required}"
 MEMOS_API_WAIT_MAX="${MEMOS_API_WAIT_MAX:?MEMOS_API_WAIT_MAX required}"
 
-# Use Windows paths for Windows Python
-PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"
+# Use Windows paths for Windows Python (venv preferred, conda_venv fallback)
+if [ -f "/mnt/g/test/MemOS/.venv/Scripts/python.exe" ]; then
+    PYTHON="/mnt/g/test/MemOS/.venv/Scripts/python.exe"
+else
+    PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"
+fi
 # Windows Python needs Windows-style path
 SCRIPT="G:/test/MemOS/mcp-server/memos_mcp_server.py"
 

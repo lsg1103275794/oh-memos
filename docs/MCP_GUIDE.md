@@ -45,7 +45,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": [
         "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -82,7 +82,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 
 - **Name**: `memos`
 - **Type**: `command`
-- **Command**: `G:/test/MemOS/conda_venv/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
+- **Command**: `G:/test/MemOS/.venv/Scripts/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
 - **Env Vars**:
   - `MEMOS_URL`: `http://localhost:18000`
   - `MEMOS_USER`: `dev_user`
@@ -95,7 +95,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 
 - **Name**: `memos`
 - **Type**: `stdio`
-- **Command**: `G:/test/MemOS/conda_venv/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
+- **Command**: `G:/test/MemOS/.venv/Scripts/python.exe G:/test/MemOS/mcp-server/memos_mcp_server.py`
 
 > 注意：Cursor 目前主要通过命令行参数传递环境变量，或在启动 Cursor 的 shell 中预设。
 
@@ -109,7 +109,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 {
   "mcpServers": {
     "memos": {
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": [
         "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -132,7 +132,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 {
   "mcpServers": {
     "memos": {
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": [
         "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -155,7 +155,7 @@ MCP Server enables Claude Code to **proactively invoke** memory functions, inste
 {
   "mcpServers": {
     "memos": {
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": [
         "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -186,7 +186,7 @@ pip install MemoryOS[mcp-server]
 
 # 方式 3: 使用项目自带的 Python 环境
 cd /path/to/MemOS
-./conda_venv/python.exe -m pip install mcp httpx pydantic
+./.venv/Scripts/python.exe -m pip install mcp httpx pydantic
 ```
 
 ### 2. 配置 Claude Code | Configure Claude Code
@@ -233,7 +233,7 @@ Global configuration makes memos MCP available to all projects without per-proje
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "G:/test/MemOS/conda_venv/python.exe",
+      "command": "G:/test/MemOS/.venv/Scripts/python.exe",
       "args": [
         "G:/test/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -301,7 +301,7 @@ Edit `~/.claude.json`, find your project config (e.g., `/your/project/path`), ad
       "mcpServers": {
         "memos": {
           "type": "stdio",
-          "command": "G:/test/MemOS/conda_venv/python.exe",
+          "command": "G:/test/MemOS/.venv/Scripts/python.exe",
           "args": [
             "G:/test/MemOS/mcp-server/memos_mcp_server.py"
           ],
@@ -373,7 +373,7 @@ export MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:-dev_cube}"
 
 # WSL path for Windows Python executable
 # 替换 /path/to/MemOS 为你的实际路径 | Replace /path/to/MemOS with your path
-PYTHON="/mnt/g/test/MemOS/conda_venv/python.exe"
+PYTHON="/mnt/g/test/MemOS/.venv/Scripts/python.exe"
 
 # Windows-style path for the script (Windows Python needs this)
 # 替换 /path/to/MemOS 为你的实际路径 | Replace /path/to/MemOS with your path
@@ -406,7 +406,7 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
 "mcpServers": {
   "memos": {
     "type": "stdio",
-    "command": "G:/test/MemOS/conda_venv/python.exe",
+    "command": "G:/test/MemOS/.venv/Scripts/python.exe",
     "args": [
       "G:/test/MemOS/mcp-server/memos_mcp_server.py"
     ],
@@ -445,7 +445,7 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "C:/path/to/MemOS/conda_venv/python.exe",
+      "command": "C:/path/to/MemOS/.venv/Scripts/python.exe",
       "args": [
         "C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -485,7 +485,7 @@ For pure Windows (not WSL), you can use direct paths. Configuration below works 
   "mcpServers": {
     "memos": {
       "type": "stdio",
-      "command": "/home/user/projects/MemOS/conda_venv/bin/python",
+      "command": "/home/user/projects/MemOS/.venv/bin/python",
       "args": [
         "/home/user/projects/MemOS/mcp-server/memos_mcp_server.py"
       ],
@@ -546,7 +546,7 @@ export MEMOS_URL="${MEMOS_URL:-http://localhost:18000}"
 export MEMOS_USER="${MEMOS_USER:-dev_user}"
 export MEMOS_DEFAULT_CUBE="${MEMOS_DEFAULT_CUBE:-dev_cube}"
 
-PYTHON="/mnt/c/path/to/MemOS/conda_venv/python.exe"
+PYTHON="/mnt/c/path/to/MemOS/.venv/Scripts/python.exe"
 SCRIPT="C:/path/to/MemOS/mcp-server/memos_mcp_server.py"
 
 exec "$PYTHON" "$SCRIPT" "$@"
