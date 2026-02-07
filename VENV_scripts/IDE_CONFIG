@@ -1,0 +1,42 @@
+{
+    // =====================================================
+    // MemOS Python 虚拟环境配置
+    // 拷贝到新电脑后，VS Code 会自动识别 .venv
+    // =====================================================
+
+    // Python 解释器（VS Code 会自动检测 .venv）
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+
+    // 终端自动激活 venv
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+
+    // venv 搜索路径
+    "python.venvPath": "${workspaceFolder}",
+    "python.venvFolders": [".venv", "venv"],
+
+    // Windows 终端预设（自动激活 venv）
+    "terminal.integrated.defaultProfile.windows": "MemOS Env",
+    "terminal.integrated.profiles.windows": {
+        "MemOS Env": {
+            "path": "cmd.exe",
+            "args": ["/K", ".venv\\Scripts\\activate.bat"]
+        },
+        "PowerShell": {
+            "source": "PowerShell"
+        },
+        "Command Prompt": {
+            "path": "cmd.exe"
+        }
+    },
+
+    // pytest 配置
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["memos-cli/tests"],
+
+    // 格式化
+    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    }
+}

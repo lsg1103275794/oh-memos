@@ -273,4 +273,38 @@ python -m memosctl.cli version
 
 ---
 
+## 附录：IDE 自动激活 venv
+
+### VS Code
+
+复制配置模板：
+
+```bat
+:: 创建 .vscode 目录
+mkdir .vscode
+
+:: 复制配置（重命名为 settings.json）
+copy VENV_scripts\IDE_CONFIG .vscode\settings.json
+```
+
+配置效果：
+- ✅ 打开项目时自动识别 `.venv` 解释器
+- ✅ 新建终端自动激活 venv（显示 `(.venv)` 前缀）
+- ✅ 运行/调试 Python 文件使用 venv 环境
+
+### PyCharm
+
+1. `File` → `Settings` → `Project` → `Python Interpreter`
+2. 点击齿轮 → `Add` → `Existing environment`
+3. 选择 `.venv\Scripts\python.exe`
+
+### 拷贝到新电脑
+
+1. 复制整个项目文件夹（**不含** `.venv` 目录）
+2. 运行 `VENV_scripts\setup_venv.bat` 创建新的 venv
+3. 复制 VS Code 配置：`copy VENV_scripts\IDE_CONFIG .vscode\settings.json`
+4. 打开 IDE，自动识别环境
+
+---
+
 *文档更新：2026-02-08*
