@@ -31,6 +31,7 @@ from handlers.memory import (
     handle_memos_save,
 )
 from handlers.search import (
+    handle_memos_context_resume,
     handle_memos_search,
     handle_memos_search_context,
     handle_memos_suggest,
@@ -43,6 +44,7 @@ HANDLER_REGISTRY = {
     "memos_search": handle_memos_search,
     "memos_search_context": handle_memos_search_context,
     "memos_suggest": handle_memos_suggest,
+    "memos_context_resume": handle_memos_context_resume,
 
     # Memory handlers
     "memos_save": handle_memos_save,

@@ -27,7 +27,13 @@ ERR_USER_ERROR = "USER_ERROR"
 
 def get_cube_id_from_args(arguments: dict[str, Any]) -> str:
     """
-    Get cube_id from arguments, using default if not specified.
+    Get cube_id from arguments with smart project path derivation.
+
+    Priority:
+    1. Explicit cube_id (if not "dev_cube" when project_path is also provided)
+    2. Derived from project_path using detect_cube_from_path()
+    3. Explicit cube_id as-is
+    4. Default from config
 
     Args:
         arguments: Tool call arguments
@@ -36,6 +42,19 @@ def get_cube_id_from_args(arguments: dict[str, Any]) -> str:
         Cube ID to use
     """
     arg_cube_id = arguments.get("cube_id")
+    project_path = arguments.get("project_path")
+
+    # If project_path is provided, derive cube_id from it
+    if project_path:
+        try:
+            from keyword_enhancer import detect_cube_from_path
+            derived = detect_cube_from_path(project_path)
+            if derived:
+                return derived
+        except Exception:
+            pass
+
+    # Fall back to explicit cube_id or default
     return arg_cube_id if arg_cube_id else get_default_cube_id()
 
 

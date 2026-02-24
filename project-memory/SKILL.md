@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: "Proactive project memory management via MemOS MCP. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Need to understand dependencies/causality - memos_get_graph or memos_trace_path for relationships, (8) Cube not found - memos_list_cubes to discover available cubes. Available MCP tools: memos_search, memos_search_context, memos_save, memos_list, memos_suggest, memos_list_cubes, memos_get_graph, memos_trace_path, memos_export_schema."
+description: "Proactive project memory management via MemOS MCP. ALWAYS pass project_path parameter for correct cube routing. USE MCP TOOLS AUTOMATICALLY when: (1) Starting work - memos_search for context, (2) Completing tasks - memos_save as MILESTONE, (3) Fixing bugs - memos_save as ERROR_PATTERN, (4) Making decisions - memos_save as DECISION, (5) Encountering errors - memos_search for solutions, (6) User mentions '之前/上次/previously' - memos_search history, (7) Context compacted - memos_context_resume to recover. NEVER use mkdir or Write for memory files."
 ---
 
 # Project Memory (MCP Powered)
@@ -17,12 +17,15 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 2. **做出技术决策后必须保存为 `DECISION`**，包含理由和备选方案
 3. **发现非显而易见的陷阱必须保存为 `GOTCHA`**
 4. **保存时必须显式指定 `memory_type` 参数**，不依赖自动检测
+5. **保存时必须传 `project_path` 参数**（当前工作目录），确保存入正确的 cube
 
 ### MUST NOT (禁止)
 
 1. **禁止将 PROGRESS 作为默认/万能类型**
 2. **禁止省略 memory_type 参数** (除非是纯进度汇报)
 3. **禁止在 PROGRESS 中包含错误解决方案、技术决策、陷阱警告**
+4. **禁止用 mkdir 或 Write 创建 memory 目录/文件** — 所有记忆通过 MCP memos 工具保存
+5. **禁止不加 project_path 就用 `dev_cube`** — 每个项目应有独立 cube
 
 ### 类型选择决策树
 
@@ -86,8 +89,36 @@ Intelligent project memory system powered by **MemOS MCP Server**. Use MCP tools
 
 ## Quick Reference: MCP Tools
 
+### Cube Routing (CRITICAL)
+
+**每个项目必须使用独立的 cube，不要全部存入 `dev_cube`！**
+
+使用 `project_path` 参数让服务端自动推导 cube_id：
+
+```python
+# CORRECT: 传 project_path，自动推导
+memos_save(content="...", memory_type="FEATURE", project_path="/mnt/g/Cyber/AudioCraft Studio")
+# → 自动存入 audiocraft_studio_cube
+
+# WRONG: 不指定或用 dev_cube
+memos_save(content="...", memory_type="FEATURE", cube_id="dev_cube")
+# → 所有项目混在一起！
+```
+
+**推导规则**: 取目录名 → 小写 → 替换 `-`/`.`/空格 为 `_` → 加 `_cube` 后缀
+
+| 项目路径 | cube_id |
+|---------|---------|
+| `/mnt/g/Cyber/AudioCraft Studio` | `audiocraft_studio_cube` |
+| `/mnt/g/test/MemOS` | `memos_cube` |
+| `/mnt/g/MCP_server/Skill_Seekers` | `skill_seekers_cube` |
+| `~/my-app` | `my_app_cube` |
+
+### Tool Reference
+
 | Tool | When to Use | Example |
 |------|-------------|---------|
+| `memos_context_resume` | **Context compacted or session start** | `project_path: "/mnt/g/Cyber/AudioCraft Studio"` |
 | `memos_search` | Find related memories, solutions, patterns | `query: "ERROR_PATTERN ModuleNotFoundError"` |
 | `memos_search_context` | **Smart search with conversation context** | `query: "what was the solution?"` |
 | `memos_save` | Record important information | `content: "Fixed X by Y", memory_type: "BUGFIX"` |

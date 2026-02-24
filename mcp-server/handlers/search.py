@@ -412,3 +412,51 @@ async def handle_memos_suggest(
         return [TextContent(type="text", text="\n".join(result))]
     else:
         return [TextContent(type="text", text="No specific suggestions. Try searching with keywords from your context.")]
+
+
+async def handle_memos_context_resume(
+    client: httpx.AsyncClient,
+    arguments: dict[str, Any]
+) -> list[TextContent]:
+    """Handle memos_context_resume tool call - recover context after compaction."""
+    cube_id = get_cube_id_from_args(arguments)
+
+    # Auto-register cube
+    reg_success, reg_error = await ensure_cube_registered(client, cube_id)
+    if not reg_success:
+        return cube_registration_error(cube_id, reg_error)
+
+    # Try temporal query first (last 24h from Neo4j)
+    recent_memories = await _get_temporal_memories(
+        client, cube_id, top_k=10, time_window_hours=24
+    )
+
+    # Fallback to API list if temporal query returns nothing
+    if not recent_memories:
+        success, data, status = await api_call_with_retry(
+            client, "GET", f"{MEMOS_URL}/memories", cube_id,
+            params={"user_id": MEMOS_USER, "mem_cube_id": cube_id, "limit": 10}
+        )
+        if success and data:
+            recent_memories = _extract_search_memories(data.get("data", {}))
+
+    # Format output
+    lines = ["## Context Resumed", ""]
+
+    if recent_memories:
+        lines.append(f"**Recent memories** ({len(recent_memories)} items, last 24h):")
+        lines.append("")
+        for i, mem in enumerate(recent_memories[:10], 1):
+            content = mem.get("memory", "") or mem.get("content", "")
+            summary = content[:120].split("\n")[0]
+            lines.append(f"{i}. {summary}")
+        lines.append("")
+    else:
+        lines.append("No recent memories found in this cube.")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("**REMINDER**: Use MCP memos tools (`memos_save`, `memos_search`) for ALL memory operations.")
+    lines.append("NEVER use `mkdir` or `Write` to create memory files.")
+
+    return [TextContent(type="text", text="\n".join(lines))]

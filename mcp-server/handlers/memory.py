@@ -137,7 +137,7 @@ async def handle_memos_save(
     if success:
         # Mark as saved in dedup cache
         _mark_saved(content, cube_id)
-        return [TextContent(type="text", text=f"✅ Memory saved as [{memory_type}]")]
+        return [TextContent(type="text", text=f"Memory saved as [{memory_type}] in cube '{cube_id}'")]
     elif data:
         return api_error_response("Save", data.get("message", "Unknown error"))
     else:

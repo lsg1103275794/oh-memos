@@ -8,10 +8,44 @@ Contains all MCP tool definitions.
 from config import MEMOS_DEFAULT_CUBE, MEMOS_ENABLE_DELETE, MEMOS_USER, logger
 from mcp.types import Tool
 
+# Shared parameter definitions for reuse across tools
+_PROJECT_PATH_PARAM = {
+    "type": "string",
+    "description": "Your current working directory (project root). The cube_id will be auto-derived from this path. PREFERRED over manually specifying cube_id. Example: '/mnt/g/Cyber/AudioCraft Studio' → 'audiocraft_studio_cube'"
+}
+
+_CUBE_ID_PARAM = {
+    "type": "string",
+    "description": "Memory cube ID. Only use if you know the exact cube_id. Otherwise, pass project_path and let the server derive it.",
+    "default": MEMOS_DEFAULT_CUBE
+}
+
 
 def get_tools() -> list[Tool]:
     """Return list of all available MCP tools."""
     tools = [
+        Tool(
+            name="memos_context_resume",
+            description="""Recover project context after context compaction or at session start.
+
+Call this tool when:
+- Context was just compacted (you lost conversation history)
+- You're unsure what was being worked on
+- Starting a new session and need project context
+
+Returns: Recent memories (last 24h), active project summary, and session state.
+
+⚠️ IMPORTANT: After calling this, use MCP memos tools for ALL memory operations.
+NEVER use mkdir or Write to create memory files. All memories live in MCP memos.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": _PROJECT_PATH_PARAM,
+                    "cube_id": _CUBE_ID_PARAM
+                },
+                "required": []
+            }
+        ),
         Tool(
             name="memos_search",
             description="""Search project memories for relevant context.
@@ -25,7 +59,10 @@ USE THIS TOOL PROACTIVELY when:
 - Working with configuration files (search for CONFIG)
 
 Results are automatically compacted when exceeding threshold (15+ items).
-Use memos_get(memory_id) to retrieve full details of specific memories.""",
+Use memos_get(memory_id) to retrieve full details of specific memories.
+
+⚠️ IMPORTANT: After context compaction, call this tool to recover project context.
+NEVER use mkdir, Write, or file operations to create memory files — all memories are stored in MCP memos.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -33,11 +70,8 @@ Use memos_get(memory_id) to retrieve full details of specific memories.""",
                         "type": "string",
                         "description": "Search query. Can be natural language or prefixed with memory type (e.g., 'ERROR_PATTERN ModuleNotFoundError', 'DECISION authentication')"
                     },
-                    "cube_id": {
-                        "type": "string",
-                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
-                        "default": MEMOS_DEFAULT_CUBE
-                    },
+                    "project_path": _PROJECT_PATH_PARAM,
+                    "cube_id": _CUBE_ID_PARAM,
                     "top_k": {
                         "type": "integer",
                         "description": "Maximum number of results to return (default: 10)",
@@ -127,7 +161,10 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
 - PROGRESS: **仅用于纯进度更新，禁止包含错误解决方案、技术决策、陷阱警告**
 
 ❌ 错误: memos_save(content="修复了模型路径问题") → 默认 PROGRESS
-✅ 正确: memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")""",
+✅ 正确: memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")
+
+⚠️ This is the ONLY way to save memories. NEVER use mkdir or Write tool to create memory directories/files.
+If you feel the urge to run `mkdir -p ...memory` — STOP and use this tool instead.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -141,11 +178,8 @@ Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
                         "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
                                 "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
                     },
-                    "cube_id": {
-                        "type": "string",
-                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
-                        "default": MEMOS_DEFAULT_CUBE
-                    }
+                    "project_path": _PROJECT_PATH_PARAM,
+                    "cube_id": _CUBE_ID_PARAM
                 },
                 "required": ["content", "memory_type"]
             }
@@ -161,11 +195,8 @@ Set compact=false to disable compression and get full results.""",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "cube_id": {
-                        "type": "string",
-                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
-                        "default": MEMOS_DEFAULT_CUBE
-                    },
+                    "project_path": _PROJECT_PATH_PARAM,
+                    "cube_id": _CUBE_ID_PARAM,
                     "limit": {
                         "type": "integer",
                         "description": "Maximum number of memories to return.",
