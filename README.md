@@ -26,8 +26,68 @@
 | **Memory Loss** | New chat = AI forgets everything. *"Why did we choose Redis again?"* |
 | **Repeat Mistakes** | Same bug fixed 3 times. AI never learns from history. |
 | **Doc Overload** | AI scatters `NOTES.md`, `TODO.md` everywhere. Project becomes a mess. |
+| **Context Collapse** | After context compaction, AI degrades to `mkdir -p .../memory` instead of using MCP tools. |
+| **Memory Pollution** | Different projects share the same memory cube — AudioCraft memories mixed with MemOS memories. |
 
 **MemOSLocal-SM transforms AI from a "stateless chatbot" into a "Senior Project Partner".**
+
+---
+
+## 🆕 What's New — v2.5 (Feb 2026)
+
+### 🛡️ Six-Layer Context Defense System
+
+AI assistants lose conversation history after context compaction. This update introduces a **six-layer defense chain** to ensure the model always uses MCP memory tools — even after context is fully compressed.
+
+```
+Layer 1  Tool Descriptions ──── Survive compaction intact. Anti-mkdir warnings embedded.
+Layer 2  project_path Routing ─ Auto-derive cube_id from working directory. No more dev_cube pollution.
+Layer 3  CLAUDE.md / MEMORY.md  Always loaded into context. Rules + quick reference.
+Layer 4  PreCompact Hook ────── Visual reminder before compaction: save memories NOW.
+Layer 5  Context Monitor ────── Track tool call count. Warn at 70%, alert at 90%.
+Layer 6  Project Hooks ──────── 7 hooks for session start, intent detection, save suggestions.
+```
+
+### 🗺️ Smart Cube Routing
+
+Each project now gets its own isolated memory cube, automatically derived from the working directory:
+
+| Project Path | Auto-derived Cube |
+|-------------|-------------------|
+| `/mnt/g/test/MemOS` | `memos_cube` |
+| `/mnt/g/Cyber/AudioCraft Studio` | `audiocraft_studio_cube` |
+| `~/projects/my-web-app` | `my_web_app_cube` |
+
+```python
+# Just pass project_path — the server handles the rest
+memos_save(content="...", memory_type="BUGFIX", project_path="/mnt/g/Cyber/AudioCraft Studio")
+# → saved to audiocraft_studio_cube (not dev_cube!)
+```
+
+### 🔧 New MCP Tool: `memos_context_resume`
+
+One-call context recovery after compaction:
+
+```python
+memos_context_resume(project_path="/mnt/g/test/MemOS")
+# Returns: recent 24h memories + active project summary + anti-mkdir reminder
+```
+
+### ⚡ Claude Code Hooks System
+
+Ready-to-use hooks in `project-memory/hooks/node/`:
+
+| Hook | Event | What It Does |
+|------|-------|-------------|
+| `memos_session_start.js` | SessionStart | Maps CWD → cube_id at startup |
+| `memos_user_prompt.js` | UserPromptSubmit | Detects intent (history, errors, decisions) → suggests memos_search |
+| `memos_pre_compact.js` | PreCompact | Reminds: save before compaction, resume after |
+| `memos_suggest_compact.js` | PreToolUse | Monitors context usage, warns at 70%/90% |
+| `memos_auto_save.js` | PostToolUse | Suggests appropriate memory_type after edits |
+| `memos_block_mkdir_memory.js` | PreToolUse | Blocks `mkdir` for memory directories |
+| `memos_notify_milestone.js` | PostToolUse | Suggests MILESTONE save for important files |
+
+> See [`project-memory/hooks/settings-template.json`](project-memory/hooks/settings-template.json) for setup instructions.
 
 ---
 
@@ -103,6 +163,12 @@ AI **auto-retrieves** history before work:
 │   │   │  (Graph)   │    │  (Vector)  │    │  (LLM)   │   │  │
 │   │   └────────────┘    └────────────┘    └──────────┘   │  │
 │   └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│   ┌──────────────────────────────────────────────────────┐  │
+│   │            Hooks System (Claude Code)                │  │
+│   │  SessionStart → UserPrompt → PreToolUse → PostTool   │  │
+│   │       → PreCompact → ContextMonitor → SessionEnd     │  │
+│   └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -121,6 +187,8 @@ MemOSLocal-SM is constantly evolving based on the latest academic research. We h
 - **MAGMA Multi-Graph Routing**: Intent-based sub-graph filtering to boost precision and reduce latency.
 - **HippoRAG 2 PPR**: Personalized PageRank for deep causality tracing and associative memory.
 - **EverMemOS Self-Organization**: (Experimental) Memory lifecycle management and episodic trace consolidation.
+- **Six-Layer Context Defense**: Ensures AI uses MCP tools after context compaction — never falls back to mkdir.
+- **Smart Cube Routing**: Auto-derive per-project memory cubes from working directory path.
 
 > 📖 View the full list of research-inspired changes in [**Changelog**](docs/CHANGELOG.md).
 
@@ -166,6 +234,16 @@ setup_env.bat && install_run.bat
 
 </details>
 
+### Setting Up Hooks (Optional but Recommended)
+
+```bash
+# 1. Copy hooks to your Claude Code config
+cp project-memory/hooks/node/*.js ~/.claude/hooks/scripts/
+
+# 2. Edit settings-template.json — replace <MEMOS_PATH> with your MemOS install path
+# 3. Merge the hooks config into your ~/.claude/settings.json
+```
+
 ---
 
 ## 🔌 MCP Tools
@@ -174,11 +252,18 @@ AI uses these tools **automatically** when MCP is configured:
 
 | Tool | Function |
 |------|----------|
+| `memos_context_resume` | Recover context after compaction (recent 24h memories) |
 | `memos_search` | Search project memories (auto-compresses >15 results) |
-| `memos_save` | Save memories (BUGFIX, DECISION, MILESTONE...) |
+| `memos_save` | Save memories with explicit type (BUGFIX, DECISION, MILESTONE...) |
 | `memos_list_v2` | List all memories (with compression) |
 | `memos_get` | Get full memory details by ID |
+| `memos_search_context` | Context-aware search with LLM intent analysis |
 | `memos_get_graph` | Query knowledge graph relationships |
+| `memos_trace_path` | Trace reasoning paths between two memories |
+| `memos_export_schema` | Export knowledge graph schema and statistics |
+| `memos_list_cubes` | List all available memory cubes |
+| `memos_register_cube` | Register a cube when auto-registration fails |
+| `memos_validate_cubes` | Validate and fix cube configurations |
 
 > 📖 Full setup: [MCP Configuration Guide](docs/MCP_GUIDE.md)
 
@@ -193,6 +278,7 @@ AI uses these tools **automatically** when MCP is configured:
 | [**📦 Deployment Guide**](docs/DEPLOY_EN.md) | Full manual setup |
 | [**📝 Changelog**](docs/CHANGELOG.md) | Version history |
 | [**🔧 API Reference**](docs/product-api-tests.md) | Backend API docs |
+| [**⚙️ Hooks Setup**](project-memory/hooks/settings-template.json) | Claude Code hooks configuration template |
 
 ---
 
