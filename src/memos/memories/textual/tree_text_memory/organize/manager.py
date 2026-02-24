@@ -223,8 +223,22 @@ class MemoryManager:
                             exc_info=e,
                         )
 
-        _submit_batches(working_nodes, "WorkingMemory")
-        _submit_batches(graph_nodes, "graph memory")
+        # 并行提交 WorkingMemory 和 graph memory 两种类型的批操作，避免串行阻塞
+        with ContextThreadPoolExecutor(max_workers=2) as parallel_executor:
+            futures_parallel = []
+            if working_nodes:
+                futures_parallel.append(
+                    parallel_executor.submit(_submit_batches, working_nodes, "WorkingMemory")
+                )
+            if graph_nodes:
+                futures_parallel.append(
+                    parallel_executor.submit(_submit_batches, graph_nodes, "graph memory")
+                )
+            for fut in futures_parallel:
+                try:
+                    fut.result()
+                except Exception as e:
+                    logger.exception("Parallel batch submission error: ", exc_info=e)
 
         if graph_node_ids and self.is_reorganize:
             self.reorganizer.add_message(QueueMessage(op="add", after_node=graph_node_ids))

@@ -121,7 +121,7 @@ MEMOS_CUBES_DIR = _require("MEMOS_CUBES_DIR",
 
 # -- Timeouts (seconds) --
 MEMOS_TIMEOUT_TOOL = _require_float("MEMOS_TIMEOUT_TOOL",
-    _args.memos_timeout_tool or _get_env("MEMOS_TIMEOUT_TOOL"), default=120.0)
+    _args.memos_timeout_tool or _get_env("MEMOS_TIMEOUT_TOOL"), default=300.0)
 MEMOS_TIMEOUT_STARTUP = _require_float("MEMOS_TIMEOUT_STARTUP",
     _args.memos_timeout_startup or _get_env("MEMOS_TIMEOUT_STARTUP"), default=30.0)
 MEMOS_TIMEOUT_HEALTH = _require_float("MEMOS_TIMEOUT_HEALTH",

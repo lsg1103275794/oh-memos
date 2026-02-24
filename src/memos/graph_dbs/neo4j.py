@@ -101,7 +101,14 @@ class Neo4jGraphDB(BaseGraphDB):
         from neo4j import GraphDatabase
 
         self.config = config
-        self.driver = GraphDatabase.driver(config.uri, auth=(config.user, config.password))
+        # 优化连接池配置，提升并发写入性能
+        self.driver = GraphDatabase.driver(
+            config.uri,
+            auth=(config.user, config.password),
+            max_connection_pool_size=50,         # 默认100太大，50足够且减少资源占用
+            connection_acquisition_timeout=30.0,  # 获取连接超时30秒，防止无限等待
+            max_connection_lifetime=3600,         # 连接最大生命周期1小时
+        )
         self.db_name = config.db_name
         self.user_name = config.user_name
 
