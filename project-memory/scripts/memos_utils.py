@@ -411,7 +411,7 @@ def create_cube_config(project: str, cube_path: Path = None) -> dict:
                 "extractor_llm": {
                     "backend": "openai",
                     "config": {
-                        "model_name_or_path": os.environ.get("MOS_CHAT_MODEL", "gpt-4"),
+                        "model_name_or_path": os.environ.get("MOS_CHAT_MODEL", "LongCat-Flash-Lite"),
                         "temperature": 0.6,
                         "max_tokens": 2048,
                         "api_key": os.environ.get("OPENAI_API_KEY", ""),

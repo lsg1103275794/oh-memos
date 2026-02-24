@@ -62,7 +62,7 @@ ANSWER_PROMPT = """
 
 
 class OpenAIPredict:
-    def __init__(self, model="gpt-4o-mini"):
+    def __init__(self, model="LongCat-Flash-Lite"):
         self.model = model
         self.openai_client = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"), base_url=os.getenv("OPENAI_BASE_URL")

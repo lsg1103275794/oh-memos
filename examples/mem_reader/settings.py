@@ -22,7 +22,7 @@ def get_llm_config() -> dict[str, Any]:
     ollama_api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
 
     # Use MEMRADER_ variables from .env as primary source
-    reader_model = os.getenv("MEMRADER_MODEL", os.getenv("MOS_CHAT_MODEL", "gpt-4o-mini"))
+    reader_model = os.getenv("MEMRADER_MODEL", os.getenv("MOS_CHAT_MODEL", "LongCat-Flash-Lite"))
     reader_api_key = os.getenv("MEMRADER_API_KEY", openai_api_key)
     reader_api_base = os.getenv("MEMRADER_API_BASE", openai_base_url)
 

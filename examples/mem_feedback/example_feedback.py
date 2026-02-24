@@ -46,7 +46,7 @@ def init_components():
         {
             "backend": "openai",
             "config": {
-                "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "gpt-4o"),
+                "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "LongCat-Flash-Lite"),
                 "temperature": 0.8,
                 "max_tokens": 1024,
                 "top_p": 0.9,

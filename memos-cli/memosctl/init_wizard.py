@@ -80,7 +80,7 @@ def generate_cube_config(
                 "extractor_llm": {
                     "backend": "openai",
                     "config": {
-                        "model_name_or_path": "qwen2.5:7b" if llm_backend == "ollama" else "gpt-4o-mini",
+                        "model_name_or_path": "qwen2.5:7b" if llm_backend == "ollama" else "LongCat-Flash-Lite",
                         "temperature": 0.6,
                         "max_tokens": 6000,
                         "api_key": "ollama" if llm_backend == "ollama" else "placeholder",
@@ -90,7 +90,7 @@ def generate_cube_config(
                 "dispatcher_llm": {
                     "backend": "openai",
                     "config": {
-                        "model_name_or_path": "qwen2.5:7b" if llm_backend == "ollama" else "gpt-4o-mini",
+                        "model_name_or_path": "qwen2.5:7b" if llm_backend == "ollama" else "LongCat-Flash-Lite",
                         "temperature": 0.6,
                         "max_tokens": 6000,
                         "api_key": "ollama" if llm_backend == "ollama" else "placeholder",

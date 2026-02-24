@@ -103,7 +103,7 @@ async def locomo_grader(llm_client, question: str, gold_answer: str, response: s
     """
     try:
         response = await llm_client.chat.completions.create(
-            model=os.getenv("EVAL_MODEL", "gpt-4o-mini"),
+            model=os.getenv("EVAL_MODEL", "LongCat-Flash-Lite"),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": accuracy_prompt},

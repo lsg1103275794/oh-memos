@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * MemOS Hook: PostToolUse - Notify Milestone (Cross-platform Node.js)
- * Suggests saving milestones when editing important files
+ *
+ * Suggests saving milestones when editing important files.
+ * Reminds to pass project_path for correct cube routing.
  */
 
 let input = '';
@@ -11,26 +13,18 @@ process.stdin.on('end', () => {
     const data = JSON.parse(input);
     const filePath = data.tool_input?.file_path || '';
 
-    // Files that indicate milestone completion
     const milestoneFiles = [
-      'README.md',
-      'CHANGELOG.md',
-      'package.json',
-      'pyproject.toml',
-      'config.json',
-      'Cargo.toml',
-      'go.mod',
-      'pom.xml'
+      'README.md', 'CHANGELOG.md', 'package.json', 'pyproject.toml',
+      'config.json', 'Cargo.toml', 'go.mod', 'pom.xml'
     ];
 
-    // Check if edited file is a milestone indicator
     const isMilestone = milestoneFiles.some(mf => filePath.endsWith(mf));
 
     if (isMilestone) {
       console.log(JSON.stringify({
         continue: true,
         suppressOutput: false,
-        message: '💡 Consider saving this as a MILESTONE if it\'s a significant change'
+        message: 'Significant file changed → memos_save(..., memory_type="MILESTONE", project_path="<CWD>")'
       }));
     } else {
       console.log(JSON.stringify({

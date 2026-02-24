@@ -166,6 +166,45 @@
 
 ## CLI 设计
 
+### 安装策略与环境要求（补充）
+
+- **推荐环境**: Python 3.10+ 的 `venv`（统一安装 `memos` 与 `memos-cli`）。
+- **兼容环境**: 允许已有 conda 环境继续使用，但向导需要明确提示可能的依赖冲突。
+- **默认策略**: 若检测到 `.venv` 不存在，提示创建 venv；若检测到 conda/系统 Python，则提示确认继续。
+- **CLI 依赖来源**:
+  - 开发模式：`pip install -e memos-cli`
+  - 发布模式（计划中）：`pip install memos-cli`
+
+### Windows 执行策略（补充）
+
+PowerShell 默认可能阻止脚本运行，安装向导需在提示中包含以下信息：
+
+- 临时执行：`powershell -ExecutionPolicy Bypass -File <script>.ps1`
+- 或提示用户在 cmd 中使用 `.bat` 版本脚本
+
+### 模式初始化与配置写入（补充）
+
+交互式向导需明确以下流程：
+
+1. 用户选择模式（coding/student/…）
+2. 生成 `~/.memos/<project>/` 目录
+3. 写入 `.env` 与 `config.json`（或 `config.toml`）
+4. 记录默认 mode（用于 `memosctl start --mode <mode>` 的默认值）
+5. 生成可复用的启动提示（例如 `memosctl start`、`memosctl status`）
+
+### 依赖服务检查（补充）
+
+安装向导应检测并提示必要服务（如 Redis/Qdrant/Neo4j）是否可用：
+
+- 缺失时给出启动提示或下载链接
+- 端口占用时给出冲突提示与替代端口建议
+
+### 失败恢复与重试（补充）
+
+- 提示用户如何清理半成品配置（例如删除 `~/.memos/<project>/`）
+- 提供“重试安装”入口（`memosctl init --force` 或交互确认覆盖）
+
+
 ### 已实现命令
 
 ```bash

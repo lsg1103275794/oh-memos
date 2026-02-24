@@ -110,6 +110,13 @@ xcopy /E /I data\memos_cubes backup\memos_cubes
 :: 恢复
 copy backup\.env .env
 xcopy /E /I backup\memos_cubes data\memos_cubes
+
+:: 覆盖本地数据库
+scripts\migrate\backup.bat                                                                                              :: 把 backups\memos_backup_xxx.zip 拷到 U盘/网盘  
+
+然后在新电脑上运行恢复脚本
+scripts\migrate\restore.bat backups\memos_backup_xxx.zip
+
 ```
 
 ---

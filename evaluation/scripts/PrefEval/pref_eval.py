@@ -26,7 +26,7 @@ async def call_gpt4o_mini_async(client: OpenAI, prompt: str) -> str:
     try:
         response = await asyncio.to_thread(
             client.chat.completions.create,
-            model="gpt-4o-mini",
+            model="LongCat-Flash-Lite",
             messages=messages,
             temperature=0,
             max_tokens=500,
@@ -256,7 +256,7 @@ def generate_excel_summary(
     avg_context_tokens: float,
     avg_add_time: float,
     output_excel_file: str,
-    model_name: str = "gpt-4o-mini",
+    model_name: str = "LongCat-Flash-Lite",
 ):
     print(f"Generating Excel summary at {output_excel_file}...")
 

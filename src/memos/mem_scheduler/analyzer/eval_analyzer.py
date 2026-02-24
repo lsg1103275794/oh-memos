@@ -36,7 +36,7 @@ class EvalAnalyzer:
         self,
         openai_api_key: str | None = None,
         openai_base_url: str | None = None,
-        openai_model: str = "gpt-4o-mini",
+        openai_model: str = "LongCat-Flash-Lite",
         output_dir: str = "./tmp/eval_analyzer",
     ):
         """
@@ -57,7 +57,7 @@ class EvalAnalyzer:
             base_url=openai_base_url or os.getenv("MEMSCHEDULER_OPENAI_BASE_URL"),
         )
         self.openai_model = openai_model or os.getenv(
-            "MEMSCHEDULER_OPENAI_DEFAULT_MODEL", "gpt-4o-mini"
+            "MEMSCHEDULER_OPENAI_DEFAULT_MODEL", "LongCat-Flash-Lite"
         )
 
         logger.info(f"EvalAnalyzer initialized with model: {self.openai_model}")

@@ -23,7 +23,7 @@ sys.path.insert(0, EVAL_SCRIPTS_DIR)
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+MODEL_NAME = os.getenv("MODEL_NAME", "LongCat-Flash-Lite")
 tokenizer = tiktoken.get_encoding("cl100k_base")
 os.environ["MEM0_API_KEY"] = os.getenv("MEM0_API_KEY")
 

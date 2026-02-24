@@ -32,7 +32,7 @@ def get_mem_chat_config() -> MemChatConfigFactory:
                     "backend": "openai",
                     "config": {
                         # Prioritize getting sensitive information and model configuration from environment variables
-                        "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "gpt-4o"),
+                        "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "LongCat-Flash-Lite"),
                         "temperature": 0.8,
                         "max_tokens": 1024,
                         "top_p": 0.9,
@@ -78,7 +78,7 @@ def get_mem_cube_config() -> GeneralMemCubeConfig:
                     "extractor_llm": {
                         "backend": "openai",
                         "config": {
-                            "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "gpt-4o"),
+                            "model_name_or_path": os.getenv("MOS_CHAT_MODEL", "LongCat-Flash-Lite"),
                             "temperature": 0.8,
                             "max_tokens": 1024,
                             "top_p": 0.9,

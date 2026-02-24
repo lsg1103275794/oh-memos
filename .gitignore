@@ -219,11 +219,13 @@ venv.bak/
 !package.json
 !package-lock.json
 !tsconfig.json
+!project-memory/hooks/settings-template.json
 !vite.config.ts
 !pyproject.toml
 !poetry.lock
 !requirements.txt
 verify_mems.py
+conda_venv_backup
 # ========== Bundle Runtime (DO NOT UPLOAD - contains binaries + personal data) ==========
 # Neo4j, Qdrant, JRE, Conda environments
 src/bin/
@@ -263,6 +265,7 @@ cython_debug/
 
 # auth file
 *_auth.yaml
+backups/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

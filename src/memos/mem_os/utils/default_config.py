@@ -43,7 +43,7 @@ def get_default_config(
 
     # Base OpenAI configuration
     openai_config = {
-        "model_name_or_path": kwargs.get("model_name", "gpt-4o-mini"),
+        "model_name_or_path": kwargs.get("model_name", "LongCat-Flash-Lite"),
         "temperature": kwargs.get("temperature", 0.8),
         "max_tokens": kwargs.get("max_tokens", 1024),
         "top_p": kwargs.get("top_p", 0.9),
@@ -157,7 +157,7 @@ def get_default_cube_config(
 
     # Base OpenAI configuration
     openai_config = {
-        "model_name_or_path": kwargs.get("model_name", "gpt-4o-mini"),
+        "model_name_or_path": kwargs.get("model_name", "LongCat-Flash-Lite"),
         "temperature": kwargs.get("temperature", 0.8),
         "max_tokens": kwargs.get("max_tokens", 1024),
         "top_p": kwargs.get("top_p", 0.9),
