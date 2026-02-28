@@ -1,16 +1,15 @@
 @echo off
 :: ============================================================
-:: 注册 MemOS 开机自动启动任务（只需运行一次）
-:: 右键 → 以管理员身份运行
+:: Register MemOS auto-start task (run once as Administrator)
 :: ============================================================
-echo 正在注册 MemOS 开机自动启动任务...
+echo Registering MemOS autostart task...
 
 set "VBS_PATH=G:\test\MemOS\scripts\local\autostart.vbs"
 
-:: 删除旧任务（如果存在）
+:: Remove old task if exists
 schtasks /Delete /TN "MemOS_Autostart" /F >nul 2>&1
 
-:: 创建新任务：登录时触发，延迟 30 秒等系统稳定
+:: Create task: trigger at logon, delay 30s for system stability
 schtasks /Create ^
     /TN "MemOS_Autostart" ^
     /TR "wscript.exe \"%VBS_PATH%\"" ^
@@ -21,17 +20,18 @@ schtasks /Create ^
 
 if %errorlevel% EQU 0 (
     echo.
-    echo  [OK] 任务注册成功！
+    echo  [OK] Task registered successfully!
     echo.
-    echo  效果：每次登录 Windows 后约 30 秒，MemOS 自动静默启动
-    echo        启动完成后会弹出气泡通知告知状态
+    echo  - Starts automatically ~30s after Windows logon
+    echo  - Balloon notification shows startup result
+    echo  - Logs: G:\test\MemOS\logs\
+    echo  - Status check: double-click memos_status.bat
     echo.
-    echo  管理：任务计划程序 ^> MemOS_Autostart
-    echo  日志：G:\test\MemOS\logs\
-    echo  状态：双击 memos_status.bat 随时查看
+    echo  To manage: Task Scheduler ^> MemOS_Autostart
 ) else (
     echo.
-    echo  [ERROR] 注册失败，请确认以管理员身份运行此脚本
+    echo  [ERROR] Registration failed.
+    echo  Please right-click this file and run as Administrator.
 )
 
 pause

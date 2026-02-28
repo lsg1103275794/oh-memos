@@ -1,21 +1,20 @@
 # ============================================================
-#  MemOS 开机自动启动脚本
-#  Task Scheduler 调用此脚本，静默启动所有服务并通知结果
+#  MemOS Auto-Start Script
+#  Called by Task Scheduler at logon - starts all services silently
 # ============================================================
 $ErrorActionPreference = "SilentlyContinue"
 
-# 路径配置
+# Paths
 $memosRoot   = "G:\test\MemOS"
 $neo4jHome   = "D:\User\neo4j-community-5.15.0"
 $qdrantHome  = "D:\User\Qdrant"
 $pythonExe   = "$memosRoot\.venv\Scripts\python.exe"
 $logDir      = "$memosRoot\logs"
-$pidFile     = "$logDir\api.pid"
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 # ============================================================
-# 工具函数
+# Helpers
 # ============================================================
 function Test-Port($port) {
     $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
@@ -35,7 +34,7 @@ function Show-Balloon($title, $message, $type = "Info") {
 }
 
 # ============================================================
-# Phase 1：启动 Qdrant
+# Phase 1: Start Qdrant
 # ============================================================
 if (-not (Test-Port 6333)) {
     $qdrantExe = "$qdrantHome\qdrant.exe"
@@ -46,7 +45,7 @@ if (-not (Test-Port 6333)) {
 }
 
 # ============================================================
-# Phase 2：启动 Neo4j
+# Phase 2: Start Neo4j
 # ============================================================
 if (-not (Test-Port 7687)) {
     $neo4jBat = "$neo4jHome\bin\neo4j.bat"
@@ -54,40 +53,37 @@ if (-not (Test-Port 7687)) {
         Start-Process -FilePath "cmd.exe" `
             -ArgumentList "/c cd /d `"$neo4jHome\bin`" && neo4j.bat console" `
             -WindowStyle Hidden
-        # Neo4j 启动较慢，多等一会儿
         Start-Sleep -Seconds 12
     }
 }
 
 # ============================================================
-# Phase 3：启动 MemOS API（隐藏窗口，日志写文件）
+# Phase 3: Start MemOS API (hidden, log to file)
 # ============================================================
 if (-not (Test-Port 18000)) {
-    # 清理旧日志（保留最近 3 次）
+    # Keep last 3 log files
     Get-Item "$logDir\api_stdout_*.log" -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -Skip 3 |
         Remove-Item -Force -ErrorAction SilentlyContinue
 
     $ts = Get-Date -Format "yyyyMMdd_HHmmss"
-    $stdoutLog = "$logDir\api_stdout_$ts.log"
-    $stderrLog = "$logDir\api_stderr_$ts.log"
 
     $apiProc = Start-Process `
         -FilePath $pythonExe `
         -ArgumentList "-m", "uvicorn", "memos.api.start_api:app", "--host", "0.0.0.0", "--port", "18000" `
         -WorkingDirectory "$memosRoot\src" `
         -WindowStyle Hidden `
-        -RedirectStandardOutput $stdoutLog `
-        -RedirectStandardError  $stderrLog `
+        -RedirectStandardOutput "$logDir\api_stdout_$ts.log" `
+        -RedirectStandardError  "$logDir\api_stderr_$ts.log" `
         -PassThru
 
     if ($apiProc) {
-        $apiProc.Id | Out-File $pidFile -Force
+        $apiProc.Id | Out-File "$logDir\api.pid" -Force
     }
 }
 
 # ============================================================
-# Phase 4：等待 API 就绪，最多 40 秒
+# Phase 4: Wait for API to be healthy (max 40s)
 # ============================================================
 $waited  = 0
 $healthy = $false
@@ -101,22 +97,22 @@ while ($waited -lt 40) {
 }
 
 # ============================================================
-# Phase 5：气泡通知启动结果
+# Phase 5: Balloon notification with result
 # ============================================================
 $qdrantOk = Test-Port 6333
 $neo4jOk  = Test-Port 7687
 $apiOk    = Test-Port 18000
 
 $lines = @(
-    "$(if($qdrantOk){'[OK]'}else{'[!]'}) Qdrant  :6333",
-    "$(if($neo4jOk) {'[OK]'}else{'[!]'}) Neo4j   :7687",
-    "$(if($apiOk)   {'[OK]'}else{'[!]'}) API     :18000"
+    "$(if($qdrantOk){'[OK]'}else{'[!!]'}) Qdrant  :6333",
+    "$(if($neo4jOk) {'[OK]'}else{'[!!]'}) Neo4j   :7687",
+    "$(if($apiOk)   {'[OK]'}else{'[!!]'}) API     :18000"
 )
 $body = $lines -join "`n"
 
 if ($healthy) {
-    Show-Balloon "MemOS 已启动" $body "Info"
+    Show-Balloon "MemOS Started" $body "Info"
 } else {
-    $body += "`n`n日志: $logDir"
-    Show-Balloon "MemOS 启动异常" $body "Warning"
+    $body += "`n`nCheck logs: $logDir"
+    Show-Balloon "MemOS - Startup Warning" $body "Warning"
 }
