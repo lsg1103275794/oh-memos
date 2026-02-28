@@ -2,8 +2,10 @@
 """
 MemOS MCP Server Calendar Handler
 
-Handles memos_calendar tool for student mode.
-Provides semester/week/day views of learning notes.
+Handles memos_calendar tool.
+Supports two modes:
+- student: semester/week/day views of learning notes
+- project: milestone timeline grouped by month
 """
 
 from datetime import datetime, timedelta
@@ -57,6 +59,60 @@ def get_week_dates(semester_start: datetime, week: int) -> tuple[datetime, datet
     week_start = week_start - timedelta(days=week_start.weekday())
     week_end = week_start + timedelta(days=6)
     return week_start, week_end
+
+
+def format_project_timeline(memories: list[dict], cube_id: str) -> str:
+    """Format MILESTONE/DECISION memories as a project timeline grouped by month."""
+    lines = []
+    lines.append(f"## 🗓️ Project Timeline — {cube_id}")
+    lines.append("")
+
+    # Filter to meaningful project memory types
+    project_types = {"MILESTONE", "DECISION", "FEATURE", "BUGFIX", "ERROR_PATTERN", "GOTCHA"}
+    project_mems = [
+        m for m in memories
+        if m.get("memory_type", m.get("type", "")).upper() in project_types
+    ]
+
+    if not project_mems:
+        lines.append("_No project milestones or decisions found._")
+        lines.append("")
+        lines.append("Save memories with: memos_save(..., memory_type=\"MILESTONE\")")
+        return "\n".join(lines)
+
+    # Group by year-month
+    by_month: dict[str, list[dict]] = {}
+    for mem in project_mems:
+        created = mem.get("created_at", mem.get("timestamp", ""))
+        month_str = created[:7] if isinstance(created, str) and len(created) >= 7 else "unknown"
+        by_month.setdefault(month_str, []).append(mem)
+
+    # Sort months descending
+    sorted_months = sorted(by_month.keys(), reverse=True)
+
+    for month_str in sorted_months:
+        mems = by_month[month_str]
+        lines.append(f"**{month_str}**")
+        for i, mem in enumerate(mems):
+            mem_type = mem.get("memory_type", mem.get("type", "NOTE")).upper()
+            content = mem.get("content", mem.get("key", ""))
+            # First line of content only, up to 80 chars
+            summary = content.split("\n")[0][:80]
+            if len(summary) == 80:
+                summary += "..."
+            connector = "└──" if i == len(mems) - 1 else "├──"
+            lines.append(f"  {connector} [{mem_type}] {summary}")
+        lines.append("")
+
+    # Stats
+    type_counts: dict[str, int] = {}
+    for mem in project_mems:
+        t = mem.get("memory_type", "OTHER").upper()
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    lines.append(f"📊 Total: {len(project_mems)} entries across {len(sorted_months)} month(s)")
+    lines.append(f"   Types: {', '.join(f'{k}:{v}' for k, v in sorted(type_counts.items(), key=lambda x: -x[1]))}")
+    return "\n".join(lines)
 
 
 def format_calendar_output(
@@ -163,6 +219,7 @@ async def handle_memos_calendar(
 ) -> list[TextContent]:
     """Handle memos_calendar tool call."""
     cube_id = get_cube_id_from_args(arguments)
+    mode = arguments.get("mode", "student")
     semester = arguments.get("semester", "current")
     course = arguments.get("course")
     week = arguments.get("week")
@@ -172,6 +229,35 @@ async def handle_memos_calendar(
     if not reg_success:
         return cube_registration_error(cube_id, reg_error)
 
+    # Project mode: skip date filtering, filter by memory type instead
+    if mode == "project":
+        params = {
+            "user_id": MEMOS_USER,
+            "mem_cube_id": cube_id,
+            "limit": 200,
+        }
+        success, data, status = await api_call_with_retry(
+            client, "GET", f"{MEMOS_URL}/memories", cube_id,
+            params=params
+        )
+        if success and data:
+            result_data = data.get("data", {})
+            memories = []
+            text_mems = result_data.get("text_mem", [])
+            for cube_data in text_mems:
+                memories_data = cube_data.get("memories", [])
+                if isinstance(memories_data, dict) and "nodes" in memories_data:
+                    memories.extend(memories_data["nodes"])
+                elif isinstance(memories_data, list):
+                    memories.extend(memories_data)
+            output = format_project_timeline(memories, cube_id)
+            return [TextContent(type="text", text=output)]
+        elif data:
+            return api_error_response("Calendar", data.get("message", "Unknown error"))
+        else:
+            return api_error_response("Calendar", f"HTTP {status}")
+
+    # Student mode (original behavior)
     start_date, end_date = get_semester_dates(semester)
     if week:
         start_date, end_date = get_week_dates(start_date, int(week))

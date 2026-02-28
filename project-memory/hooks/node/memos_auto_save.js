@@ -91,6 +91,7 @@ function analyzeFileEdit(filePath) {
 function analyzeBashResult(command, result) {
   const cmdLower = command.toLowerCase();
 
+  // === Detect command failures ===
   const failurePatterns = [
     'error:', 'failed', 'exception', 'traceback', 'fatal:',
     'command not found', 'permission denied', 'no such file'
@@ -101,21 +102,45 @@ function analyzeBashResult(command, result) {
     return 'Command failed → memos_search(query="ERROR_PATTERN <error>", project_path="<CWD>")';
   }
 
-  if (cmdLower.includes('git commit') && (
-    result.includes('fix') || result.includes('bug') || result.includes('resolve')
-  )) {
-    return 'Fix committed → memos_save(..., memory_type="BUGFIX", project_path="<CWD>")';
+  // === Detect any successful git commit → suggest save ===
+  if (cmdLower.includes('git commit') && !hasFailure) {
+    // Extract commit message from output: "[branch hash] commit message"
+    const commitMatch = result.match(/\[[\w/.-]+ [0-9a-f]+\]\s*(.+)/);
+    const commitMsg = commitMatch ? commitMatch[1].trim() : '';
+    const msgLower = commitMsg.toLowerCase();
+
+    let memType = 'PROGRESS';
+    if (/\b(fix|bug|resolve|repair|patch)\b/.test(msgLower)) {
+      memType = 'BUGFIX';
+    } else if (/\b(feat|feature|add|implement|new)\b/.test(msgLower)) {
+      memType = 'FEATURE';
+    } else if (/\b(refactor|clean|improve|optimize|perf)\b/.test(msgLower)) {
+      memType = 'DECISION';
+    } else if (/\b(release|milestone|version|v\d+\.\d+)\b/.test(msgLower)) {
+      memType = 'MILESTONE';
+    }
+
+    const hint = commitMsg ? ` ("${commitMsg.slice(0, 60)}")` : '';
+    return `Git commit${hint} → memos_save(..., memory_type="${memType}", project_path="<CWD>")`;
   }
 
+  // Successful test run
   if ((cmdLower.includes('pytest') || cmdLower.includes('npm test') ||
        cmdLower.includes('cargo test') || cmdLower.includes('go test')) &&
       (result.includes('passed') || result.includes('ok') || result.includes('success'))) {
     return 'Tests passed → If fixed something: memos_save(..., memory_type="BUGFIX", project_path="<CWD>")';
   }
 
+  // Package install
   if ((cmdLower.includes('pip install') || cmdLower.includes('npm install') ||
        cmdLower.includes('cargo add')) && !hasFailure) {
     return 'Dependencies changed → memos_save(..., memory_type="CONFIG", project_path="<CWD>")';
+  }
+
+  // Database migrations
+  if ((cmdLower.includes('migrate') || cmdLower.includes('alembic') ||
+       cmdLower.includes('prisma')) && !hasFailure) {
+    return 'Migration executed → memos_save(..., memory_type="CONFIG", project_path="<CWD>")';
   }
 
   return null;

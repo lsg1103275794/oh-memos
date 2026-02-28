@@ -511,42 +511,44 @@ Returns:
         ),
         Tool(
             name="memos_calendar",
-            description="""View student learning notes in calendar format.
+            description="""View memories in calendar format. Supports two modes:
 
-USE THIS TOOL for student mode to:
+PROJECT MODE (mode="project"):
+- Shows milestone timeline grouped by month
+- Filters MILESTONE, DECISION, FEATURE, BUGFIX, GOTCHA types
+- Perfect for: "Show project timeline", "What milestones this month?"
+
+STUDENT MODE (mode="student", default):
 - View notes by semester (Spring/Fall/Summer)
 - Filter by specific course
 - Browse by week number
-- Get calendar overview of learning progress
 
-Perfect for:
-- "Show me this semester's notes"
-- "What did I learn in week 3?"
-- "List all notes for Math 101"
-
-Views:
-- list: Simple chronological list
-- week: Day-by-day view with weekday headers
-- month: Summary with note counts per day""",
+Views (student mode): list, week, month""",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "mode": {
+                        "type": "string",
+                        "description": "Mode: 'project' for milestone timeline, 'student' for learning notes calendar",
+                        "enum": ["project", "student"],
+                        "default": "student"
+                    },
                     "semester": {
                         "type": "string",
-                        "description": "Semester to view. Format: 'YYYY-Season' (e.g., '2026-Spring', '2025-Fall') or 'current' for auto-detect",
+                        "description": "Semester to view (student mode). Format: 'YYYY-Season' or 'current'",
                         "default": "current"
                     },
                     "course": {
                         "type": "string",
-                        "description": "Optional: Filter by course name or tag"
+                        "description": "Optional: Filter by course name or tag (student mode)"
                     },
                     "week": {
                         "type": "integer",
-                        "description": "Optional: Specific week number in semester (1-18)"
+                        "description": "Optional: Specific week number in semester 1-18 (student mode)"
                     },
                     "view": {
                         "type": "string",
-                        "description": "View format: 'list' (chronological), 'week' (by day), 'month' (summary)",
+                        "description": "View format (student mode): 'list', 'week', 'month'",
                         "enum": ["list", "week", "month"],
                         "default": "list"
                     },
