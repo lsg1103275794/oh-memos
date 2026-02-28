@@ -2,6 +2,7 @@ import concurrent.futures
 import copy
 import json
 import os
+import time
 import traceback
 
 from abc import ABC
@@ -230,11 +231,24 @@ class SimpleStructMemReader(BaseMemReader, ABC):
         )
 
     def _safe_generate(self, messages: list[dict]) -> str | None:
-        try:
-            return self.llm.generate(messages)
-        except Exception:
-            logger.exception("[LLM] Generation failed")
-            return None
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                return self.llm.generate(messages)
+            except Exception as e:
+                # Check if this is a transient proxy error (bad_response_status_code from upstream)
+                error_str = str(e)
+                is_transient = "bad_response_status_code" in error_str
+                if is_transient and attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning(
+                        f"[LLM] Transient upstream error (attempt {attempt + 1}/{max_retries + 1}), "
+                        f"retrying in {wait}s: {e}"
+                    )
+                    time.sleep(wait)
+                    continue
+                logger.exception("[LLM] Generation failed")
+                return None
 
     def _safe_parse(self, text: str | None) -> dict | None:
         if not text:
