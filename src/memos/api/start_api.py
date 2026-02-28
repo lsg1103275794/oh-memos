@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import threading
 import time
 import warnings
 
@@ -57,65 +58,71 @@ DEFAULT_CONFIG = APIConfig.get_product_default_config()
 
 # Initialize MOS instance with lazy initialization
 MOS_INSTANCE = None
+_mos_init_lock = threading.Lock()
 
 
 def get_mos_instance():
     """Get or create MOS instance with default user creation."""
     global MOS_INSTANCE
     if MOS_INSTANCE is None:
-        # Create a temporary MOS instance to access user manager
-        temp_config = MOSConfig(**DEFAULT_CONFIG)
-        temp_mos = MOS.__new__(MOS)
-        temp_mos.config = temp_config
-        temp_mos.user_id = temp_config.user_id
-        temp_mos.session_id = temp_config.session_id
-        temp_mos.mem_cubes = {}
-        temp_mos.chat_llm = None  # Will be initialized later
-        temp_mos.user_manager = UserManager()
+        with _mos_init_lock:
+            if MOS_INSTANCE is None:
+                # Create a temporary MOS instance to access user manager
+                temp_config = MOSConfig(**DEFAULT_CONFIG)
+                temp_mos = MOS.__new__(MOS)
+                temp_mos.config = temp_config
+                temp_mos.user_id = temp_config.user_id
+                temp_mos.session_id = temp_config.session_id
+                temp_mos.mem_cubes = {}
+                temp_mos.chat_llm = None  # Will be initialized later
+                temp_mos.user_manager = UserManager()
 
-        # Create default user if it doesn't exist
-        if not temp_mos.user_manager.validate_user(temp_config.user_id):
-            temp_mos.user_manager.create_user(
-                user_name=temp_config.user_id, role=UserRole.USER, user_id=temp_config.user_id
-            )
-            logger.info(f"Created default user: {temp_config.user_id}")
+                # Create default user if it doesn't exist
+                if not temp_mos.user_manager.validate_user(temp_config.user_id):
+                    temp_mos.user_manager.create_user(
+                        user_name=temp_config.user_id, role=UserRole.USER, user_id=temp_config.user_id
+                    )
+                    logger.info(f"Created default user: {temp_config.user_id}")
 
-        # Now create the actual MOS instance
-        MOS_INSTANCE = MOS(config=temp_config)
+                # Now create the actual MOS instance
+                MOS_INSTANCE = MOS(config=temp_config)
 
     return MOS_INSTANCE
 
 
 # Initialize graph handler
 GRAPH_HANDLER = None
+_graph_handler_init_lock = threading.Lock()
 
 
 def get_graph_handler():
     """Lazy initialize GraphHandler with the current MOS instance's graph DB."""
     global GRAPH_HANDLER
     if GRAPH_HANDLER is None:
-        mos = get_mos_instance()
-        # Find a cube that has a graph_store
-        graph_db = None
-        # Try to get from the default cube if specified
-        default_cube_id = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
-        if default_cube_id in mos.mem_cubes:
-            cube = mos.mem_cubes[default_cube_id]
-            if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
-                graph_db = cube.text_mem.graph_store
+        with _graph_handler_init_lock:
+            if GRAPH_HANDLER is None:
+                mos = get_mos_instance()
+                # Find a cube that has a graph_store
+                graph_db = None
+                # Try to get from the default cube if specified
+                default_cube_id = os.environ.get("MEMOS_DEFAULT_CUBE", "dev_cube")
+                if default_cube_id in mos.mem_cubes:
+                    cube = mos.mem_cubes[default_cube_id]
+                    if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                        graph_db = cube.text_mem.graph_store
 
-        # If not found, take the first available
-        if not graph_db:
-            for cube in mos.mem_cubes.values():
-                if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
-                    graph_db = cube.text_mem.graph_store
-                    break
+                # If not found, take the first available
+                if not graph_db:
+                    for cube in mos.mem_cubes.values():
+                        if hasattr(cube, "text_mem") and hasattr(cube.text_mem, "graph_store"):
+                            graph_db = cube.text_mem.graph_store
+                            break
 
-        if not graph_db:
-            logger.warning("No graph database found in any memory cube")
+                if not graph_db:
+                    logger.warning("No graph database found in any memory cube")
 
-        deps = HandlerDependencies(graph_db=graph_db)
-        GRAPH_HANDLER = GraphHandler(deps)
+                deps = HandlerDependencies(graph_db=graph_db)
+                GRAPH_HANDLER = GraphHandler(deps)
     return GRAPH_HANDLER
 
 
@@ -149,7 +156,7 @@ async def health_check():
     """
     from datetime import datetime, timezone
 
-    components = _check_all_components()
+    components = await asyncio.to_thread(_check_all_components)
     overall = _compute_overall_status(components)
 
     return HealthResponse(
@@ -173,7 +180,7 @@ async def health_check_detail():
     """
     from datetime import datetime, timezone
 
-    components = _check_all_components()
+    components = await asyncio.to_thread(_check_all_components)
     overall = _compute_overall_status(components)
 
     messages = {
@@ -939,8 +946,8 @@ async def trace_path(req: APITracePathRequest):
                 max_depth=req.max_depth
             )
         else:
-            # Fallback: direct Neo4j query
-            path_result = _neo4j_find_path(req.source_id, req.target_id, req.max_depth)
+            # Fallback: direct Neo4j query (run in thread to avoid blocking event loop)
+            path_result = await asyncio.to_thread(_neo4j_find_path, req.source_id, req.target_id, req.max_depth)
 
         if path_result and path_result.get("path_found"):
             paths = []
@@ -990,8 +997,8 @@ async def export_schema(req: APISchemaRequest):
         if hasattr(graph_db, 'get_schema_stats'):
             stats = graph_db.get_schema_stats(sample_size=req.sample_size)
         else:
-            # Fallback: direct Neo4j query
-            stats = _neo4j_get_schema_stats(req.sample_size)
+            # Fallback: direct Neo4j query (run in thread to avoid blocking event loop)
+            stats = await asyncio.to_thread(_neo4j_get_schema_stats, req.sample_size)
 
         return SchemaResponse(
             code=200,

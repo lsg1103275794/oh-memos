@@ -201,7 +201,7 @@ class GraphHandler(BaseHandler):
                 neo4j_url,
                 json={"statements": [{"statement": query, "parameters": {"source_id": source_id, "target_id": target_id}}]},
                 auth=(neo4j_user, neo4j_password),
-                timeout=30
+                timeout=10
             )
 
             if response.status_code == 200:
@@ -244,7 +244,7 @@ class GraphHandler(BaseHandler):
                 neo4j_url,
                 json={"statements": [{"statement": "MATCH (n:Memory) RETURN count(n) as cnt"}]},
                 auth=(neo4j_user, neo4j_password),
-                timeout=30
+                timeout=10
             )
             if response.status_code == 200:
                 data = response.json()
@@ -257,7 +257,7 @@ class GraphHandler(BaseHandler):
                 neo4j_url,
                 json={"statements": [{"statement": "MATCH ()-[r]->() RETURN count(r) as cnt"}]},
                 auth=(neo4j_user, neo4j_password),
-                timeout=30
+                timeout=10
             )
             if response.status_code == 200:
                 data = response.json()
@@ -270,7 +270,7 @@ class GraphHandler(BaseHandler):
                 neo4j_url,
                 json={"statements": [{"statement": "MATCH ()-[r]->() RETURN type(r) as t, count(r) as cnt"}]},
                 auth=(neo4j_user, neo4j_password),
-                timeout=30
+                timeout=10
             )
             if response.status_code == 200:
                 data = response.json()
