@@ -234,6 +234,12 @@ temp/
 
 # ========== Local Scripts (machine-specific) ==========
 scripts/local/
+# Exception: shared utility scripts that are not machine-specific
+!scripts/local/start.bat
+!scripts/local/stop.bat
+!scripts/local/register_autostart.bat
+!scripts/local/unregister_autostart.bat
+!scripts/local/memos_status.bat
 start_db.bat
 .trae/
 .memos/

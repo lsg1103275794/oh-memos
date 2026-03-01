@@ -1,8 +1,25 @@
 @echo off
 :: ============================================================
-:: Register MemOS auto-start task (run once as Administrator)
+:: Register MemOS auto-start task
+:: Self-elevates to Administrator automatically
 :: ============================================================
-echo Registering MemOS autostart task...
+
+title MemOS - Register Autostart
+
+:: ── Self-elevate: relaunch as Administrator if needed ──────
+net session >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo  [UAC] Requesting Administrator privileges...
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b 0
+)
+
+echo.
+echo  ============================================================
+echo   MemOS - Register Autostart Task
+echo  ============================================================
+echo.
+echo  Registering MemOS autostart task...
 
 set "VBS_PATH=G:\test\MemOS\scripts\local\autostart.vbs"
 
@@ -31,7 +48,8 @@ if %errorlevel% EQU 0 (
 ) else (
     echo.
     echo  [ERROR] Registration failed.
-    echo  Please right-click this file and run as Administrator.
+    echo          Please right-click and choose "Run as Administrator".
 )
 
+echo.
 pause

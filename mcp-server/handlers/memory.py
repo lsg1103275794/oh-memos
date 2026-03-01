@@ -27,7 +27,7 @@ from models import (
     to_full,
     to_minimal,
 )
-from query_processing import compute_memory_stats
+from query_processing import compute_memory_stats, extract_mcp_type
 
 from handlers.utils import (
     ERR_PARAM_MISSING,
@@ -164,8 +164,11 @@ async def handle_memos_list(
         "mem_cube_id": cube_id,
         "limit": limit
     }
+    # Note: API's memory_type param filters by MemOS internal type (LongTermMemory etc.),
+    # NOT by user-specified MCP type (BUGFIX/DECISION etc.).
+    # When type filter is requested, fetch all memories and filter client-side.
     if memory_type:
-        params["memory_type"] = memory_type
+        params.pop("limit", None)  # fetch all for accurate client-side filtering
 
     success, data, status = await api_call_with_retry(
         client, "GET", f"{MEMOS_URL}/memories", cube_id,
@@ -177,6 +180,12 @@ async def handle_memos_list(
 
         # Extract all memories for counting
         all_memories = _extract_memories_from_data(result_data)
+
+        # Client-side type filter (API doesn't support MCP type filtering)
+        if memory_type:
+            all_memories = [m for m in all_memories if extract_mcp_type(m) == memory_type]
+            all_memories = all_memories[:limit]
+
         total_count = len(all_memories)
 
         # Apply context compression if enabled and threshold exceeded
@@ -228,26 +237,40 @@ async def handle_memos_get_stats(
 
         result = [f"## 📊 Memory Stats: {cube_id}"]
         result.append(f"Total Memories: **{total}**\n")
+
+        type_icons = {
+            "BUGFIX": "🐛", "ERROR_PATTERN": "🔴", "DECISION": "📋",
+            "GOTCHA": "⚠️", "CODE_PATTERN": "📝", "CONFIG": "⚙️",
+            "FEATURE": "✨", "MILESTONE": "🎯", "PROGRESS": "📊",
+            "INFERRED": "🔗",
+        }
         for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
             percentage = (count / total) * 100
-            result.append(f"- **{mtype}**: {count} ({percentage:.1f}%)")
+            icon = type_icons.get(mtype, "📌")
+            result.append(f"- {icon} **{mtype}**: {count} ({percentage:.1f}%)")
 
-        # Health check: High PROGRESS ratio warning
+        # Health notes
+        inferred_count = stats.get("INFERRED", 0)
         progress_count = stats.get("PROGRESS", 0)
-        if total > 0 and progress_count / total > 0.7:
+        user_typed = total - inferred_count - progress_count
+
+        if inferred_count > 0:
             result.append("")
             result.append("---")
             result.append("")
-            result.append(f"⚠️ **健康警告**: PROGRESS 类型占比过高 (>{progress_count / total:.0%})")
+            result.append(f"ℹ️ **INFERRED** ({inferred_count} 条): 图数据库自动生成的因果推断节点，非用户保存，属正常现象。")
+
+        if total > 0 and progress_count / total > 0.5:
             result.append("")
-            result.append("这可能导致 Neo4j 知识图谱无法建立有效关系。建议:")
-            result.append("1. 保存记忆时**显式指定** `memory_type` 参数")
-            result.append("2. 参考类型选择决策树:")
-            result.append("   - 修复 Bug → `BUGFIX` 或 `ERROR_PATTERN`")
-            result.append("   - 技术决策 → `DECISION`")
-            result.append("   - 发现陷阱 → `GOTCHA`")
-            result.append("   - 新功能 → `FEATURE`")
-            result.append("   - 配置变更 → `CONFIG`")
+            if not inferred_count:
+                result.append("---")
+                result.append("")
+            result.append(f"⚠️ **PROGRESS 占比偏高** ({progress_count}/{total}): 保存时建议显式指定类型:")
+            result.append("   `BUGFIX` · `DECISION` · `MILESTONE` · `FEATURE` · `GOTCHA` · `CONFIG`")
+
+        if user_typed > 0:
+            result.append("")
+            result.append(f"✅ **用户标注记忆**: {user_typed} 条 ({user_typed/total*100:.0f}%)")
 
         return [TextContent(type="text", text="\n".join(result))]
     elif data:
