@@ -65,7 +65,7 @@ async def handle_memos_trace_path(
     # Call the trace_path API endpoint
     try:
         response = await client.post(
-            f"{MEMOS_URL}/graph/trace_path",
+            f"{MEMOS_URL}/product/graph/trace_path",
             json={
                 "user_id": MEMOS_USER,
                 "source_id": source_id,
@@ -80,7 +80,7 @@ async def handle_memos_trace_path(
             data = response.json()
             if data.get("code") == 200:
                 trace_data = data.get("data", {})
-                found = trace_data.get("found", False)
+                found = trace_data.get("path_found") or trace_data.get("found", False)
                 paths = trace_data.get("paths", [])
                 source_node = trace_data.get("source", {})
                 target_node = trace_data.get("target", {})
@@ -109,6 +109,11 @@ async def handle_memos_trace_path(
                         length = path.get("length", 0)
                         nodes = path.get("nodes", [])
                         edges = path.get("edges", [])
+
+                        # API may return path_found=true but empty nodes/edges
+                        # Fall back to direct Neo4j query in that case
+                        if not nodes and NEO4J_HTTP_URL and NEO4J_USER and NEO4J_PASSWORD:
+                            raise ValueError("API returned empty path nodes, falling back to Neo4j")
 
                         results.append(f"### Path {i} (Length: {length})")
                         results.append("")
@@ -260,22 +265,57 @@ async def handle_memos_get_graph(
                         memories = extract_memories_from_response(retry_data.get("data", {}))
 
     # Build dynamic Cypher query based on intent (multi-graph view routing)
+    # Use IDs from MemOS vector search instead of string matching (language-agnostic)
     edge_types_cypher = "|".join(target_edge_types)
-    cypher_query = f"""
-    MATCH (a)-[r:{edge_types_cypher}]->(b)
-    WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
-    RETURN a.id as source_id, a.memory as source_memory,
-           type(r) as relation_type,
-           b.id as target_id, b.memory as target_memory
-    LIMIT 20
-    """
+
+    if memories:
+        # Strategy 1: find relationships BETWEEN the searched nodes (most accurate)
+        mem_ids = [m.get("id") or m.get("metadata", {}).get("id") for m in memories[:10] if m.get("id") or m.get("metadata", {}).get("id")]
+        if mem_ids:
+            id_list = ", ".join(f'"{mid}"' for mid in mem_ids)
+            cypher_query = f"""
+            MATCH (a)-[r:{edge_types_cypher}]->(b)
+            WHERE a.id IN [{id_list}] OR b.id IN [{id_list}]
+            RETURN a.id as source_id, a.memory as source_memory,
+                   type(r) as relation_type,
+                   b.id as target_id, b.memory as target_memory
+            LIMIT 20
+            """
+        else:
+            # Fallback: keyword on individual terms
+            first_word = query.split()[0] if query.split() else query
+            cypher_query = f"""
+            MATCH (a)-[r:{edge_types_cypher}]->(b)
+            WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
+            RETURN a.id as source_id, a.memory as source_memory,
+                   type(r) as relation_type,
+                   b.id as target_id, b.memory as target_memory
+            LIMIT 20
+            """
+    else:
+        # No search results: try first token as keyword
+        first_word = query.split()[0] if query.split() else query
+        cypher_query = f"""
+        MATCH (a)-[r:{edge_types_cypher}]->(b)
+        WHERE a.memory CONTAINS $keyword OR b.memory CONTAINS $keyword
+        RETURN a.id as source_id, a.memory as source_memory,
+               type(r) as relation_type,
+               b.id as target_id, b.memory as target_memory
+        LIMIT 20
+        """
+
+    # Determine parameters for the Cypher statement
+    use_id_strategy = memories and any(
+        m.get("id") or m.get("metadata", {}).get("id") for m in memories[:10]
+    )
+    keyword_param = query.split()[0] if query.split() else query
 
     neo4j_response = await client.post(
         NEO4J_HTTP_URL,
         json={
             "statements": [{
                 "statement": cypher_query,
-                "parameters": {"keyword": query}
+                "parameters": {} if use_id_strategy else {"keyword": keyword_param}
             }]
         },
         auth=neo4j_auth
