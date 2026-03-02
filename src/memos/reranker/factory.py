@@ -54,6 +54,12 @@ class RerankerFactory:
                 level_field=c.get("level_field", "background"),
             )
 
+        if backend == "rrf":
+            from .rrf import RRFReranker
+
+            k = int(c.get("k", 60))
+            return RRFReranker(k=k)
+
         if backend in {"noop", "none", "disabled"}:
             return NoopReranker()
 
