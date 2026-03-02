@@ -22,6 +22,7 @@ from handlers.calendar import handle_memos_calendar
 from handlers.graph import (
     handle_memos_export_schema,
     handle_memos_get_graph,
+    handle_memos_impact,
     handle_memos_trace_path,
 )
 from handlers.memory import (
@@ -56,6 +57,7 @@ HANDLER_REGISTRY = {
     "memos_trace_path": handle_memos_trace_path,
     "memos_get_graph": handle_memos_get_graph,
     "memos_export_schema": handle_memos_export_schema,
+    "memos_impact": handle_memos_impact,
 
     # Admin handlers
     "memos_list_cubes": handle_memos_list_cubes,

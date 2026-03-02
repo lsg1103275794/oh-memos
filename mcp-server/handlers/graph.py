@@ -2,7 +2,7 @@
 """
 MemOS MCP Server Graph Handlers
 
-Handles memos_trace_path, memos_get_graph, memos_export_schema tools.
+Handles memos_trace_path, memos_get_graph, memos_export_schema, memos_impact tools.
 """
 
 from typing import Any
@@ -479,3 +479,129 @@ async def handle_memos_export_schema(
     except Exception as e:
         logger.error(f"Schema export error: {e}")
         return api_error_response("Schema export", str(e))
+
+
+async def handle_memos_impact(
+    client: httpx.AsyncClient,
+    arguments: dict[str, Any]
+) -> list[TextContent]:
+    """Handle memos_impact tool call — forward blast radius analysis."""
+    cube_id = get_cube_id_from_args(arguments)
+    memory_id = arguments.get("memory_id", "")
+    max_depth = min(max(arguments.get("max_depth", 3), 1), 6)
+
+    if not memory_id:
+        return error_response(
+            "memory_id is required",
+            error_code=ERR_PARAM_MISSING,
+            suggestions=[
+                "Get a memory_id from memos_search or memos_get_graph first",
+                "Example: `memos_impact(memory_id=\"uuid-here\")`",
+            ],
+        )
+
+    if not NEO4J_HTTP_URL or not NEO4J_USER or not NEO4J_PASSWORD:
+        return error_response(
+            "Neo4j configuration missing",
+            error_code=ERR_NEO4J_CONFIG,
+            suggestions=[
+                "Set NEO4J_HTTP_URL, NEO4J_USER, NEO4J_PASSWORD in .env",
+                "Example: NEO4J_HTTP_URL=http://localhost:7474/db/neo4j/tx/commit",
+            ],
+        )
+
+    neo4j_auth = (NEO4J_USER, NEO4J_PASSWORD)
+
+    # Cypher: follow CAUSE and FOLLOWS edges forward, compute hop depth
+    cypher_query = f"""
+    MATCH (source:Memory {{id: $source_id}})-[:CAUSE|FOLLOWS*1..{max_depth}]->(node:Memory)
+    WITH DISTINCT source, node
+    MATCH path = shortestPath((source)-[:CAUSE|FOLLOWS*1..{max_depth}]->(node))
+    RETURN node.id AS id, node.key AS key, node.memory AS memory,
+           length(path) AS depth
+    ORDER BY depth ASC
+    LIMIT 30
+    """
+
+    try:
+        neo4j_response = await client.post(
+            NEO4J_HTTP_URL,
+            json={
+                "statements": [{
+                    "statement": cypher_query,
+                    "parameters": {"source_id": memory_id}
+                }]
+            },
+            auth=neo4j_auth
+        )
+
+        if neo4j_response.status_code != 200:
+            return api_error_response("Impact analysis", f"Neo4j HTTP {neo4j_response.status_code}")
+
+        neo4j_data = neo4j_response.json()
+
+        # Check for Neo4j-level errors
+        errors = neo4j_data.get("errors", [])
+        if errors:
+            error_msg = errors[0].get("message", "Unknown Neo4j error")
+            logger.error(f"Neo4j query error in memos_impact: {error_msg}")
+            return api_error_response("Impact analysis", error_msg)
+
+        rows = neo4j_data.get("results", [{}])[0].get("data", [])
+
+        if not rows:
+            return [TextContent(
+                type="text",
+                text="No forward impact found — this memory has no CAUSE or FOLLOWS successors."
+            )]
+
+        # Group results by depth
+        depth_groups: dict[int, list[dict]] = {}
+        for row in rows:
+            r = row.get("row", [])
+            if len(r) >= 4:
+                depth = r[3]
+                depth_groups.setdefault(depth, []).append({
+                    "id": r[0],
+                    "key": r[1] or "",
+                    "memory": r[2] or "",
+                })
+
+        total_count = sum(len(items) for items in depth_groups.values())
+        max_hop = max(depth_groups.keys())
+
+        # Build markdown output
+        results = []
+        results.append("## Impact Analysis")
+        results.append("")
+        results.append(f"**Blast Radius: {total_count} downstream memories across {max_hop} hop(s)**")
+        results.append("")
+
+        depth_labels = {
+            1: "Direct Impact",
+            2: "Indirect Impact",
+        }
+
+        for depth in sorted(depth_groups.keys()):
+            items = depth_groups[depth]
+            label = depth_labels.get(depth, f"Downstream (hop {depth})")
+            results.append(f"### {label} ({len(items)} node{'s' if len(items) != 1 else ''})")
+            results.append("")
+
+            for item in items[:8]:
+                key = item["key"]
+                memory_preview = item["memory"].split("\n")[0][:100]
+                if key:
+                    results.append(f"- **{key}**: {memory_preview}")
+                else:
+                    results.append(f"- {memory_preview}")
+
+            if len(items) > 8:
+                results.append(f"- ... and {len(items) - 8} more")
+            results.append("")
+
+        return [TextContent(type="text", text="\n".join(results))]
+
+    except Exception as e:
+        logger.error(f"Impact analysis error: {e}")
+        return api_error_response("Impact analysis", str(e))

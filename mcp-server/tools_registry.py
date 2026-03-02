@@ -510,6 +510,32 @@ Returns:
             }
         ),
         Tool(
+            name="memos_impact",
+            description=(
+                "Analyze the forward impact of a memory — what events, decisions, "
+                "or milestones were caused or followed by this memory. "
+                "Returns a grouped 'blast radius' view (direct → indirect hops). "
+                "Use after memos_search or memos_get_graph to get a memory_id."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "string",
+                        "description": "ID of the source memory to analyze impact from"
+                    },
+                    "cube_id": _CUBE_ID_PARAM,
+                    "project_path": _PROJECT_PATH_PARAM,
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum hops to trace forward (default: 3, max: 6)",
+                        "default": 3
+                    }
+                },
+                "required": ["memory_id"]
+            }
+        ),
+        Tool(
             name="memos_calendar",
             description="""View memories in calendar format. Supports two modes:
 
