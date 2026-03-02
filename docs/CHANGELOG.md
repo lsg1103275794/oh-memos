@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-03-02
+
+### 🔍 Knowledge Graph Intelligence — Fixed & Supercharged
+
+This release fixes **three silently broken graph tools** and adds new graph intelligence capabilities.
+
+**Root Cause**: The `tree_text` LLM extractor strips `[TYPE]` prefixes from memory text during processing, but the MCP layer was reading type from memory text only — causing all 942+ memories to appear as PROGRESS. Similarly, `memos_get_graph` used full multi-word query strings for Neo4j `CONTAINS` matching (never matches Chinese), and `memos_trace_path` had wrong API path and field names.
+
+- **`extract_mcp_type()` — Unified Type Detection Engine** (`mcp-server/query_processing.py`)
+  - Four-level detection: memory prefix → sources parsing (double-JSON decode) → reasoning node → PROGRESS
+  - Used by all tools: stats, list, get, search — single source of truth
+  - Correctly identifies BUGFIX/DECISION/MILESTONE etc. from `sources[0].content`
+
+- **`INFERRED` Type** (`mcp-server/models.py`)
+  - Neo4j auto-generated reasoning nodes (`type: reasoning`, `key: InferredFact:CAUSE`) now classified as `INFERRED` (🔗)
+  - No longer pollute PROGRESS statistics
+  - Enum, icon map, and stats health report updated
+
+- **`memos_get_graph` Fix** (`mcp-server/handlers/graph.py`)
+  - **Bug**: Cypher `CONTAINS $keyword` with full multi-word query never matches
+  - **Fix**: Uses MemOS vector search IDs to query Neo4j neighbor edges (language-agnostic)
+  - Now correctly returns CAUSE/RELATE/CONDITION/FOLLOWS relationships
+
+- **`memos_trace_path` Fix** (`mcp-server/handlers/graph.py`)
+  - **Bug**: Wrong API endpoint (`/graph/` → `/product/graph/`), wrong field name (`found` → `path_found`)
+  - **Fix**: Correct endpoint + field + fallback to direct Neo4j `shortestPath` when API returns empty nodes
+
+- **`memos_get_stats` Fix** (`mcp-server/handlers/memory.py`)
+  - **Bug**: All memories displayed as PROGRESS (100%)
+  - **Fix**: Reads type from `metadata.sources` with double-JSON decode fallback
+  - New: Per-type emoji icons (🐛🎯✨📋), INFERRED vs PROGRESS distinction, user-typed count
+
+- **`memos_list_v2` Filter Fix** (`mcp-server/handlers/memory.py`)
+  - **Bug**: `memory_type=BUGFIX` filter ignored (API filters by MemOS internal type)
+  - **Fix**: Client-side filtering using `extract_mcp_type()` after fetching all memories
+
+**Commits:**
+- `60627ef` - fix: fix memory type classification and add stop/unregister scripts
+- `07a1aea` - fix: fix memos_get_graph and memos_trace_path broken queries
+
+### 🧠 PreToolUse Auto Memory Injection (GitNexus-Inspired)
+
+Inspired by [GitNexus](https://github.com/abhigyanpatwari/GitNexus)'s PreToolUse hook pattern.
+
+- **`memos_context_inject.js`** (`project-memory/hooks/node/`)
+  - Intercepts Grep/Glob/Read/Edit/Write tool calls
+  - Extracts meaningful search keyword from tool input (regex cleaning for Grep, extension filtering for Glob, filename extraction for Read/Edit/Write)
+  - Searches MemOS API, formats top 3 results as concise `additionalContext` (max 800 chars)
+  - Derives cube_id from CWD automatically (same routing as MCP server)
+  - Graceful failure: if API down or no results, silently suppresses (never blocks tool execution)
+  - 4-second timeout, well within Claude Code's 5-second hook limit
+
+- **Settings template updated** (`project-memory/hooks/settings-template.json`)
+  - New PreToolUse matcher: `Grep|Glob|Read|Edit|Write` → `memos_context_inject.js`
+
+**Commit:** `ec08ec3` - feat: add PreToolUse hook for automatic memory context injection
+
+### ⚡ RRF Local Reranker
+
+Eliminates dependency on external HTTP reranker API (SiliconFlow BGE).
+
+- **`RRFReranker`** (`src/memos/reranker/rrf.py`)
+  - Implements Reciprocal Rank Fusion (Cormack, Clarke & Buettcher, 2009)
+  - Formula: `score(d) = 1 / (k + rank)`, k=60 (standard literature value)
+  - Same approach used by Elasticsearch, Pinecone, and GitNexus
+  - Zero HTTP calls, pure Python math (<1ms vs 200-400ms for HTTP reranker)
+  - Implements `BaseReranker` interface, uses `@timed` decorator
+
+- **Factory registration** (`src/memos/reranker/factory.py`)
+  - New backend: `"rrf"` with configurable `k` parameter
+
+- **Default config updated** (`data/memos_cubes/dev_cube/config.json`, `audiocraft_studio_cube/config.json`)
+  - Changed from `"backend": "http_bge"` to `"backend": "rrf"`
+
+**Commit:** `c2a9cfb` - feat: add RRF local reranker to eliminate HTTP reranker dependency
+
+### 💥 `memos_impact` — Forward Blast Radius Analysis
+
+New MCP tool for understanding the downstream impact of a memory.
+
+- **`memos_impact`** (`mcp-server/tools_registry.py`, `handlers/graph.py`)
+  - Input: `memory_id` + optional `max_depth` (1-6, default 3)
+  - Traverses CAUSE and FOLLOWS edges forward from source node
+  - Groups results by hop depth: Direct Impact (1 hop) → Indirect (2 hops) → Downstream (3+)
+  - Shows blast radius summary: "N downstream memories across M hops"
+  - Caps display at 8 items per depth group
+  - Uses Neo4j `shortestPath` for accurate hop calculation
+
+**Commit:** `8768f41` - feat: add memos_impact tool for forward blast radius analysis
+
+### 🛠️ Windows Scripts
+
+- **`stop.bat`** (`scripts/local/`) — One-click stop for API + Qdrant + Neo4j
+- **`unregister_autostart.bat`** (`scripts/local/`) — Remove autostart scheduled task with UAC self-elevation
+- **`register_autostart.bat`** — Fixed: added UAC self-elevation (was flashing on double-click)
+
 ### 🗜️ Context Compression (Phase 1 - Beads Inspired)
 
 借鉴 [beads](https://github.com/steveyegge/beads) 项目的上下文工程模式，实现 Token 高效使用。
