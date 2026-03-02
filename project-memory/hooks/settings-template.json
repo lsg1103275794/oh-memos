@@ -15,6 +15,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Grep|Glob|Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node <MEMOS_PATH>/project-memory/hooks/node/memos_context_inject.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
