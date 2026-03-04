@@ -7,7 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.6.0] - 2026-03-02
+## [2.7.0] - 2026-03-04
+
+### 📦 oh-memos-mcp — Node.js MCP Server on npm
+
+发布独立 npm 包，彻底消除 Python 环境依赖。
+
+- **`oh-memos-mcp@1.0.0`** 发布至 [npm registry](https://www.npmjs.com/package/oh-memos-mcp)
+  - 纯 Node.js 实现，18 个工具，与 Python MCP server 功能对等
+  - 任意环境通过 `npx -y oh-memos-mcp` 直接启动，无需安装步骤
+  - **`.env` 加载优先级修复** (`mcp-server-node/src/config.ts`)
+    - 旧逻辑: 从 `__dirname/../..` 查找（npx 时指向 npm 缓存目录，必然失败）
+    - 新逻辑: `process.cwd()/.env` → 包目录 `.env` → dotenv 默认搜索
+  - **`package.json` 补全元数据**: `repository`, `bugs`, `homepage`, `.env.example` 加入 `files`
+  - **新增 `.env.example`**: 列出所有必需/可选环境变量及默认值注释
+
+- **Claude Code 配置迁移**
+  - `~/.claude/settings.json` 两处 `oh-memos` MCP 配置从 `bash run_mcp.sh` 替换为 `npx -y oh-memos-mcp`
+  - `~/.codex/config.toml` 同步更新为 npx 方式 + TOML `[env]` 子节
+  - `alwaysAllow` 新增 `memos_delete`（`MEMOS_ENABLE_DELETE=true` 时激活）
+
+**Commits:**
+- `f483bd5` - feat: publish oh-memos-mcp npm package and rename memos → oh_memos
+
+### 🔄 项目重命名: memos → oh_memos
+
+全面将内部模块名从 `memos` 更名为 `oh_memos`，避免与上游 MemOS 混淆。
+
+- **`src/memos/` → `src/oh_memos/`** — 所有核心模块完整迁移
+- **Hooks 重命名** — `memos_*.sh/js/ps1` → `oh_memos_*.sh/js/ps1`（`.claude/hooks/` 及 `project-memory/hooks/` 两处）
+- **CLI & Deploy 目录** — `memos-cli/` → `oh-memos-cli/`，`memos-deploy/` → `oh-memos-deploy/`
+- **MCP Server 文件** — `memos_mcp_server.py` → `oh_memos_mcp_server.py`
+
+### 🐛 start.bat 热重载循环修复
+
+- **问题**: `start.bat` 先将 `.env` 复制到 `src\.env`，WatchFiles 检测到文件变化立即触发 reload，worker 不断重启导致 API 永远不可用
+- **修复**: 移除 `copy /y ".env" "src\.env"` 操作；移除 `--reload` 标志（生产环境不需要热重载）
+
+### 📝 文档更新
+
+- **`README.md` MCP 配置章节**
+  - 内嵌完整 `npx oh-memos-mcp` JSON 配置示例（含 `alwaysAllow`）
+  - 新增三平台路径折叠表（Linux/macOS · Windows · WSL2）
+  - MCP Tools 表格工具名从 `oh-memos_*` 更正为实际的 `memos_*`，补全全部 18 个工具
+- **`mcp-server-node/README.md`** — 全新编写：Prerequisites、Quick Start、四平台配置示例、env 变量完整说明、`.env` 加载原理
+- **文档项目名全量替换**: `MemOSLocal-SM` → `oh-memos`（6 个文件，10 处）
+
+**Commits:**
+- `e90199e` - docs: rename MemOSLocal-SM → oh-memos across all documentation
+
+
 
 ### 🔍 Knowledge Graph Intelligence — Fixed & Supercharged
 
