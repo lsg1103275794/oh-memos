@@ -330,7 +330,7 @@ async def handle_memos_get_graph(
 
     # Display memories from search
     if memories:
-        results.append("### 📝 Related Memories")
+        results.append("### [MEMO] Related Memories")
         results.append("")
         for i, mem in enumerate(memories[:5], 1):
             memory = mem.get("memory", "")
@@ -404,7 +404,7 @@ async def handle_memos_export_schema(
                 schema = data.get("data", {})
 
                 results = []
-                results.append("## 📊 Knowledge Graph Schema")
+                results.append("## [CHART] Knowledge Graph Schema")
                 results.append("")
 
                 # Overview
@@ -458,17 +458,17 @@ async def handle_memos_export_schema(
                 if total_nodes > 0:
                     orphan_ratio = orphan_count / total_nodes
                     if orphan_ratio > 0.5:
-                        results.append("⚠️ High orphan ratio - many memories are not connected")
+                        results.append("[WARN]️ High orphan ratio - many memories are not connected")
                     elif orphan_ratio > 0.2:
                         results.append("📋 Moderate orphan ratio - some memories could benefit from more connections")
                     else:
-                        results.append("✅ Good connectivity - memories are well connected")
+                        results.append("[OK] Good connectivity - memories are well connected")
 
                 avg_conn = schema.get("avg_connections_per_node", 0)
                 if avg_conn < 1:
-                    results.append("⚠️ Low average connections - consider enriching relationships")
+                    results.append("[WARN]️ Low average connections - consider enriching relationships")
                 elif avg_conn > 5:
-                    results.append("✅ Rich relationships - good knowledge graph density")
+                    results.append("[OK] Rich relationships - good knowledge graph density")
 
                 return [TextContent(type="text", text="\n".join(results))]
             else:

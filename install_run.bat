@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 
 cd /d "%~dp0"
 
@@ -7,7 +7,7 @@ set PIP_EXE=%~dp0conda_venv\Scripts\pip.exe
 set PATH=%~dp0conda_venv;%~dp0conda_venv\Scripts;%~dp0conda_venv\Library\bin;%PATH%
 
 echo ========================================
-echo    MemOS Windows Install and Run
+echo    oh_memos Windows Install and Run
 echo ========================================
 echo.
 
@@ -24,7 +24,7 @@ echo       Python OK
 echo.
 echo [2/5] Creating directories...
 if not exist data mkdir data
-if not exist data\memos_cubes mkdir data\memos_cubes
+if not exist data\oh_memos_cubes mkdir data\oh_memos_cubes
 if not exist logs mkdir logs
 echo       Directories OK
 
@@ -47,7 +47,7 @@ if not exist .env (
 )
 
 echo.
-echo [5/5] Starting MemOS service...
+echo [5/5] Starting oh_memos service...
 echo.
 echo ========================================
 echo    Server: http://localhost:18000
@@ -57,6 +57,6 @@ echo ========================================
 echo.
 
 set PYTHONPATH=%~dp0src
-"%PYTHON_EXE%" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
+"%PYTHON_EXE%" -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
 
 pause

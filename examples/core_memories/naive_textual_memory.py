@@ -2,8 +2,8 @@ import json
 import os
 import uuid
 
-from memos.configs.memory import MemoryConfigFactory
-from memos.memories.factory import MemoryFactory
+from oh_memos.configs.memory import MemoryConfigFactory
+from oh_memos.memories.factory import MemoryFactory
 
 
 def print_result(title, result):

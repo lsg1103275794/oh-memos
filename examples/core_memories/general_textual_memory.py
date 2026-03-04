@@ -1,8 +1,8 @@
 import os
 import pprint
 
-from memos.configs.memory import MemoryConfigFactory
-from memos.memories.factory import MemoryFactory
+from oh_memos.configs.memory import MemoryConfigFactory
+from oh_memos.memories.factory import MemoryFactory
 
 
 # Initialize the memory configuration

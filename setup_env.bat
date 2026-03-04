@@ -5,8 +5,8 @@ setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
 echo ========================================
-echo    MemOS Environment Setup
-echo    便携式 Python 环境安装
+echo    oh_memos Environment Setup
+echo    便携�?Python 环境安装
 echo ========================================
 echo.
 
@@ -137,10 +137,10 @@ echo ========================================
 echo.
 echo    [Installed Paths / 安装路径]
 echo.
-echo    Python executable / Python可执行文件:
+echo    Python executable / Python可执行文�?
 echo    %CONDA_DIR%\python.exe
 echo.
-echo    Pip executable / Pip可执行文件:
+echo    Pip executable / Pip可执行文�?
 echo    %CONDA_DIR%\Scripts\pip.exe
 echo.
 echo    Environment directory / 环境目录:
@@ -151,10 +151,10 @@ echo.
 echo    [Next Steps / 下一步]
 echo.
 echo    1. Run install_run.bat to install dependencies and start
-echo       运行 install_run.bat 安装依赖并启动服务
+echo       运行 install_run.bat 安装依赖并启动服�?
 echo.
 echo    2. Or run run.bat if dependencies are already installed
-echo       或运行 run.bat (如依赖已安装)
+echo       或运�?run.bat (如依赖已安装)
 echo.
 echo ========================================
 echo.

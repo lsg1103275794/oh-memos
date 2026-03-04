@@ -1,7 +1,7 @@
 """Demo for UserParser."""
 
 from examples.mem_reader.samples import USER_MESSAGE_CASES
-from memos.mem_reader.read_multi_modal.user_parser import UserParser
+from oh_memos.mem_reader.read_multi_modal.user_parser import UserParser
 
 from ._base import BaseParserDemo
 
@@ -25,7 +25,7 @@ class UserParserDemo(BaseParserDemo):
                     for i, src in enumerate(sources):
                         print(f"\n🔄 Rebuilding source part {i + 1} ({src.type})...")
                         rebuilt = self.parser.rebuild_from_source(src)
-                        print("  ✅ Rebuilt result:")
+                        print("  �?Rebuilt result:")
                         if isinstance(rebuilt, dict):
                             from examples.mem_reader.utils import pretty_print_dict
 

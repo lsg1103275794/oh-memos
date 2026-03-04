@@ -17,12 +17,12 @@ FILE_PATH = Path(__file__).absolute()
 BASE_DIR = FILE_PATH.parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))  # Enable execution from any working directory
 
-from memos.api.handlers.scheduler_handler import (  # noqa: E402
+from oh_memos.api.handlers.scheduler_handler import (  # noqa: E402
     handle_scheduler_status,
     handle_scheduler_wait,
 )
-from memos.api.routers.server_router import mem_scheduler, status_tracker  # noqa: E402
-from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem  # noqa: E402
+from oh_memos.api.routers.server_router import mem_scheduler, status_tracker  # noqa: E402
+from oh_memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem  # noqa: E402
 
 
 TEST_HANDLER_LABEL = "test_handler"

@@ -1,15 +1,15 @@
-# ============================================================
+﻿# ============================================================
 #  MemOS Auto-Start Script
 #  Called by Task Scheduler at logon - starts all services silently
 # ============================================================
 $ErrorActionPreference = "SilentlyContinue"
 
 # Paths
-$memosRoot   = "G:\test\MemOS"
+$MemOSRoot   = "G:\test\MemOS"
 $neo4jHome   = "D:\User\neo4j-community-5.15.0"
 $qdrantHome  = "D:\User\Qdrant"
-$pythonExe   = "$memosRoot\.venv\Scripts\python.exe"
-$logDir      = "$memosRoot\logs"
+$pythonExe   = "$MemOSRoot\.venv\Scripts\python.exe"
+$logDir      = "$MemOSRoot\logs"
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
@@ -70,8 +70,8 @@ if (-not (Test-Port 18000)) {
 
     $apiProc = Start-Process `
         -FilePath $pythonExe `
-        -ArgumentList "-m", "uvicorn", "memos.api.start_api:app", "--host", "0.0.0.0", "--port", "18000" `
-        -WorkingDirectory "$memosRoot\src" `
+        -ArgumentList "-m", "uvicorn", "oh_memos.api.start_api:app", "--host", "0.0.0.0", "--port", "18000" `
+        -WorkingDirectory "$MemOSRoot\src" `
         -WindowStyle Hidden `
         -RedirectStandardOutput "$logDir\api_stdout_$ts.log" `
         -RedirectStandardError  "$logDir\api_stderr_$ts.log" `

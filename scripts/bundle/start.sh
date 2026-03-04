@@ -110,5 +110,5 @@ else
     echo "----------------------------------------"
     echo ""
 
-    "$RUNTIME/conda/bin/python" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000
+    "$RUNTIME/conda/bin/python" -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000
 fi

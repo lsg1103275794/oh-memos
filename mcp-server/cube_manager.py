@@ -356,32 +356,30 @@ def ensure_cube_directory(cube_id: str) -> tuple[str | None, str | None]:
 
 def get_default_cube_id() -> str:
     """
-    Get the default cube ID based on environment or project path.
+    Get the default cube ID based on project path derivation first, then env fallback.
 
     Priority:
-    1. Explicit env var MEMOS_DEFAULT_CUBE (if path exists)
-    2. Derived from current working directory using smart detection
+    1. Derived from current working directory (if derived cube directory exists)
+    2. Derived from current working directory (even if cube doesn't exist yet)
     3. Fallback to MEMOS_DEFAULT_CUBE constant
     """
-    if is_default_cube_from_env():
-        cube_path = get_cube_path(MEMOS_DEFAULT_CUBE)
-        if cube_path is not None:
-            return MEMOS_DEFAULT_CUBE
     try:
         cwd = os.getcwd()
         # Use enhanced detection if available
         if KEYWORD_ENHANCER_AVAILABLE and detect_cube_from_path is not None:
-            return detect_cube_from_path(cwd)
-        # Fallback to basic detection
-        folder_name = os.path.basename(cwd)
-        if not folder_name:
-            return MEMOS_DEFAULT_CUBE
-        cube_id = folder_name.lower()
-        cube_id = re.sub(r"[\-\.\s]+", "_", cube_id)
-        return f"{cube_id}_cube"
+            derived = detect_cube_from_path(cwd)
+        else:
+            # Fallback to basic detection
+            folder_name = os.path.basename(cwd)
+            if not folder_name:
+                return MEMOS_DEFAULT_CUBE
+            derived = re.sub(r"[\-\.\s]+", "_", folder_name.lower()) + "_cube"
+
+        if derived:
+            return derived
     except Exception as e:
         logger.debug(f"Failed to derive cube_id from CWD: {e}")
-        return MEMOS_DEFAULT_CUBE
+    return MEMOS_DEFAULT_CUBE
 
 
 # ============================================================================

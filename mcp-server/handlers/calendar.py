@@ -110,7 +110,7 @@ def format_project_timeline(memories: list[dict], cube_id: str) -> str:
         t = mem.get("memory_type", "OTHER").upper()
         type_counts[t] = type_counts.get(t, 0) + 1
 
-    lines.append(f"📊 Total: {len(project_mems)} entries across {len(sorted_months)} month(s)")
+    lines.append(f"[CHART] Total: {len(project_mems)} entries across {len(sorted_months)} month(s)")
     lines.append(f"   Types: {', '.join(f'{k}:{v}' for k, v in sorted(type_counts.items(), key=lambda x: -x[1]))}")
     return "\n".join(lines)
 
@@ -127,9 +127,9 @@ def format_calendar_output(
 
     # Header
     if course:
-        lines.append(f"## 📅 {semester} - {course}")
+        lines.append(f"## [CAL] {semester} - {course}")
     else:
-        lines.append(f"## 📅 {semester} 学期笔记")
+        lines.append(f"## [CAL] {semester} 学期笔记")
     lines.append("")
 
     if not memories:
@@ -206,7 +206,7 @@ def format_calendar_output(
         type_counts[t] = type_counts.get(t, 0) + 1
 
     lines.append("")
-    lines.append(f"📊 总计: {total} 条笔记")
+    lines.append(f"[CHART] 总计: {total} 条笔记")
     if type_counts:
         lines.append(f"   类型: {', '.join(f'{k}:{v}' for k, v in sorted(type_counts.items(), key=lambda x: -x[1]))}")
 

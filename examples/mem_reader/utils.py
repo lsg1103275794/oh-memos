@@ -5,7 +5,7 @@ import pprint
 
 from typing import Any
 
-from memos.memories.textual.item import TextualMemoryItem
+from oh_memos.memories.textual.item import TextualMemoryItem
 
 
 def _truncate(s: str, max_len: int | None) -> str:
@@ -50,18 +50,18 @@ def pretty_print_dict(d: dict, *, max_str_len: int | None = 500):
 
     # Prevent extremely wide boxes (optional safety)
     max_len = max(len(line) for line in lines) if lines else 0
-    border = "═" * (max_len + 4)
+    border = "�? * (max_len + 4)
 
-    print(f"╔{border}╗")
+    print(f"╔{border}�?)
     for line in lines:
-        print(f"║  {line.ljust(max_len)}  ║")
-    print(f"╚{border}╝")
+        print(f"�? {line.ljust(max_len)}  �?)
+    print(f"╚{border}�?)
 
 
 def print_memory_item(
     item: TextualMemoryItem,
     indent: int = 0,
-    max_memory_length: int | None = 300,  # None = 不截断
+    max_memory_length: int | None = 300,  # None = 不截�?
 ):
     """Print a TextualMemoryItem in a structured format."""
     prefix = " " * indent

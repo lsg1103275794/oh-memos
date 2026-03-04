@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 
 :: ============================================================
@@ -25,15 +25,15 @@ echo.
 :: ============================================================
 :: CONFIGURATION - EDIT DATABASE PATHS ONLY
 :: ============================================================
-set "MEMOS_ROOT=%~dp0..\.."
-cd /d "%MEMOS_ROOT%"
+set "Oh-MEMOS_ROOT=%~dp0..\.."
+cd /d "%Oh-MEMOS_ROOT%"
 
 :: Auto-detect Python environment: venv > conda_venv
-if exist "%MEMOS_ROOT%\.venv\Scripts\python.exe" (
-    set "PYTHON_EXE=%MEMOS_ROOT%\.venv\Scripts\python.exe"
+if exist "%Oh-MEMOS_ROOT%\.venv\Scripts\python.exe" (
+    set "PYTHON_EXE=%Oh-MEMOS_ROOT%\.venv\Scripts\python.exe"
     set "ENV_TYPE=venv"
-) else if exist "%MEMOS_ROOT%\conda_venv\python.exe" (
-    set "PYTHON_EXE=%MEMOS_ROOT%\conda_venv\python.exe"
+) else if exist "%Oh-MEMOS_ROOT%\conda_venv\python.exe" (
+    set "PYTHON_EXE=%Oh-MEMOS_ROOT%\conda_venv\python.exe"
     set "ENV_TYPE=conda_venv (legacy)"
 ) else (
     echo  [ERROR] No Python environment found!
@@ -104,7 +104,7 @@ echo   Press Ctrl+C to stop
 echo  ============================================================
 echo.
 
-cd /d "%MEMOS_ROOT%\src"
-"%PYTHON_EXE%" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
+cd /d "%Oh-MEMOS_ROOT%\src"
+"%PYTHON_EXE%" -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
 
 pause

@@ -481,7 +481,7 @@ Similarity = 1 - (1/13) = 0.92 > 0.75 threshold
   - **Verification Suite**: Developed `verify_mems.py` for automated cross-database deletion verification.
   - **MCP Tool Safety**: Validated `memos_delete` tool with `MEMOS_ENABLE_DELETE` safety flag and batch deletion (`memory_ids`) support.
 
-- **�🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
+- **🔗 Knowledge Graph Relationship Query** (NEW - memos_get_graph)
   - New MCP tool `memos_get_graph` for querying memory relationships
   - Returns CAUSE, RELATE, CONFLICT, CONDITION relationships from Neo4j
   - Direct Neo4j HTTP API integration for relationship queries

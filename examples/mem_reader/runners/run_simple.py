@@ -5,8 +5,8 @@ import time
 from examples.mem_reader.samples import SIMPLE_CHAT_SCENE
 from examples.mem_reader.settings import get_reader_config
 from examples.mem_reader.utils import print_memory_item
-from memos.configs.mem_reader import SimpleStructMemReaderConfig
-from memos.mem_reader.simple_struct import SimpleStructMemReader
+from oh_memos.configs.mem_reader import SimpleStructMemReaderConfig
+from oh_memos.mem_reader.simple_struct import SimpleStructMemReader
 
 
 def _print_memory_sets(title: str, memories):
@@ -14,7 +14,7 @@ def _print_memory_sets(title: str, memories):
     total = sum(len(mem_list) for mem_list in memories)
     print(f"\n{title}")
     print(f"üìä Total memory items: {total}")
-    print(f"‚úÖ Extracted {len(memories)} memory sets.")
+    print(f"‚ú?Extracted {len(memories)} memory sets.")
     for i, memory_list in enumerate(memories):
         print(f"\n--- Window/Conversation {i + 1} Memories ({len(memory_list)} items) ---")
         for item in memory_list:
@@ -28,7 +28,7 @@ def run_simple_reader():
     # Use settings config instead of hardcoded JSON
     reader_config = SimpleStructMemReaderConfig(**get_reader_config())
     reader = SimpleStructMemReader(reader_config)
-    print("‚úÖ Initialization complete.")
+    print("‚ú?Initialization complete.")
 
     info = {"user_id": "simple_user", "session_id": "simple_session"}
 
@@ -50,7 +50,7 @@ def run_simple_reader():
         _print_memory_sets("=== FINE Mode Results ===", fine_memory)
 
         # 2) FAST
-        print("\n‚ö° Testing FAST mode (no LLM)...")
+        print("\n‚ö?Testing FAST mode (no LLM)...")
         t0 = time.time()
         fast_memory = reader.get_memory(
             SIMPLE_CHAT_SCENE,
@@ -103,7 +103,7 @@ def run_simple_reader():
         print(f"   Transfer: {transfer_time:.2f}s")
 
     except Exception as e:
-        print(f"‚ùå Error during processing: {e}")
+        print(f"‚ù?Error during processing: {e}")
         import traceback
 
         traceback.print_exc()

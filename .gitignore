@@ -51,6 +51,10 @@ evaluation/scripts/personamem
 # benchmarks
 benchmarks/
 
+# Node.js
+node_modules/
+mcp-server-node/dist/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

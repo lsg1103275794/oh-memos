@@ -1,7 +1,7 @@
 """Demo for StringParser."""
 
 from examples.mem_reader.samples import STRING_MESSAGE_CASES
-from memos.mem_reader.read_multi_modal.string_parser import StringParser
+from oh_memos.mem_reader.read_multi_modal.string_parser import StringParser
 
 from ._base import BaseParserDemo
 

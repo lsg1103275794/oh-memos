@@ -2,11 +2,11 @@ import os
 
 from datetime import datetime
 
-from memos.configs.embedder import EmbedderConfigFactory
-from memos.configs.graph_db import GraphDBConfigFactory
-from memos.embedders.factory import EmbedderFactory
-from memos.graph_dbs.factory import GraphStoreFactory
-from memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
+from oh_memos.configs.embedder import EmbedderConfigFactory
+from oh_memos.configs.graph_db import GraphDBConfigFactory
+from oh_memos.embedders.factory import EmbedderFactory
+from oh_memos.graph_dbs.factory import GraphStoreFactory
+from oh_memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
 
 
 embedder_config = EmbedderConfigFactory.model_validate(
@@ -175,7 +175,7 @@ def example_multi_db(db_name: str = "paper"):
         graph.add_edge(source_id=concept.id, target_id=topic.id, type="RELATED")
         print(f"Creating edge: ({concept.id}) -[:{type}]-> ({topic.id})")
 
-    # Define concept â†’ fact
+    # Define concept â†?fact
     fact_pairs = [
         {
             "concept_key": "Reward Function Design",

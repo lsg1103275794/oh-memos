@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # MemOS Silent Launcher Template (PowerShell)
 #
 # INSTRUCTIONS:
@@ -15,7 +15,7 @@ $ErrorActionPreference = "SilentlyContinue"
 $config = @{
     Neo4jHome  = "D:\User\neo4j-community-5.15.0"    # Your Neo4j path
     QdrantHome = "D:\User\Qdrant"                     # Your Qdrant path
-    MemosRoot  = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+    MemOSRoot  = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 }
 # ============================================================
 

@@ -118,7 +118,7 @@ ollama pull dengcao/bge-m3:567m
 
    ```bash
    # 重启后会自动创建新集合
-   python -m uvicorn memos.api.server:app --port 18000
+   python -m uvicorn oh_memos.api.server:app --port 18000
    ```
 
 4. **重新注册 Cube**

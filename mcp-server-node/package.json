@@ -1,0 +1,53 @@
+{
+  "name": "oh-memos-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for oh-memos — Intelligent Memory Management (Node.js, no Python required)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "oh-memos-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    ".env.example"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "memory",
+    "memos",
+    "claude",
+    "ai",
+    "knowledge-graph"
+  ],
+  "author": "xigou",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xigou/oh-memos.git",
+    "directory": "mcp-server-node"
+  },
+  "bugs": {
+    "url": "https://github.com/xigou/oh-memos/issues"
+  },
+  "homepage": "https://github.com/xigou/oh-memos/tree/main/mcp-server-node",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "dotenv": "^16.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

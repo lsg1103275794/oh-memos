@@ -1,8 +1,8 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 
 :: ============================================================
-:: MemOS 数据库恢复脚本
+:: MemOS 数据库恢复脚�?
 :: 从备份包恢复 Neo4j + Qdrant + 配置文件
 :: ============================================================
 
@@ -16,8 +16,8 @@ echo.
 
 :: 获取脚本目录和项目根目录
 set "SCRIPT_DIR=%~dp0"
-set "MEMOS_ROOT=%SCRIPT_DIR%..\.."
-cd /d "%MEMOS_ROOT%"
+set "Oh-MEMOS_ROOT=%SCRIPT_DIR%..\.."
+cd /d "%Oh-MEMOS_ROOT%"
 
 :: 配置路径 - 根据你的实际安装位置修改
 set "NEO4J_HOME=D:\User\neo4j-community-5.15.0"
@@ -29,13 +29,13 @@ if "%BACKUP_FILE%"=="" (
     echo  [ERROR] Please specify backup file path
     echo.
     echo  Usage: restore.bat ^<backup.zip^>
-    echo  Example: restore.bat backups\memos_backup_20260208.zip
+    echo  Example: restore.bat backups\MemOS_backup_20260208.zip
     echo.
 
-    :: 列出可用的备份
-    if exist "%MEMOS_ROOT%\backups" (
+    :: 列出可用的备�?
+    if exist "%Oh-MEMOS_ROOT%\backups" (
         echo  Available backups:
-        for %%f in ("%MEMOS_ROOT%\backups\*.zip") do (
+        for %%f in ("%Oh-MEMOS_ROOT%\backups\*.zip") do (
             echo    - %%~nxf
         )
     )
@@ -44,7 +44,7 @@ if "%BACKUP_FILE%"=="" (
     exit /b 1
 )
 
-:: 检查备份文件是否存在
+:: 检查备份文件是否存�?
 if not exist "%BACKUP_FILE%" (
     echo  [ERROR] Backup file not found: %BACKUP_FILE%
     pause
@@ -55,11 +55,11 @@ echo  [INFO] Restoring from: %BACKUP_FILE%
 echo.
 
 :: ============================================================
-:: 1. 检查服务状态
+:: 1. 检查服务状�?
 :: ============================================================
 echo  [1/6] Checking services...
 
-:: 检查 Neo4j
+:: 检�?Neo4j
 netstat -ano 2>nul | findstr ":7687 " | findstr "LISTENING" >nul 2>&1
 if !errorlevel! EQU 0 (
     echo        [ERROR] Neo4j is running! Please stop it first.
@@ -68,7 +68,7 @@ if !errorlevel! EQU 0 (
     exit /b 1
 )
 
-:: 检查 Qdrant
+:: 检�?Qdrant
 netstat -ano 2>nul | findstr ":6333 " | findstr "LISTENING" >nul 2>&1
 if !errorlevel! EQU 0 (
     echo        [ERROR] Qdrant is running! Please stop it first.
@@ -84,7 +84,7 @@ echo        [OK] Services stopped
 :: ============================================================
 echo  [2/6] Extracting backup...
 
-set "RESTORE_TEMP=%MEMOS_ROOT%\backups\_restore_temp"
+set "RESTORE_TEMP=%Oh-MEMOS_ROOT%\backups\_restore_temp"
 if exist "%RESTORE_TEMP%" rmdir /s /q "%RESTORE_TEMP%"
 mkdir "%RESTORE_TEMP%"
 
@@ -153,25 +153,25 @@ echo  [5/6] Restoring configuration...
 
 :: .env 文件
 if exist "%RESTORE_TEMP%\config\.env" (
-    if exist "%MEMOS_ROOT%\.env" (
-        copy /Y "%MEMOS_ROOT%\.env" "%MEMOS_ROOT%\.env.bak" >nul
+    if exist "%Oh-MEMOS_ROOT%\.env" (
+        copy /Y "%Oh-MEMOS_ROOT%\.env" "%Oh-MEMOS_ROOT%\.env.bak" >nul
     )
-    copy /Y "%RESTORE_TEMP%\config\.env" "%MEMOS_ROOT%\.env" >nul
+    copy /Y "%RESTORE_TEMP%\config\.env" "%Oh-MEMOS_ROOT%\.env" >nul
     echo        [OK] .env restored (old saved as .env.bak)
 )
 
 :: Cube 配置
-if exist "%RESTORE_TEMP%\config\memos_cubes" (
-    if not exist "%MEMOS_ROOT%\data" mkdir "%MEMOS_ROOT%\data"
-    xcopy /E /I /H /Y "%RESTORE_TEMP%\config\memos_cubes" "%MEMOS_ROOT%\data\memos_cubes" >nul 2>&1
+if exist "%RESTORE_TEMP%\config\MemOS_cubes" (
+    if not exist "%Oh-MEMOS_ROOT%\data" mkdir "%Oh-MEMOS_ROOT%\data"
+    xcopy /E /I /H /Y "%RESTORE_TEMP%\config\MemOS_cubes" "%Oh-MEMOS_ROOT%\data\MemOS_cubes" >nul 2>&1
     echo        [OK] Cube configs restored
 )
 
 :: 用户 MCP 配置
-if exist "%RESTORE_TEMP%\config\user_memos" (
+if exist "%RESTORE_TEMP%\config\user_MemOS" (
     echo        [INFO] User MCP config found in backup
-    echo        Location: %RESTORE_TEMP%\config\user_memos
-    echo        Manually copy to %USERPROFILE%\.memos if needed
+    echo        Location: %RESTORE_TEMP%\config\user_MemOS
+    echo        Manually copy to %USERPROFILE%\.MemOS if needed
 )
 
 :: ============================================================

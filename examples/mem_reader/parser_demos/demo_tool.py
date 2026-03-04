@@ -1,7 +1,7 @@
 """Demo for ToolParser."""
 
 from examples.mem_reader.samples import TOOL_MESSAGE_CASES
-from memos.mem_reader.read_multi_modal.tool_parser import ToolParser
+from oh_memos.mem_reader.read_multi_modal.tool_parser import ToolParser
 
 from ._base import BaseParserDemo
 

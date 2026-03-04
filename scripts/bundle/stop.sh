@@ -31,7 +31,7 @@ if [ -f "$BUNDLE_ROOT/data/pids/api.pid" ]; then
 fi
 
 # 查找并停止 uvicorn 进程
-pkill -f "uvicorn memos.api.start_api:app" 2>/dev/null || true
+pkill -f "uvicorn oh_memos.api.start_api:app" 2>/dev/null || true
 echo -e "      MemOS API 已停止 ${GREEN}✓${NC}"
 
 # ============================================

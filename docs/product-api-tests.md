@@ -3,7 +3,7 @@
 Source: https://github.com/MemTensor/MemOS/issues/518
 
 ### Prerequisites
-- Service is running: `python -m uvicorn memos.api.server_api:app --host 0.0.0.0 --port 8001`
+- Service is running: `python -m uvicorn oh_memos.api.server_api:app --host 0.0.0.0 --port 8001`
 - `.env` is configured for Redis, embeddings, and the vector DB (current test setup: Redis reachable, Qdrant Cloud connected).
 
 ### 1) /product/add

@@ -235,13 +235,13 @@ async def handle_memos_get_stats(
         if not stats:
             return [TextContent(type="text", text=f"No memories found in cube '{cube_id}'.")]
 
-        result = [f"## 📊 Memory Stats: {cube_id}"]
+        result = [f"## [CHART] Memory Stats: {cube_id}"]
         result.append(f"Total Memories: **{total}**\n")
 
         type_icons = {
             "BUGFIX": "🐛", "ERROR_PATTERN": "🔴", "DECISION": "📋",
-            "GOTCHA": "⚠️", "CODE_PATTERN": "📝", "CONFIG": "⚙️",
-            "FEATURE": "✨", "MILESTONE": "🎯", "PROGRESS": "📊",
+            "GOTCHA": "[WARN]️", "CODE_PATTERN": "[MEMO]", "CONFIG": "⚙️",
+            "FEATURE": "✨", "MILESTONE": "[TARGET]", "PROGRESS": "[CHART]",
             "INFERRED": "🔗",
         }
         for mtype, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
@@ -265,12 +265,12 @@ async def handle_memos_get_stats(
             if not inferred_count:
                 result.append("---")
                 result.append("")
-            result.append(f"⚠️ **PROGRESS 占比偏高** ({progress_count}/{total}): 保存时建议显式指定类型:")
+            result.append(f"[WARN]️ **PROGRESS 占比偏高** ({progress_count}/{total}): 保存时建议显式指定类型:")
             result.append("   `BUGFIX` · `DECISION` · `MILESTONE` · `FEATURE` · `GOTCHA` · `CONFIG`")
 
         if user_typed > 0:
             result.append("")
-            result.append(f"✅ **用户标注记忆**: {user_typed} 条 ({user_typed/total*100:.0f}%)")
+            result.append(f"[OK] **用户标注记忆**: {user_typed} 条 ({user_typed/total*100:.0f}%)")
 
         return [TextContent(type="text", text="\n".join(result))]
     elif data:
@@ -341,7 +341,7 @@ async def handle_memos_get(
             full_mem = to_full(result_data, cube_id=cube_id, user_id=MEMOS_USER)
 
             lines = [
-                f"## 📝 Memory Details",
+                f"## [MEMO] Memory Details",
                 f"",
                 f"**ID**: `{full_mem.id}`",
                 f"**Type**: {full_mem.memory_type}",
@@ -377,8 +377,8 @@ async def handle_memos_get(
         else:
             return [TextContent(
                 type="text",
-                text=f"❌ Memory not found: `{memory_id}`\n\n"
-                     f"💡 **Tips**:\n"
+                text=f"[ERROR] Memory not found: `{memory_id}`\n\n"
+                     f"[TIP] **Tips**:\n"
                      f"- Verify the ID is correct (copy from memos_search results)\n"
                      f"- The memory may have been deleted\n"
                      f"- Try `memos_search` to find the memory again"
@@ -388,8 +388,8 @@ async def handle_memos_get(
         if "not found" in error_msg.lower() or status == 404:
             return [TextContent(
                 type="text",
-                text=f"❌ Memory not found: `{memory_id}`\n\n"
-                     f"💡 **Tips**:\n"
+                text=f"[ERROR] Memory not found: `{memory_id}`\n\n"
+                     f"[TIP] **Tips**:\n"
                      f"- Verify the ID is correct (copy from memos_search results)\n"
                      f"- The memory may have been deleted\n"
                      f"- Try `memos_search` to find the memory again"

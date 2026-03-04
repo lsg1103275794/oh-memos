@@ -5,7 +5,7 @@ install:
 	poetry run pre-commit install --install-hooks
 
 clean:
-	rm -rf .memos
+	rm -rf .oh_memos
 	rm -rf .pytest_cache
 	rm -rf .ruff_cache
 	rm -rf tmp
@@ -21,7 +21,7 @@ pre_commit:
 	poetry run pre-commit run -a
 
 serve:
-	poetry run uvicorn memos.api.start_api:app
+	poetry run uvicorn oh_memos.api.start_api:app
 
 openapi:
-	poetry run memos export_openapi --output docs/openapi.json
+	poetry run oh_memos export_openapi --output docs/openapi.json

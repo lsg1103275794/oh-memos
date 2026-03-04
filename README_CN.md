@@ -141,7 +141,7 @@ echo ========================================
 echo.
 
 cd /d "%~dp0src"
-"%PYTHON_EXE%" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
+"%PYTHON_EXE%" -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
 
 pause
 ```

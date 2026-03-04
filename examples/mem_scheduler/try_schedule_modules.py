@@ -4,14 +4,14 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from memos.api.routers.server_router import (
+from oh_memos.api.routers.server_router import (
     mem_scheduler,
 )
-from memos.log import get_logger
-from memos.mem_scheduler.analyzer.api_analyzer import DirectSearchMemoriesAnalyzer
-from memos.mem_scheduler.optimized_scheduler import OptimizedScheduler
-from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
-from memos.mem_scheduler.schemas.task_schemas import MEM_UPDATE_TASK_LABEL
+from oh_memos.log import get_logger
+from oh_memos.mem_scheduler.analyzer.api_analyzer import DirectSearchMemoriesAnalyzer
+from oh_memos.mem_scheduler.optimized_scheduler import OptimizedScheduler
+from oh_memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
+from oh_memos.mem_scheduler.schemas.task_schemas import MEM_UPDATE_TASK_LABEL
 
 
 FILE_PATH = Path(__file__).absolute()
@@ -34,7 +34,7 @@ def init_task():
         },
         {
             "role": "assistant",
-            "content": "Got it — Max is on joint supplements, and you’re relocating to Chicago soon. That’s a big move! Have you looked into how the change in climate or vet access might affect his needs?",
+            "content": "Got it �?Max is on joint supplements, and you’re relocating to Chicago soon. That’s a big move! Have you looked into how the change in climate or vet access might affect his needs?",
         },
         {
             "role": "user",
@@ -42,7 +42,7 @@ def init_task():
         },
         {
             "role": "assistant",
-            "content": "Thanks for the update! So Bella is 6 years old and has a chicken allergy — good to know. You’ll want to double-check her food and treats, especially during the move. Has she had any reactions recently?",
+            "content": "Thanks for the update! So Bella is 6 years old and has a chicken allergy �?good to know. You’ll want to double-check her food and treats, especially during the move. Has she had any reactions recently?",
         },
         {
             "role": "user",
@@ -131,7 +131,7 @@ class ScheduleModulesRunner(DirectSearchMemoriesAnalyzer):
 
         # Add to memory
         result = self.add_memories(add_req)
-        print(f"   ✅ Added to memory successfully: \n{result}")
+        print(f"   �?Added to memory successfully: \n{result}")
 
         return result
 

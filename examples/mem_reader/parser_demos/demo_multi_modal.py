@@ -1,7 +1,7 @@
 """Demo for MultiModalParser."""
 
 from examples.mem_reader.builders import build_file_parser
-from memos.mem_reader.read_multi_modal.multi_modal_parser import MultiModalParser
+from oh_memos.mem_reader.read_multi_modal.multi_modal_parser import MultiModalParser
 
 from ._base import BaseParserDemo
 
@@ -14,7 +14,7 @@ class MultiModalParserDemo(BaseParserDemo):
     def run(self):
         self.parser_selection()
         self.parser_instances()
-        print("\n‚úÖ MultiModalParser example completed!")
+        print("\n‚ú?MultiModalParser example completed!")
 
     def parser_selection(self):
         """Test that different input types return the correct parser."""
@@ -186,7 +186,7 @@ class MultiModalParserDemo(BaseParserDemo):
             # Handle cases where None is expected
             if should_return_none or expected_type is None:
                 if selected_parser is None:
-                    print(f"‚úÖ Test {i}: {test_name}")
+                    print(f"‚ú?Test {i}: {test_name}")
                     print("   Expected: None (parser not implemented yet or not found)")
                     print("   Got: None")
                     if expected_type:
@@ -201,7 +201,7 @@ class MultiModalParserDemo(BaseParserDemo):
 
             # Check if parser was found
             if selected_parser is None:
-                print(f"‚ùå Test {i}: {test_name}")
+                print(f"‚ù?Test {i}: {test_name}")
                 print(f"   Expected: {expected_type}")
                 print("   Got: None (parser not found)")
                 print(f"   Message: {message}\n")
@@ -213,12 +213,12 @@ class MultiModalParserDemo(BaseParserDemo):
 
             # Verify parser type
             if actual_type == expected_type:
-                print(f"‚úÖ Test {i}: {test_name}")
+                print(f"‚ú?Test {i}: {test_name}")
                 print(f"   Expected: {expected_type}")
                 print(f"   Got: {actual_type}")
                 print(f"   Parser instance: {selected_parser}")
             else:
-                print(f"‚ùå Test {i}: {test_name}")
+                print(f"‚ù?Test {i}: {test_name}")
                 print(f"   Expected: {expected_type}")
                 print(f"   Got: {actual_type}")
                 print(f"   Message: {message}")
@@ -276,19 +276,19 @@ class MultiModalParserDemo(BaseParserDemo):
 
             if should_return_none:
                 if selected_parser is None:
-                    print(f"‚úÖ Edge Case {i}: {test_name}")
+                    print(f"‚ú?Edge Case {i}: {test_name}")
                     print("   Correctly returned None")
                 else:
-                    print(f"‚ùå Edge Case {i}: {test_name}")
+                    print(f"‚ù?Edge Case {i}: {test_name}")
                     print("   Expected: None")
                     print(f"   Got: {type(selected_parser).__name__}")
                     all_passed = False
             else:
                 if selected_parser is not None:
-                    print(f"‚úÖ Edge Case {i}: {test_name}")
+                    print(f"‚ú?Edge Case {i}: {test_name}")
                     print(f"   Got parser: {type(selected_parser).__name__}")
                 else:
-                    print(f"‚ùå Edge Case {i}: {test_name}")
+                    print(f"‚ù?Edge Case {i}: {test_name}")
                     print("   Expected: Parser")
                     print("   Got: None")
                     all_passed = False
@@ -297,9 +297,9 @@ class MultiModalParserDemo(BaseParserDemo):
         # Summary
         print("=" * 60)
         if all_passed:
-            print("‚úÖ All tests passed! Parser selection is working correctly.")
+            print("‚ú?All tests passed! Parser selection is working correctly.")
         else:
-            print("‚ùå Some tests failed. Please check the output above.")
+            print("‚ù?Some tests failed. Please check the output above.")
         print("=" * 60)
 
     def parser_instances(self):
@@ -323,21 +323,21 @@ class MultiModalParserDemo(BaseParserDemo):
         for attr_name, expected_type in parsers_to_check.items():
             parser_instance = getattr(self.parser, attr_name, None)
             if parser_instance is None:
-                print(f"‚ùå {attr_name}: Not initialized")
+                print(f"‚ù?{attr_name}: Not initialized")
                 all_initialized = False
             else:
                 actual_type = type(parser_instance).__name__
                 if actual_type == expected_type:
-                    print(f"‚úÖ {attr_name}: {actual_type}")
+                    print(f"‚ú?{attr_name}: {actual_type}")
                 else:
-                    print(f"‚ùå {attr_name}: Expected {expected_type}, got {actual_type}")
+                    print(f"‚ù?{attr_name}: Expected {expected_type}, got {actual_type}")
                     all_initialized = False
 
         print()
         if all_initialized:
-            print("‚úÖ All parser instances are correctly initialized!")
+            print("‚ú?All parser instances are correctly initialized!")
         else:
-            print("‚ùå Some parser instances are missing or incorrect.")
+            print("‚ù?Some parser instances are missing or incorrect.")
         print()
 
 

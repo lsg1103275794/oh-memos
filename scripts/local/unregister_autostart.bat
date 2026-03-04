@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 :: ============================================================
 :: Unregister MemOS auto-start task
 :: Self-elevates to Administrator automatically

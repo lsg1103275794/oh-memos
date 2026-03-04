@@ -5,10 +5,10 @@ import sys
 # Add project root to python path to ensure src modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
 
-from memos.configs.mem_chat import MemChatConfigFactory
-from memos.configs.mem_cube import GeneralMemCubeConfig
-from memos.mem_chat.factory import MemChatFactory
-from memos.mem_cube.general import GeneralMemCube
+from oh_memos.configs.mem_chat import MemChatConfigFactory
+from oh_memos.configs.mem_cube import GeneralMemCubeConfig
+from oh_memos.mem_chat.factory import MemChatFactory
+from oh_memos.mem_cube.general import GeneralMemCube
 
 
 def get_mem_chat_config() -> MemChatConfigFactory:

@@ -67,9 +67,9 @@ def error_response(
     Create a standardized error response.
 
     Format:
-        ❌ [ERROR_CODE] Error message
+        [ERROR] [ERROR_CODE] Error message
 
-        💡 Suggestions:
+        [TIP] Suggestions:
         - suggestion 1
         - suggestion 2
 
@@ -81,13 +81,13 @@ def error_response(
     parts = []
 
     if error_code:
-        parts.append(f"❌ [{error_code}] {message}")
+        parts.append(f"[ERROR] [{error_code}] {message}")
     else:
-        parts.append(f"❌ {message}")
+        parts.append(f"[ERROR] {message}")
 
     if suggestions:
         parts.append("")
-        parts.append("💡 Suggestions:")
+        parts.append("[TIP] Suggestions:")
         for s in suggestions:
             parts.append(f"- {s}")
 

@@ -25,19 +25,19 @@ def init_components():
         tuple: (feedback_server, memory_manager, embedder)
     """
     # Lazy import to avoid E402 (module level import not at top of file)
-    from memos.configs.embedder import EmbedderConfigFactory
-    from memos.configs.graph_db import GraphDBConfigFactory
-    from memos.configs.llm import LLMConfigFactory
-    from memos.configs.mem_reader import MemReaderConfigFactory
-    from memos.configs.reranker import RerankerConfigFactory
-    from memos.embedders.factory import EmbedderFactory
-    from memos.graph_dbs.factory import GraphStoreFactory
-    from memos.llms.factory import LLMFactory
-    from memos.mem_feedback.simple_feedback import SimpleMemFeedback
-    from memos.mem_reader.factory import MemReaderFactory
-    from memos.memories.textual.tree_text_memory.organize.manager import MemoryManager
-    from memos.memories.textual.tree_text_memory.retrieve.searcher import Searcher
-    from memos.reranker.factory import RerankerFactory
+    from oh_memos.configs.embedder import EmbedderConfigFactory
+    from oh_memos.configs.graph_db import GraphDBConfigFactory
+    from oh_memos.configs.llm import LLMConfigFactory
+    from oh_memos.configs.mem_reader import MemReaderConfigFactory
+    from oh_memos.configs.reranker import RerankerConfigFactory
+    from oh_memos.embedders.factory import EmbedderFactory
+    from oh_memos.graph_dbs.factory import GraphStoreFactory
+    from oh_memos.llms.factory import LLMFactory
+    from oh_memos.mem_feedback.simple_feedback import SimpleMemFeedback
+    from oh_memos.mem_reader.factory import MemReaderFactory
+    from oh_memos.memories.textual.tree_text_memory.organize.manager import MemoryManager
+    from oh_memos.memories.textual.tree_text_memory.retrieve.searcher import Searcher
+    from oh_memos.reranker.factory import RerankerFactory
 
     print("Initializing MemOS Components...")
 
@@ -165,7 +165,7 @@ def main():
     load_dotenv()
 
     # Lazy import to avoid E402
-    from memos.mem_feedback.utils import make_mem_item
+    from oh_memos.mem_feedback.utils import make_mem_item
 
     feedback_server, memory_manager, embedder = init_components()
     print("-" * 50)
@@ -175,14 +175,14 @@ def main():
     # 1. Simulate Chat History
     # Simulate a conversation between user and assistant, where the assistant's response contains a statement about user preferences.
     history = [
-        {"role": "user", "content": "我喜欢什么水果,不喜欢什么水果"},
-        {"role": "assistant", "content": "你喜欢苹果,不喜欢香蕉"},
+        {"role": "user", "content": "我喜欢什么水�?不喜欢什么水�?},
+        {"role": "assistant", "content": "你喜欢苹�?不喜欢香�?},
     ]
 
     # 2. Simulate Initial Memory
     # We manually add a memory to the database, representing what the system currently believes to be a "fact".
-    # This memory content is "你喜欢苹果,不喜欢香蕉", which we will later correct via feedback.
-    mem_text = "你喜欢苹果,不喜欢香蕉"
+    # This memory content is "你喜欢苹�?不喜欢香�?, which we will later correct via feedback.
+    mem_text = "你喜欢苹�?不喜欢香�?
     memory_manager.add(
         [
             make_mem_item(

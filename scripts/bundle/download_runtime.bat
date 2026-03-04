@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
 
@@ -41,7 +41,7 @@ if "%COMPONENT%"=="" (
     echo   neo4j  - Neo4j Community %NEO4J_VERSION%
     echo   jre    - OpenJDK 17 JRE
     echo   qdrant - Qdrant %QDRANT_VERSION%
-    echo   all    - 下载所有组件
+    echo   all    - 下载所有组�?
     echo.
     exit /b 1
 )
@@ -80,7 +80,7 @@ set "CONDA_INSTALLER=%TEMP_DIR%\miniconda.exe"
 echo 正在下载 Miniconda...
 curl -L -o "%CONDA_INSTALLER%" "%MINICONDA_URL%"
 if errorlevel 1 (
-    echo [ERROR] 下载失败，尝试使用 PowerShell...
+    echo [ERROR] 下载失败，尝试使�?PowerShell...
     powershell -Command "Invoke-WebRequest -Uri '%MINICONDA_URL%' -OutFile '%CONDA_INSTALLER%'"
 )
 
@@ -93,11 +93,11 @@ echo 正在安装 Miniconda（静默模式）...
 start /wait "" "%CONDA_INSTALLER%" /InstallationType=JustMe /RegisterPython=0 /AddToPath=0 /S /D=%RUNTIME%\conda
 
 :: 安装必要的包
-echo 安装 Python 基础包...
+echo 安装 Python 基础�?..
 "%RUNTIME%\conda\python.exe" -m pip install --upgrade pip --quiet
 "%RUNTIME%\conda\python.exe" -m pip install uvicorn fastapi httpx --quiet
 
-echo Miniconda 安装完成 ✓
+echo Miniconda 安装完成 �?
 exit /b 0
 
 :: ============================================
@@ -130,7 +130,7 @@ if not exist "%JRE_ZIP%" (
 echo 正在解压 JRE...
 powershell -Command "Expand-Archive -Path '%JRE_ZIP%' -DestinationPath '%TEMP_DIR%\jre_temp' -Force"
 
-:: 移动到正确位置
+:: 移动到正确位�?
 for /d %%i in ("%TEMP_DIR%\jre_temp\*") do (
     if exist "%%i\bin\java.exe" (
         move "%%i" "%RUNTIME%\jre" >nul
@@ -140,7 +140,7 @@ for /d %%i in ("%TEMP_DIR%\jre_temp\*") do (
 :jre_done
 rmdir /s /q "%TEMP_DIR%\jre_temp" 2>nul
 
-echo JRE 安装完成 ✓
+echo JRE 安装完成 �?
 exit /b 0
 
 :: ============================================
@@ -173,7 +173,7 @@ if not exist "%NEO4J_ZIP%" (
 echo 正在解压 Neo4j...
 powershell -Command "Expand-Archive -Path '%NEO4J_ZIP%' -DestinationPath '%TEMP_DIR%\neo4j_temp' -Force"
 
-:: 移动到正确位置
+:: 移动到正确位�?
 for /d %%i in ("%TEMP_DIR%\neo4j_temp\*") do (
     if exist "%%i\bin\neo4j.bat" (
         move "%%i" "%RUNTIME%\neo4j" >nul
@@ -190,7 +190,7 @@ if exist "%RUNTIME%\neo4j\conf\neo4j.conf" (
     echo server.default_listen_address=0.0.0.0>> "%RUNTIME%\neo4j\conf\neo4j.conf"
 )
 
-echo Neo4j 安装完成 ✓
+echo Neo4j 安装完成 �?
 exit /b 0
 
 :: ============================================
@@ -224,7 +224,7 @@ echo 正在解压 Qdrant...
 if not exist "%RUNTIME%\qdrant" mkdir "%RUNTIME%\qdrant"
 powershell -Command "Expand-Archive -Path '%QDRANT_ZIP%' -DestinationPath '%RUNTIME%\qdrant' -Force"
 
-echo Qdrant 安装完成 ✓
+echo Qdrant 安装完成 �?
 exit /b 0
 
 :: ============================================
@@ -234,6 +234,6 @@ exit /b 0
 echo.
 echo 清理临时文件...
 rmdir /s /q "%TEMP_DIR%" 2>nul
-echo 完成！
+echo 完成�?
 
 endlocal

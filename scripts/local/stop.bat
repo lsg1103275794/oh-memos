@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 
 :: ============================================================
@@ -21,7 +21,7 @@ echo  ============================================================
 echo.
 
 set "SCRIPT_DIR=%~dp0"
-set "MEMOS_ROOT=%SCRIPT_DIR%..\.."
+set "Oh-MEMOS_ROOT=%SCRIPT_DIR%..\.."
 set "NEO4J_HOME=D:\User\neo4j-community-5.15.0"
 
 :: ============================================================

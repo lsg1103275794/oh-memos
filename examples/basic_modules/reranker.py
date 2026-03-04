@@ -3,12 +3,12 @@ import uuid
 
 from dotenv import load_dotenv
 
-from memos import log
-from memos.configs.embedder import EmbedderConfigFactory
-from memos.configs.reranker import RerankerConfigFactory
-from memos.embedders.factory import EmbedderFactory
-from memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
-from memos.reranker.factory import RerankerFactory
+from oh_memos import log
+from oh_memos.configs.embedder import EmbedderConfigFactory
+from oh_memos.configs.reranker import RerankerConfigFactory
+from oh_memos.embedders.factory import EmbedderFactory
+from oh_memos.memories.textual.item import TextualMemoryItem, TreeNodeTextualMemoryMetadata
+from oh_memos.reranker.factory import RerankerFactory
 
 
 load_dotenv()
@@ -170,9 +170,9 @@ def main():
 
         # --- NEW: search_filter with rerank ---
         # hit rule:
-        # - user_id == "u_123" â†’ score * (1 + 0.5) = 1.5
-        # - tags including "paris" â†’ score * (1 + 0.2) = 1.2
-        # - project_id(not exist) â†’ warning unrelated with score
+        # - user_id == "u_123" â†?score * (1 + 0.5) = 1.5
+        # - tags including "paris" â†?score * (1 + 0.2) = 1.2
+        # - project_id(not exist) â†?warning unrelated with score
         search_filter = {"session_id": "germany", "tags": "germany", "project_id": "demo-p1"}
         ranked_http_boosted = http_reranker.rerank(
             query=query,

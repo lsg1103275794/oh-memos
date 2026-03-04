@@ -1,11 +1,11 @@
 import time
 
-from memos import log
-from memos.configs.mem_reader import SimpleStructMemReaderConfig
-from memos.configs.memory import TreeTextMemoryConfig
-from memos.mem_reader.multi_modal_struct import MultiModalStructMemReader
-from memos.mem_reader.simple_struct import SimpleStructMemReader
-from memos.memories.textual.tree import TreeTextMemory
+from oh_memos import log
+from oh_memos.configs.mem_reader import SimpleStructMemReaderConfig
+from oh_memos.configs.memory import TreeTextMemoryConfig
+from oh_memos.mem_reader.multi_modal_struct import MultiModalStructMemReader
+from oh_memos.mem_reader.simple_struct import SimpleStructMemReader
+from oh_memos.memories.textual.tree import TreeTextMemory
 
 
 logger = log.get_logger(__name__)
@@ -54,7 +54,7 @@ scene_data = [
         {
             "role": "user",
             "chat_time": "3 May 2025",
-            "content": "Yeah, now that you mention it… I’ve been thinking a lot about my childhood lately. I didn’t have the easiest upbringing. My parents were always busy, and I often felt like I had to figure things out on my own. I remember one winter, I got really sick with a high fever. My parents were both working, and I didn’t want to bother them. I just lay in bed, crying by myself, not knowing what to do.",
+            "content": "Yeah, now that you mention it�?I’ve been thinking a lot about my childhood lately. I didn’t have the easiest upbringing. My parents were always busy, and I often felt like I had to figure things out on my own. I remember one winter, I got really sick with a high fever. My parents were both working, and I didn’t want to bother them. I just lay in bed, crying by myself, not knowing what to do.",
         },
         {
             "role": "assistant",

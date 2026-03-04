@@ -9,28 +9,28 @@ import os
 
 from typing import Any
 
-from memos.api.config import APIConfig
-from memos.configs.embedder import EmbedderConfigFactory
-from memos.configs.graph_db import GraphDBConfigFactory
-from memos.configs.internet_retriever import InternetRetrieverConfigFactory
-from memos.configs.llm import LLMConfigFactory
-from memos.configs.mem_agent import MemAgentConfigFactory
-from memos.configs.mem_reader import MemReaderConfigFactory
-from memos.configs.reranker import RerankerConfigFactory
-from memos.embedders.factory import EmbedderFactory
-from memos.graph_dbs.factory import GraphStoreFactory
-from memos.llms.factory import LLMFactory
-from memos.log import get_logger
-from memos.mem_agent.deepsearch_agent import DeepSearchMemAgent
-from memos.mem_agent.factory import MemAgentFactory
-from memos.mem_cube.navie import NaiveMemCube
-from memos.mem_reader.factory import MemReaderFactory
-from memos.memories.textual.simple_tree import SimpleTreeTextMemory
-from memos.memories.textual.tree_text_memory.organize.manager import MemoryManager
-from memos.memories.textual.tree_text_memory.retrieve.internet_retriever_factory import (
+from oh_memos.api.config import APIConfig
+from oh_memos.configs.embedder import EmbedderConfigFactory
+from oh_memos.configs.graph_db import GraphDBConfigFactory
+from oh_memos.configs.internet_retriever import InternetRetrieverConfigFactory
+from oh_memos.configs.llm import LLMConfigFactory
+from oh_memos.configs.mem_agent import MemAgentConfigFactory
+from oh_memos.configs.mem_reader import MemReaderConfigFactory
+from oh_memos.configs.reranker import RerankerConfigFactory
+from oh_memos.embedders.factory import EmbedderFactory
+from oh_memos.graph_dbs.factory import GraphStoreFactory
+from oh_memos.llms.factory import LLMFactory
+from oh_memos.log import get_logger
+from oh_memos.mem_agent.deepsearch_agent import DeepSearchMemAgent
+from oh_memos.mem_agent.factory import MemAgentFactory
+from oh_memos.mem_cube.navie import NaiveMemCube
+from oh_memos.mem_reader.factory import MemReaderFactory
+from oh_memos.memories.textual.simple_tree import SimpleTreeTextMemory
+from oh_memos.memories.textual.tree_text_memory.organize.manager import MemoryManager
+from oh_memos.memories.textual.tree_text_memory.retrieve.internet_retriever_factory import (
     InternetRetrieverFactory,
 )
-from memos.reranker.factory import RerankerFactory
+from oh_memos.reranker.factory import RerankerFactory
 
 
 logger = get_logger(__name__)
@@ -170,7 +170,7 @@ def factory_initialization() -> tuple[DeepSearchMemAgent, dict[str, Any]]:
         config_factory=agent_config_factory, llm=llm, memory_retriever=naive_mem_cube.text_mem
     )
 
-    logger.info("âœ“ DeepSearchMemAgent created successfully")
+    logger.info("âœ?DeepSearchMemAgent created successfully")
     logger.info(f"  - Agent name: {deep_search_agent.config.agent_name}")
     logger.info(f"  - Max iterations: {deep_search_agent.max_iterations}")
     logger.info(f"  - Timeout: {deep_search_agent.timeout} seconds")

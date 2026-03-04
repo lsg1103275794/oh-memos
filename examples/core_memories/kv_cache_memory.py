@@ -2,9 +2,9 @@ import json
 
 from transformers import DynamicCache
 
-from memos.configs.memory import MemoryConfigFactory
-from memos.memories.activation.item import KVCacheItem
-from memos.memories.factory import MemoryFactory
+from oh_memos.configs.memory import MemoryConfigFactory
+from oh_memos.memories.activation.item import KVCacheItem
+from oh_memos.memories.factory import MemoryFactory
 
 
 def get_cache_info(cache):

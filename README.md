@@ -1,19 +1,19 @@
 <div align="center">
 
-# 🧠 MemOSLocal-SM
+# 🧠 oh-memosLocal-SM
 
 **Persistent Project Memory for AI Assistants**
 
-*让 AI 拥有持久记忆的项目级解决方案*
+*�?AI 拥有持久记忆的项目级解决方案*
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20|%20Linux%20|%20macOS-lightgrey.svg)]()
 [![Neo4j](https://img.shields.io/badge/Graph-Neo4j-blue.svg)](https://neo4j.com)
 [![Qdrant](https://img.shields.io/badge/Vector-Qdrant-red.svg)](https://qdrant.tech)
 
-[🚀 Quick Start](#-quick-start) · [✨ Features](#-key-features) · [🏗️ Architecture](#-architecture) · [📖 Docs](#-documentation)
+[🚀 Quick Start](#-quick-start) · [�?Features](#-key-features) · [🏗�?Architecture](#-architecture) · [📖 Docs](#-documentation)
 
-<img src="docs/images/cover.jpg" width="70%" alt="MemOSLocal-SM"/>
+<img src="docs/images/cover.jpg" width="70%" alt="oh-memosLocal-SM"/>
 
 </div>
 
@@ -27,38 +27,38 @@
 | **Repeat Mistakes** | Same bug fixed 3 times. AI never learns from history. |
 | **Doc Overload** | AI scatters `NOTES.md`, `TODO.md` everywhere. Project becomes a mess. |
 | **Context Collapse** | After context compaction, AI degrades to `mkdir -p .../memory` instead of using MCP tools. |
-| **Memory Pollution** | Different projects share the same memory cube — AudioCraft memories mixed with MemOS memories. |
+| **Memory Pollution** | Different projects share the same memory cube �?AudioCraft memories mixed with oh-memos memories. |
 
-**MemOSLocal-SM transforms AI from a "stateless chatbot" into a "Senior Project Partner".**
+**oh-memosLocal-SM transforms AI from a "stateless chatbot" into a "Senior Project Partner".**
 
 ---
 
-## 🆕 What's New — v2.6 (March 2026)
+## 🆕 What's New �?v2.6 (March 2026)
 
-### 🔍 Knowledge Graph — Fixed & Supercharged
+### 🔍 Knowledge Graph �?Fixed & Supercharged
 
-The graph relationship engine was **silently broken** in v2.5 — queries always returned "No relationships found" due to a Cypher string-matching bug. This release fixes it and adds new graph intelligence tools.
+The graph relationship engine was **silently broken** in v2.5 �?queries always returned "No relationships found" due to a Cypher string-matching bug. This release fixes it and adds new graph intelligence tools.
 
 | Tool | Before (v2.5) | After (v2.6) |
 |------|---------------|--------------|
-| `memos_get_graph` | Always "No relationships found" | Shows CAUSE/RELATE/CONDITION edges via vector-ID-based Neo4j query |
-| `memos_trace_path` | Always "No path found" | Correct API path + field names + Neo4j fallback |
-| `memos_get_stats` | All memories show as PROGRESS (100%) | Accurate type distribution (MILESTONE 22%, BUGFIX 6%...) |
-| `memos_impact` | *Did not exist* | Forward blast radius — traces what a memory caused downstream |
+| `oh-memos_get_graph` | Always "No relationships found" | Shows CAUSE/RELATE/CONDITION edges via vector-ID-based Neo4j query |
+| `oh-memos_trace_path` | Always "No path found" | Correct API path + field names + Neo4j fallback |
+| `oh-memos_get_stats` | All memories show as PROGRESS (100%) | Accurate type distribution (MILESTONE 22%, BUGFIX 6%...) |
+| `oh-memos_impact` | *Did not exist* | Forward blast radius �?traces what a memory caused downstream |
 
 ### 🧠 PreToolUse: Automatic Memory Injection
 
-Inspired by [GitNexus](https://github.com/abhigyanpatwari/GitNexus)'s PreToolUse hook pattern. When Claude uses **Grep/Glob/Read/Edit/Write**, a hook automatically searches MemOS and injects relevant memories as `additionalContext` — **no explicit `memos_search` needed**.
+Inspired by [GitNexus](https://github.com/abhigyanpatwari/GitNexus)'s PreToolUse hook pattern. When Claude uses **Grep/Glob/Read/Edit/Write**, a hook automatically searches oh-memos and injects relevant memories as `additionalContext` �?**no explicit `oh-memos_search` needed**.
 
 ```
 Claude: Read("src/hooks/useWebSocket.ts")
-  ↓  [Hook fires automatically]
-  ↓  Searches MemOS → finds "WebSocket URL hardcoded bug was fixed on Jan 20"
-  ↓  Injects as additionalContext
+  �? [Hook fires automatically]
+  �? Searches oh-memos �?finds "WebSocket URL hardcoded bug was fixed on Jan 20"
+  �? Injects as additionalContext
 Claude: (now aware of the history before even reading the file)
 ```
 
-### ⚡ RRF Local Reranker — Zero HTTP Dependency
+### �?RRF Local Reranker �?Zero HTTP Dependency
 
 Replaced the external SiliconFlow BGE Reranker API with a local **Reciprocal Rank Fusion** implementation. Same algorithm used by Elasticsearch and Pinecone.
 
@@ -68,17 +68,17 @@ Replaced the external SiliconFlow BGE Reranker API with a local **Reciprocal Ran
 | Dependency | Requires API key + network | Fully offline |
 | Config | `"backend": "http_bge"` | `"backend": "rrf"` |
 
-### 🏷️ INFERRED Type — Graph Reasoning Nodes
+### 🏷�?INFERRED Type �?Graph Reasoning Nodes
 
 LLM-inferred reasoning nodes (auto-generated by Neo4j) are now classified as `INFERRED` (🔗) instead of mixing into PROGRESS. User-saved memories with proper types (BUGFIX, DECISION, etc.) are now correctly identified from `sources` metadata, even after the `tree_text` LLM extractor strips the `[TYPE]` prefix.
 
 ---
 
-## 🆕 What's New — v2.5 (Feb 2026)
+## 🆕 What's New �?v2.5 (Feb 2026)
 
-### 🛡️ Six-Layer Context Defense System
+### 🛡�?Six-Layer Context Defense System
 
-AI assistants lose conversation history after context compaction. This update introduces a **six-layer defense chain** to ensure the model always uses MCP memory tools — even after context is fully compressed.
+AI assistants lose conversation history after context compaction. This update introduces a **six-layer defense chain** to ensure the model always uses MCP memory tools �?even after context is fully compressed.
 
 ```
 Layer 1  Tool Descriptions ──── Survive compaction intact. Anti-mkdir warnings embedded.
@@ -89,51 +89,51 @@ Layer 5  Context Monitor ────── Track tool call count. Warn at 70%, 
 Layer 6  Project Hooks ──────── 7 hooks for session start, intent detection, save suggestions.
 ```
 
-### 🗺️ Smart Cube Routing
+### 🗺�?Smart Cube Routing
 
 Each project now gets its own isolated memory cube, automatically derived from the working directory:
 
 | Project Path | Auto-derived Cube |
 |-------------|-------------------|
-| `/mnt/g/test/MemOS` | `memos_cube` |
+| `/mnt/g/test/oh-memos` | `oh-memos_cube` |
 | `/mnt/g/Cyber/AudioCraft Studio` | `audiocraft_studio_cube` |
 | `~/projects/my-web-app` | `my_web_app_cube` |
 
 ```python
-# Just pass project_path — the server handles the rest
-memos_save(content="...", memory_type="BUGFIX", project_path="/mnt/g/Cyber/AudioCraft Studio")
-# → saved to audiocraft_studio_cube (not dev_cube!)
+# Just pass project_path �?the server handles the rest
+oh-memos_save(content="...", memory_type="BUGFIX", project_path="/mnt/g/Cyber/AudioCraft Studio")
+# �?saved to audiocraft_studio_cube (not dev_cube!)
 ```
 
-### 🔧 New MCP Tool: `memos_context_resume`
+### 🔧 New MCP Tool: `oh-memos_context_resume`
 
 One-call context recovery after compaction:
 
 ```python
-memos_context_resume(project_path="/mnt/g/test/MemOS")
+oh-memos_context_resume(project_path="/mnt/g/test/oh-memos")
 # Returns: recent 24h memories + active project summary + anti-mkdir reminder
 ```
 
-### ⚡ Claude Code Hooks System
+### �?Claude Code Hooks System
 
 Ready-to-use hooks in `project-memory/hooks/node/`:
 
 | Hook | Event | What It Does |
 |------|-------|-------------|
-| `memos_context_inject.js` | PreToolUse | **Auto-injects** related memories when Claude searches/edits files |
-| `memos_session_start.js` | SessionStart | Maps CWD → cube_id at startup |
-| `memos_user_prompt.js` | UserPromptSubmit | Detects intent (history, errors, decisions) → suggests memos_search |
-| `memos_pre_compact.js` | PreCompact | Reminds: save before compaction, resume after |
-| `memos_suggest_compact.js` | PreToolUse | Monitors context usage, warns at 70%/90% |
-| `memos_auto_save.js` | PostToolUse | Suggests appropriate memory_type after edits |
-| `memos_block_mkdir_memory.js` | PreToolUse | Blocks `mkdir` for memory directories |
-| `memos_notify_milestone.js` | PostToolUse | Suggests MILESTONE save for important files |
+| `oh-memos_context_inject.js` | PreToolUse | **Auto-injects** related memories when Claude searches/edits files |
+| `oh-memos_session_start.js` | SessionStart | Maps CWD �?cube_id at startup |
+| `oh-memos_user_prompt.js` | UserPromptSubmit | Detects intent (history, errors, decisions) �?suggests oh-memos_search |
+| `oh-memos_pre_compact.js` | PreCompact | Reminds: save before compaction, resume after |
+| `oh-memos_suggest_compact.js` | PreToolUse | Monitors context usage, warns at 70%/90% |
+| `oh-memos_auto_save.js` | PostToolUse | Suggests appropriate memory_type after edits |
+| `oh-memos_block_mkdir_memory.js` | PreToolUse | Blocks `mkdir` for memory directories |
+| `oh-memos_notify_milestone.js` | PostToolUse | Suggests MILESTONE save for important files |
 
 > See [`project-memory/hooks/settings-template.json`](project-memory/hooks/settings-template.json) for setup instructions.
 
 ---
 
-## ✨ Key Features
+## �?Key Features
 
 <table>
 <tr>
@@ -145,7 +145,7 @@ Ready-to-use hooks in `project-memory/hooks/node/`:
 ### 🧠 Intelligent Auto-Memory
 
 AI **proactively saves** key information:
-- ✅ Milestones & decisions
+- �?Milestones & decisions
 - 🐛 Bug fixes & solutions
 - ⚠️ Gotchas & configurations
 
@@ -174,7 +174,7 @@ AI **auto-retrieves** history before work:
 
 ---
 
-## 🏗️ Architecture
+## 🏗�?Architecture
 
 <div align="center">
 <img src="docs/images/architecture-mindmap.png" width="85%" alt="Architecture"/>
@@ -189,29 +189,29 @@ AI **auto-retrieves** history before work:
 | **LLM Extraction** | Auto-extract key, tags, confidence | Ollama / OpenAI |
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Claude Code / AI                         │
-│                          ↓                                  │
-│                   ┌─────────────┐                           │
-│                   │ MCP Server  │  ← Proactive memory tools │
-│                   └──────┬──────┘                           │
-│                          ↓                                  │
-│   ┌──────────────────────────────────────────────────────┐  │
-│   │              MemOS Backend (localhost:18000)         │  │
-│   │                                                      │  │
-│   │   ┌────────────┐    ┌────────────┐    ┌──────────┐   │  │
-│   │   │   Neo4j    │    │   Qdrant   │    │  Ollama  │   │  │
-│   │   │   :7687    │    │   :6333    │    │  :11434  │   │  │
-│   │   │  (Graph)   │    │  (Vector)  │    │  (LLM)   │   │  │
-│   │   └────────────┘    └────────────┘    └──────────┘   │  │
-│   └──────────────────────────────────────────────────────┘  │
-│                                                             │
-│   ┌──────────────────────────────────────────────────────┐  │
-│   │            Hooks System (Claude Code)                │  │
-│   │  SessionStart → UserPrompt → PreToolUse → PostTool   │  │
-│   │       → PreCompact → ContextMonitor → SessionEnd     │  │
-│   └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────�?
+�?                   Claude Code / AI                         �?
+�?                         �?                                 �?
+�?                  ┌─────────────�?                          �?
+�?                  �?MCP Server  �? �?Proactive memory tools �?
+�?                  └──────┬──────�?                          �?
+�?                         �?                                 �?
+�?  ┌──────────────────────────────────────────────────────�? �?
+�?  �?             oh-memos Backend (localhost:18000)         �? �?
+�?  �?                                                     �? �?
+�?  �?  ┌────────────�?   ┌────────────�?   ┌──────────�?  �? �?
+�?  �?  �?  Neo4j    �?   �?  Qdrant   �?   �? Ollama  �?  �? �?
+�?  �?  �?  :7687    �?   �?  :6333    �?   �? :11434  �?  �? �?
+�?  �?  �? (Graph)   �?   �? (Vector)  �?   �? (LLM)   �?  �? �?
+�?  �?  └────────────�?   └────────────�?   └──────────�?  �? �?
+�?  └──────────────────────────────────────────────────────�? �?
+�?                                                            �?
+�?  ┌──────────────────────────────────────────────────────�? �?
+�?  �?           Hooks System (Claude Code)                �? �?
+�?  �? SessionStart �?UserPrompt �?PreToolUse �?PostTool   �? �?
+�?  �?      �?PreCompact �?ContextMonitor �?SessionEnd     �? �?
+�?  └──────────────────────────────────────────────────────�? �?
+└─────────────────────────────────────────────────────────────�?
 ```
 
 ### 🔒 Privacy-First
@@ -224,16 +224,16 @@ AI **auto-retrieves** history before work:
 
 ## 🔬 Technical Evolution
 
-MemOSLocal-SM is constantly evolving based on the latest academic research. We have recently implemented:
+oh-memosLocal-SM is constantly evolving based on the latest academic research. We have recently implemented:
 
 - **MAGMA Multi-Graph Routing**: Intent-based sub-graph filtering to boost precision and reduce latency.
 - **HippoRAG 2 PPR**: Personalized PageRank for deep causality tracing and associative memory.
-- **EverMemOS Self-Organization**: (Experimental) Memory lifecycle management and episodic trace consolidation.
-- **Six-Layer Context Defense**: Ensures AI uses MCP tools after context compaction — never falls back to mkdir.
+- **Everoh-memos Self-Organization**: (Experimental) Memory lifecycle management and episodic trace consolidation.
+- **Six-Layer Context Defense**: Ensures AI uses MCP tools after context compaction �?never falls back to mkdir.
 - **Smart Cube Routing**: Auto-derive per-project memory cubes from working directory path.
-- **RRF Local Reranker**: Reciprocal Rank Fusion replaces HTTP reranker — zero external dependency, <1ms latency.
-- **PreToolUse Memory Injection**: Auto-inject relevant memories when Claude searches/edits — inspired by GitNexus.
-- **Graph Intelligence**: `memos_impact` blast radius analysis + fixed `memos_get_graph`/`memos_trace_path`.
+- **RRF Local Reranker**: Reciprocal Rank Fusion replaces HTTP reranker �?zero external dependency, <1ms latency.
+- **PreToolUse Memory Injection**: Auto-inject relevant memories when Claude searches/edits �?inspired by GitNexus.
+- **Graph Intelligence**: `oh-memos_impact` blast radius analysis + fixed `oh-memos_get_graph`/`oh-memos_trace_path`.
 
 > 📖 View the full list of research-inspired changes in [**Changelog**](docs/CHANGELOG.md).
 
@@ -267,17 +267,60 @@ scripts\bundle\start.bat
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/lsg1103275794/MemOSLocal-SM.git
-cd MemOSLocal-SM
+git clone https://github.com/lsg1103275794/oh-memosLocal-SM.git
+cd oh-memosLocal-SM
 
 # 2. Setup environment (Windows)
 setup_env.bat && install_run.bat
 
-# 3. Configure MCP (Claude Code)
-# Add to ~/.claude.json - see docs/MCP_GUIDE.md
+# 3. Configure MCP — see section below
 ```
 
 </details>
+
+### 🔌 MCP Server Setup (Claude Code)
+
+The MCP server is published to npm as [`oh-memos-mcp`](https://www.npmjs.com/package/oh-memos-mcp). No Python required — works via `npx`.
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "oh-memos": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "oh-memos-mcp"],
+      "env": {
+        "MEMOS_URL": "http://localhost:18000",
+        "MEMOS_USER": "dev_user",
+        "MEMOS_DEFAULT_CUBE": "dev_cube",
+        "MEMOS_CUBES_DIR": "/path/to/oh-memos/data/oh-memos_cubes"
+      },
+      "alwaysAllow": [
+        "memos_context_resume", "memos_search", "memos_search_context",
+        "memos_save", "memos_list_v2", "memos_get", "memos_suggest",
+        "memos_list_cubes", "memos_get_stats", "memos_get_graph",
+        "memos_trace_path", "memos_export_schema", "memos_register_cube",
+        "memos_create_user", "memos_validate_cubes", "memos_impact", "memos_calendar"
+      ]
+    }
+  }
+}
+```
+
+<details>
+<summary>Platform-specific path examples</summary>
+
+| Platform | `MEMOS_CUBES_DIR` example |
+|----------|--------------------------|
+| **Linux / macOS** | `/home/user/oh-memos/data/oh-memos_cubes` |
+| **Windows** | `C:/Users/user/oh-memos/data/oh-memos_cubes` |
+| **WSL2** | `/mnt/c/Users/user/oh-memos/data/oh-memos_cubes` |
+
+</details>
+
+> 📖 Full options & examples: [`mcp-server-node/README.md`](mcp-server-node/README.md)
 
 ### Setting Up Hooks (Optional but Recommended)
 
@@ -285,7 +328,7 @@ setup_env.bat && install_run.bat
 # 1. Copy hooks to your Claude Code config
 cp project-memory/hooks/node/*.js ~/.claude/hooks/scripts/
 
-# 2. Edit settings-template.json — replace <MEMOS_PATH> with your MemOS install path
+# 2. Edit settings-template.json�?replace <oh-memos_PATH> with your oh-memos install path
 # 3. Merge the hooks config into your ~/.claude/settings.json
 ```
 
@@ -293,25 +336,30 @@ cp project-memory/hooks/node/*.js ~/.claude/hooks/scripts/
 
 ## 🔌 MCP Tools
 
-AI uses these tools **automatically** when MCP is configured:
+AI uses these tools **automatically** when MCP is configured via [`oh-memos-mcp`](https://www.npmjs.com/package/oh-memos-mcp):
 
 | Tool | Function |
 |------|----------|
 | `memos_context_resume` | Recover context after compaction (recent 24h memories) |
 | `memos_search` | Search project memories (auto-compresses >15 results) |
+| `memos_search_context` | Context-aware search with LLM intent analysis |
 | `memos_save` | Save memories with explicit type (BUGFIX, DECISION, MILESTONE...) |
 | `memos_list_v2` | List all memories (with compression) |
 | `memos_get` | Get full memory details by ID |
-| `memos_search_context` | Context-aware search with LLM intent analysis |
+| `memos_suggest` | Smart search query suggestions |
 | `memos_get_graph` | Query knowledge graph relationships |
 | `memos_trace_path` | Trace reasoning paths between two memories |
 | `memos_impact` | Forward blast radius — what did this memory cause downstream |
 | `memos_export_schema` | Export knowledge graph schema and statistics |
+| `memos_get_stats` | Memory type distribution statistics |
 | `memos_list_cubes` | List all available memory cubes |
 | `memos_register_cube` | Register a cube when auto-registration fails |
+| `memos_create_user` | Create a MemOS user |
 | `memos_validate_cubes` | Validate and fix cube configurations |
+| `memos_calendar` | Calendar view (project timeline / student mode) |
+| `memos_delete` | Delete memories (disabled by default) |
 
-> 📖 Full setup: [MCP Configuration Guide](docs/MCP_GUIDE.md)
+> 📖 MCP configuration guide: [`mcp-server-node/README.md`](mcp-server-node/README.md)
 
 ---
 
@@ -332,8 +380,8 @@ AI uses these tools **automatically** when MCP is configured:
 
 | Resource | Link |
 |----------|------|
-| **This Repo** | [lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM) |
-| **Upstream** | [MemTensor/MemOS](https://github.com/MemTensor/MemOS) |
+| **This Repo** | [lsg1103275794/oh-memosLocal-SM](https://github.com/lsg1103275794/oh-memosLocal-SM) |
+| **Upstream** | [MemTensor/oh-memos](https://github.com/MemTensor/oh-memos) |
 | **Neo4j** | [neo4j.com](https://neo4j.com) |
 | **Qdrant** | [qdrant.tech](https://qdrant.tech) |
 | **Ollama** | [ollama.ai](https://ollama.ai) |
@@ -344,9 +392,9 @@ AI uses these tools **automatically** when MCP is configured:
 
 **Making AI Remember Every Project Decision** 🧠
 
-*让 AI 记住你的每一个项目决策*
+*�?AI 记住你的每一个项目决�?
 
-[![Star](https://img.shields.io/github/stars/lsg1103275794/MemOSLocal-SM?style=social)](https://github.com/lsg1103275794/MemOSLocal-SM)
+[![Star](https://img.shields.io/github/stars/lsg1103275794/oh-memosLocal-SM?style=social)](https://github.com/lsg1103275794/oh-memosLocal-SM)
 
 MIT License · Copyright © 2026
 

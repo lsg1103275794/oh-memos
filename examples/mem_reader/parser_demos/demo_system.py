@@ -1,7 +1,7 @@
 """Demo for SystemParser."""
 
 from examples.mem_reader.samples import SYSTEM_MESSAGE_CASES
-from memos.mem_reader.read_multi_modal.system_parser import SystemParser
+from oh_memos.mem_reader.read_multi_modal.system_parser import SystemParser
 
 from ._base import BaseParserDemo
 

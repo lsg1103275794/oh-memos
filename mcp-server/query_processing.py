@@ -171,9 +171,9 @@ def filter_edges_by_intent(data: dict, intent: str) -> dict:
 def get_intent_description(intent: str) -> str:
     """Get human-readable description of query intent."""
     descriptions = {
-        "causal": "🔍 因果分析 (Causal Analysis)",
-        "related": "🔗 关联查询 (Related Search)",
-        "conflict": "⚠️ 冲突检测 (Conflict Detection)",
+        "causal": "[SEARCH] 因果分析 (Causal Analysis)",
+        "related": "[LINK] 关联查询 (Related Search)",
+        "conflict": "[WARN] 冲突检测 (Conflict Detection)",
         "temporal": "📅 时序查询 (Temporal Search)",
         "default": "📚 综合查询 (General Search)",
     }

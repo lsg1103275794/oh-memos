@@ -28,10 +28,10 @@ import json
 import os
 import time
 
-from memos import log
-from memos.configs.llm import LLMConfigFactory
-from memos.llms.factory import LLMFactory
-from memos.memories.textual.tree_text_memory.retrieve.task_goal_parser import TaskGoalParser
+from oh_memos import log
+from oh_memos.configs.llm import LLMConfigFactory
+from oh_memos.llms.factory import LLMFactory
+from oh_memos.memories.textual.tree_text_memory.retrieve.task_goal_parser import TaskGoalParser
 
 
 logger = log.get_logger(__name__)
@@ -51,7 +51,7 @@ config_path = os.path.join(config_dir, "tree_config_shared_database.json")
 with open(config_path) as f:
     config_data = json.load(f)
 
-print(f"\n‚úì Loaded configuration from: {config_path}")
+print(f"\n‚ú?Loaded configuration from: {config_path}")
 
 # ============================================================================
 # Step 1: Initialize LLM for Task Parsing
@@ -63,7 +63,7 @@ print("\n[Step 1] Initializing LLM for task goal parsing...")
 llm_config = LLMConfigFactory.model_validate(config_data["extractor_llm"])
 llm = LLMFactory.from_config(llm_config)
 
-print(f"‚úì LLM initialized: {llm_config.backend}")
+print(f"‚ú?LLM initialized: {llm_config.backend}")
 
 # ============================================================================
 # Step 2: Define a natural language task/query
@@ -87,7 +87,7 @@ time_start = time.time()
 result_fast = parser.parse(task, mode="fast")
 time_fast = time.time() - time_start
 
-print(f"‚úì Fast mode parsing completed in {time_fast:.3f}s\n")
+print(f"‚ú?Fast mode parsing completed in {time_fast:.3f}s\n")
 
 # Display fast mode results
 print("=" * 80)
@@ -107,7 +107,7 @@ if result_fast.keys:
 else:
     print("  (None extracted)")
 
-print("\nüè∑Ô∏è  Tags (categorical labels):")
+print("\nüè∑Ô∏? Tags (categorical labels):")
 if result_fast.tags:
     print(f"  {', '.join(result_fast.tags)}")
 else:
@@ -127,7 +127,7 @@ time_start = time.time()
 result_fine = parser.parse(task, mode="fine")
 time_fine = time.time() - time_start
 
-print(f"‚úì Fine mode parsing completed in {time_fine:.3f}s\n")
+print(f"‚ú?Fine mode parsing completed in {time_fine:.3f}s\n")
 
 # Display fine mode results
 print("=" * 80)
@@ -147,7 +147,7 @@ if result_fine.keys:
 else:
     print("  (None extracted)")
 
-print("\nüè∑Ô∏è  Tags (categorical labels):")
+print("\nüè∑Ô∏? Tags (categorical labels):")
 if result_fine.tags:
     print(f"  {', '.join(result_fine.tags)}")
 else:

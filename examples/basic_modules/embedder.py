@@ -1,5 +1,5 @@
-from memos.configs.embedder import EmbedderConfigFactory
-from memos.embedders.factory import EmbedderFactory
+from oh_memos.configs.embedder import EmbedderConfigFactory
+from oh_memos.embedders.factory import EmbedderFactory
 
 
 # Scenario 1: Using EmbedderFactory

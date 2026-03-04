@@ -97,7 +97,7 @@ class CompactedSearchResult(BaseModel):
     def to_display_text(self) -> str:
         """Format for MCP response."""
         lines = [
-            f"## 🔍 Search Results (Compacted)",
+            f"## [SEARCH] Search Results (Compacted)",
             f"",
             f"**Query**: `{self.query}`",
             f"**Total**: {self.total_count} memories found",
@@ -115,7 +115,7 @@ class CompactedSearchResult(BaseModel):
 
         lines.append("---")
         lines.append("")
-        lines.append(f"💡 **Tip**: Use `memos_get(memory_id=\"<id>\")` to get full details of a specific memory.")
+        lines.append(f"[TIP] **Tip**: Use `memos_get(memory_id=\"<id>\")` to get full details of a specific memory.")
 
         return "\n".join(lines)
 
@@ -150,13 +150,13 @@ def _get_type_icon(memory_type: str) -> str:
         "ERROR_PATTERN": "🔴",
         "BUGFIX": "🐛",
         "DECISION": "📋",
-        "GOTCHA": "⚠️",
-        "CODE_PATTERN": "📝",
+        "GOTCHA": "[WARN]",
+        "CODE_PATTERN": "[NOTE]",
         "CONFIG": "⚙️",
         "FEATURE": "✨",
         "MILESTONE": "🎯",
         "PROGRESS": "📊",
-        "INFERRED": "🔗",  # Graph-inferred reasoning node
+        "INFERRED": "[LINK]",  # Graph-inferred reasoning node
     }
     return icons.get(memory_type, "📌")
 

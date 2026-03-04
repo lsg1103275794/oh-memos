@@ -1,7 +1,7 @@
-from memos.configs.mem_cube import GeneralMemCubeConfig
-from memos.configs.memory import MemoryConfigFactory
-from memos.mem_cube.general import GeneralMemCube
-from memos.memories.factory import MemoryFactory
+from oh_memos.configs.mem_cube import GeneralMemCubeConfig
+from oh_memos.configs.memory import MemoryConfigFactory
+from oh_memos.mem_cube.general import GeneralMemCube
+from oh_memos.memories.factory import MemoryFactory
 
 
 config = GeneralMemCubeConfig.model_validate(

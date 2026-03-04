@@ -51,16 +51,16 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://memos.openmem.net/"
-repository = "https://github.com/MemTensor/MemOS"
+homepage = "https://oh-memos.openmem.net/"
+repository = "https://github.com/MemTensor/oh-memos"
 download = "https://pypi.org/project/MemoryOS/#files"
-changelog = "https://github.com/MemTensor/MemOS/releases"
-releasenotes = "https://github.com/MemTensor/MemOS/releases"
-documentation = "https://memos-docs.openmem.net/home/overview/"
-issues = "https://github.com/MemTensor/MemOS/issues"
+changelog = "https://github.com/MemTensor/oh-memos/releases"
+releasenotes = "https://github.com/MemTensor/oh-memos/releases"
+documentation = "https://oh_memos-docs.openmem.net/home/overview/"
+issues = "https://github.com/MemTensor/oh-memos/issues"
 
 [project.scripts]
-memos = "memos.cli:main"
+oh_memos = "oh_memos.cli:main"
 
 [project.optional-dependencies]
 # These are optional dependencies for various features of MemoryOS.
@@ -155,7 +155,7 @@ build-backend = "poetry.core.masonry.api"
 # https://python-poetry.org/docs/dependency-specification#caret-requirements
 ##############################################################################
 
-packages = [{include = "memos", from = "src"}]
+packages = [{include = "oh_memos", from = "src"}]
 requires-poetry = ">=2.0"
 dependencies = { "python" = ">=3.10,<4.0" }
 

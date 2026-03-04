@@ -1,7 +1,7 @@
 """Demo for TextContentParser."""
 
 from examples.mem_reader.samples import TEXT_CONTENT_PARTS
-from memos.mem_reader.read_multi_modal.text_content_parser import TextContentParser
+from oh_memos.mem_reader.read_multi_modal.text_content_parser import TextContentParser
 
 from ._base import BaseParserDemo
 
@@ -24,7 +24,7 @@ class TextContentParserDemo(BaseParserDemo):
             print("\n🔄 Rebuilding from source...")
             rebuilt = self.parser.rebuild_from_source(source)
             if rebuilt:
-                print("  ✅ Rebuilt result:")
+                print("  �?Rebuilt result:")
                 if isinstance(rebuilt, dict):
                     from examples.mem_reader.utils import pretty_print_dict
 

@@ -23,10 +23,10 @@ import json
 import os
 import shutil
 
-from memos.api.handlers import init_server
-from memos.api.product_models import APIADDRequest
-from memos.log import get_logger
-from memos.multi_mem_cube.single_cube import SingleCubeView
+from oh_memos.api.handlers import init_server
+from oh_memos.api.product_models import APIADDRequest
+from oh_memos.log import get_logger
+from oh_memos.multi_mem_cube.single_cube import SingleCubeView
 
 
 logger = get_logger(__name__)
@@ -43,7 +43,7 @@ print("Step 1: Initialize server")
 print("=" * 60)
 
 components = init_server()
-print("âœ“ Server initialized")
+print("âœ?Server initialized")
 
 # =============================================================================
 # Step 2: Create SingleCubeView with NEW cube_id
@@ -62,7 +62,7 @@ view = SingleCubeView(
     searcher=components["searcher"],
     feedback_server=components["feedback_server"],
 )
-print("âœ“ SingleCubeView created")
+print("âœ?SingleCubeView created")
 
 # =============================================================================
 # Step 3: Add memories via View
@@ -82,7 +82,7 @@ result = view.add_memories(
         async_mode="sync",
     )
 )
-print(f"âœ“ Added {len(result)} memories")
+print(f"âœ?Added {len(result)} memories")
 
 # =============================================================================
 # Step 4: Dump ONLY this cube's data
@@ -111,13 +111,13 @@ for node in json_data.get("nodes", []):
         with contextlib.suppress(json.JSONDecodeError):
             metadata["embedding"] = json.loads(metadata["embedding"])
 
-print(f"âœ“ Exported {len(json_data.get('nodes', []))} nodes")
+print(f"âœ?Exported {len(json_data.get('nodes', []))} nodes")
 
 # Save to file
 memory_file = os.path.join(output_dir, "textual_memory.json")
 with open(memory_file, "w", encoding="utf-8") as f:
     json.dump(json_data, f, indent=2, ensure_ascii=False)
-print(f"âœ“ Saved to: {memory_file}")
+print(f"âœ?Saved to: {memory_file}")
 
 # Save config (user can modify sensitive fields before sharing)
 config = components["default_cube_config"].model_copy(deep=True)
@@ -125,13 +125,13 @@ config.user_id = EXAMPLE_USER_ID
 config.cube_id = EXAMPLE_CUBE_ID
 config_file = os.path.join(output_dir, "config.json")
 config.to_json_file(config_file)
-print(f"âœ“ Config saved to: {config_file}")
+print(f"âœ?Config saved to: {config_file}")
 
 # =============================================================================
 # Done
 # =============================================================================
 print("\n" + "=" * 60)
-print("âœ… Example completed!")
+print("âœ?Example completed!")
 print("=" * 60)
 print(f"\nDumped to: {output_dir}")
 print("Run load_cube.py to load this data")

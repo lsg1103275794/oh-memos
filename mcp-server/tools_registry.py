@@ -11,7 +11,7 @@ from mcp.types import Tool
 # Shared parameter definitions for reuse across tools
 _PROJECT_PATH_PARAM = {
     "type": "string",
-    "description": "Your current working directory (project root). The cube_id will be auto-derived from this path. PREFERRED over manually specifying cube_id. Example: '/mnt/g/Cyber/AudioCraft Studio' → 'audiocraft_studio_cube'"
+    "description": "Your current working directory (project root). The cube_id will be auto-derived from this path. PREFERRED over manually specifying cube_id. Example: '/mnt/g/Cyber/AudioCraft Studio' ?'audiocraft_studio_cube'"
 }
 
 _CUBE_ID_PARAM = {
@@ -35,7 +35,7 @@ Call this tool when:
 
 Returns: Recent memories (last 24h), active project summary, and session state.
 
-⚠️ IMPORTANT: After calling this, use MCP memos tools for ALL memory operations.
+[WARN] IMPORTANT: After calling this, use MCP memos tools for ALL memory operations.
 NEVER use mkdir or Write to create memory files. All memories live in MCP memos.""",
             inputSchema={
                 "type": "object",
@@ -61,8 +61,8 @@ USE THIS TOOL PROACTIVELY when:
 Results are automatically compacted when exceeding threshold (15+ items).
 Use memos_get(memory_id) to retrieve full details of specific memories.
 
-⚠️ IMPORTANT: After context compaction, call this tool to recover project context.
-NEVER use mkdir, Write, or file operations to create memory files — all memories are stored in MCP memos.""",
+[WARN] IMPORTANT: After context compaction, call this tool to recover project context.
+NEVER use mkdir, Write, or file operations to create memory files ?all memories are stored in MCP memos.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -142,29 +142,29 @@ Best used when:
 🚨 **MUST: 显式指定 memory_type 参数** - 不要依赖自动检测！
 
 USE THIS TOOL when:
-- You've solved a bug or error → **MUST use BUGFIX or ERROR_PATTERN**
-- A significant decision was made → **MUST use DECISION** with rationale
-- You've completed a major task → **MUST use MILESTONE**
-- You discovered a non-obvious gotcha → **MUST use GOTCHA**
-- You created a reusable code pattern → **MUST use CODE_PATTERN**
-- Configuration was changed → **MUST use CONFIG**
+- You've solved a bug or error ?**MUST use BUGFIX or ERROR_PATTERN**
+- A significant decision was made ?**MUST use DECISION** with rationale
+- You've completed a major task ?**MUST use MILESTONE**
+- You discovered a non-obvious gotcha ?**MUST use GOTCHA**
+- You created a reusable code pattern ?**MUST use CODE_PATTERN**
+- Configuration was changed ?**MUST use CONFIG**
 
 Memory types (按优先级选择，PROGRESS 仅用于纯进度汇报):
-- ERROR_PATTERN: Error signature + solution (有通用复用价值)
-- BUGFIX: Bug fix with cause and solution (一次性修复)
+- ERROR_PATTERN: Error signature + solution (有通用复用价?
+- BUGFIX: Bug fix with cause and solution (一次性修?
 - DECISION: Architectural or design choice with rationale
 - GOTCHA: Non-obvious issue or workaround
 - CODE_PATTERN: Reusable code template
 - CONFIG: Environment or configuration change
 - FEATURE: New functionality added
 - MILESTONE: Significant project achievement
-- PROGRESS: **仅用于纯进度更新，禁止包含错误解决方案、技术决策、陷阱警告**
+- PROGRESS: **仅用于纯进度更新，禁止包含错误解决方案、技术决策、陷阱警?*
 
-❌ 错误: memos_save(content="修复了模型路径问题") → 默认 PROGRESS
-✅ 正确: memos_save(content="修复了模型路径问题...", memory_type="BUGFIX")
+?错误: memos_save(content="修复了模型路径问?) ?默认 PROGRESS
+?正确: memos_save(content="修复了模型路径问?..", memory_type="BUGFIX")
 
-⚠️ This is the ONLY way to save memories. NEVER use mkdir or Write tool to create memory directories/files.
-If you feel the urge to run `mkdir -p ...memory` — STOP and use this tool instead.""",
+[WARN] This is the ONLY way to save memories. NEVER use mkdir or Write tool to create memory directories/files.
+If you feel the urge to run `mkdir -p ...memory` ?STOP and use this tool instead.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -174,7 +174,7 @@ If you feel the urge to run `mkdir -p ...memory` — STOP and use this tool inst
                     },
                     "memory_type": {
                         "type": "string",
-                        "description": "**REQUIRED** - Type of memory. Decision tree: Bug fix → BUGFIX/ERROR_PATTERN, Technical decision → DECISION, Gotcha → GOTCHA, Code template → CODE_PATTERN, Config change → CONFIG, New feature → FEATURE, Achievement → MILESTONE, Pure progress update → PROGRESS",
+                        "description": "**REQUIRED** - Type of memory. Decision tree: Bug fix ?BUGFIX/ERROR_PATTERN, Technical decision ?DECISION, Gotcha ?GOTCHA, Code template ?CODE_PATTERN, Config change ?CONFIG, New feature ?FEATURE, Achievement ?MILESTONE, Pure progress update ?PROGRESS",
                         "enum": ["ERROR_PATTERN", "DECISION", "MILESTONE", "BUGFIX",
                                 "FEATURE", "CONFIG", "CODE_PATTERN", "GOTCHA", "PROGRESS"]
                     },
@@ -372,7 +372,7 @@ This helps you understand the full context and dependencies.""",
                     },
                     "cube_id": {
                         "type": "string",
-                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS → 'memos_cube', ~/my-app → 'my_app_cube'",
+                        "description": "Memory cube ID. AUTO-DERIVE from project path: extract folder name, lowercase, replace -/./space with _, append '_cube'. Example: /mnt/g/test/MemOS ?'memos_cube', ~/my-app ?'my_app_cube'",
                         "default": MEMOS_DEFAULT_CUBE
                     }
                 },
@@ -512,9 +512,9 @@ Returns:
         Tool(
             name="memos_impact",
             description=(
-                "Analyze the forward impact of a memory — what events, decisions, "
+                "Analyze the forward impact of a memory ?what events, decisions, "
                 "or milestones were caused or followed by this memory. "
-                "Returns a grouped 'blast radius' view (direct → indirect hops). "
+                "Returns a grouped 'blast radius' view (direct ?indirect hops). "
                 "Use after memos_search or memos_get_graph to get a memory_id."
             ),
             inputSchema={
@@ -594,7 +594,7 @@ Views (student mode): list, week, month""",
         tools.append(
             Tool(
                 name="memos_delete",
-                description="""⚠️ DELETE memories from project memory. USE WITH CAUTION!
+                description="""[WARN] DELETE memories from project memory. USE WITH CAUTION!
 
 This tool is DISABLED by default. User must explicitly enable it via MEMOS_ENABLE_DELETE=true.
 

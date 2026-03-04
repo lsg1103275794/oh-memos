@@ -125,7 +125,7 @@ def format_graph_for_display(data: list) -> str:
 
             # Display nodes
             if nodes:
-                results.append("### 📝 Memory Nodes")
+                results.append("### [NOTE] Memory Nodes")
                 results.append("")
                 for i, node in enumerate(nodes[:10], 1):  # Limit to 10 nodes
                     memory = node.get("memory", "")
@@ -186,7 +186,7 @@ def format_graph_for_display(data: list) -> str:
                 results.append("")
 
                 # Textual fallback for terminals that don't render mermaid
-                results.append("### 🔗 Textual Relationships")
+                results.append("### [LINK] Textual Relationships")
                 results.append("")
                 results.append("```")
                 for edge in edges:

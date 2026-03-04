@@ -6,7 +6,7 @@ set PYTHON_EXE=%~dp0conda_venv\python.exe
 set PATH=%~dp0conda_venv;%~dp0conda_venv\Scripts;%~dp0conda_venv\Library\bin;%PATH%
 
 echo ========================================
-echo    MemOS Windows Launcher
+echo    oh_memos Windows Launcher
 echo ========================================
 echo.
 
@@ -50,6 +50,6 @@ echo ========================================
 echo.
 
 cd /d "%~dp0src"
-"%PYTHON_EXE%" -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
+"%PYTHON_EXE%" -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
 
 pause

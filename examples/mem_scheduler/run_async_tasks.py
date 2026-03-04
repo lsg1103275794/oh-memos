@@ -10,8 +10,8 @@
 from pathlib import Path
 from time import sleep
 
-from memos.api.routers.server_router import mem_scheduler
-from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
+from oh_memos.api.routers.server_router import mem_scheduler
+from oh_memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
 
 
 # Debug: Print scheduler configuration

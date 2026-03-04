@@ -112,7 +112,7 @@ async def handle_memos_register_cube(
                 hint = "\n\n**Available cubes:**\n" + "\n".join([f"- `{c['id']}`" for c in available])
             return [TextContent(
                 type="text",
-                text=f"❌ Cube `{cube_id}` not found in cubes directory.\n\n"
+                text=f"[ERROR] Cube `{cube_id}` not found in cubes directory.\n\n"
                      f"Cubes directory: `{get_cubes_base_dir()}`{hint}"
             )]
 
@@ -133,7 +133,7 @@ async def handle_memos_register_cube(
                 _registered_cubes.add(cube_id)
                 return [TextContent(
                     type="text",
-                    text=f"✅ **Cube registered successfully!**\n\n"
+                    text=f"[OK] **Cube registered successfully!**\n\n"
                          f"- Cube ID: `{cube_id}`\n"
                          f"- Path: `{cube_path}`\n\n"
                          f"You can now use this cube with other memos_* tools."
@@ -182,7 +182,7 @@ async def handle_memos_create_user(
             if data.get("code") == 200:
                 return [TextContent(
                     type="text",
-                    text=f"✅ **User created successfully!**\n\n"
+                    text=f"[OK] **User created successfully!**\n\n"
                          f"- User ID: `{user_id}`\n"
                          f"- User Name: `{user_name}`\n\n"
                          f"You can now register cubes and store memories."
@@ -218,7 +218,7 @@ async def handle_memos_validate_cubes(
             ],
         )
 
-    results = ["## 🔍 Cube Configuration Validation\n"]
+    results = ["## [SEARCH] Cube Configuration Validation\n"]
     fixed_count = 0
     error_count = 0
     ok_count = 0
@@ -254,29 +254,29 @@ async def handle_memos_validate_cubes(
                     if fix_issues:
                         was_fixed, error = validate_and_fix_cube_config(cube_name, config_path)
                         if was_fixed:
-                            results.append(f"- **{cube_name}**: ✅ Fixed - {', '.join(issues)}")
+                            results.append(f"- **{cube_name}**: [OK] Fixed - {', '.join(issues)}")
                             fixed_count += 1
                         elif error:
-                            results.append(f"- **{cube_name}**: ❌ Error - {error}")
+                            results.append(f"- **{cube_name}**: [ERROR] Error - {error}")
                             error_count += 1
                     else:
-                        results.append(f"- **{cube_name}**: ⚠️ Issues - {', '.join(issues)}")
+                        results.append(f"- **{cube_name}**: [WARN]️ Issues - {', '.join(issues)}")
                         error_count += 1
                 else:
-                    results.append(f"- **{cube_name}**: ✅ OK")
+                    results.append(f"- **{cube_name}**: [OK] OK")
                     ok_count += 1
 
             except Exception as e:
-                results.append(f"- **{cube_name}**: ❌ Error reading config - {e}")
+                results.append(f"- **{cube_name}**: [ERROR] Error reading config - {e}")
                 error_count += 1
 
         # Summary
         results.append("\n### Summary")
-        results.append(f"- ✅ OK: {ok_count}")
+        results.append(f"- [OK] OK: {ok_count}")
         if fixed_count > 0:
-            results.append(f"- 🔧 Fixed: {fixed_count}")
+            results.append(f"- [TOOL] Fixed: {fixed_count}")
         if error_count > 0:
-            results.append(f"- ⚠️ Issues: {error_count}")
+            results.append(f"- [WARN]️ Issues: {error_count}")
 
         if fixed_count > 0:
             results.append("\n**Note:** Fixed cubes need API restart to take effect for existing loaded cubes.")
@@ -330,11 +330,11 @@ async def handle_memos_delete(
         if response.status_code == 200:
             data = response.json()
             if data.get("code") == 200:
-                return [TextContent(type="text", text=f"⚠️ **ALL memories deleted** from cube: `{cube_id}`")]
+                return [TextContent(type="text", text=f"[WARN]️ **ALL memories deleted** from cube: `{cube_id}`")]
             else:
-                return error_response(f"❌ **Delete all failed**: {data.get('message', 'Unknown error')}")
+                return error_response(f"[ERROR] **Delete all failed**: {data.get('message', 'Unknown error')}")
         else:
-            return error_response(f"❌ **API error** during delete all: {response.status_code}")
+            return error_response(f"[ERROR] **API error** during delete all: {response.status_code}")
 
     elif ids_to_delete:
         # Delete single or multiple memories
@@ -365,11 +365,11 @@ async def handle_memos_delete(
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 200:
-                    results.append(f"✅ Deleted: `{mid}`\n   > {mem_content[:150]}...")
+                    results.append(f"[OK] Deleted: `{mid}`\n   > {mem_content[:150]}...")
                 else:
-                    results.append(f"❌ Failed: `{mid}` ({data.get('message', 'Unknown error')})")
+                    results.append(f"[ERROR] Failed: `{mid}` ({data.get('message', 'Unknown error')})")
             else:
-                results.append(f"❌ API Error: `{mid}` (Status: {response.status_code})")
+                results.append(f"[ERROR] API Error: `{mid}` (Status: {response.status_code})")
 
         return [TextContent(type="text", text="\n".join(results))]
 

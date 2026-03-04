@@ -6,18 +6,18 @@ LLMs, Embedders, and MemReaders, simplifying the setup process in examples.
 
 from typing import Any
 
-from memos.configs.embedder import EmbedderConfigFactory
-from memos.configs.llm import LLMConfigFactory
-from memos.configs.mem_reader import (
+from oh_memos.configs.embedder import EmbedderConfigFactory
+from oh_memos.configs.llm import LLMConfigFactory
+from oh_memos.configs.mem_reader import (
     MultiModalStructMemReaderConfig,
     SimpleStructMemReaderConfig,
 )
-from memos.configs.parser import ParserConfigFactory
-from memos.embedders.factory import EmbedderFactory
-from memos.llms.factory import LLMFactory
-from memos.mem_reader.multi_modal_struct import MultiModalStructMemReader
-from memos.mem_reader.simple_struct import SimpleStructMemReader
-from memos.parsers.factory import ParserFactory
+from oh_memos.configs.parser import ParserConfigFactory
+from oh_memos.embedders.factory import EmbedderFactory
+from oh_memos.llms.factory import LLMFactory
+from oh_memos.mem_reader.multi_modal_struct import MultiModalStructMemReader
+from oh_memos.mem_reader.simple_struct import SimpleStructMemReader
+from oh_memos.parsers.factory import ParserFactory
 
 from .settings import get_embedder_config, get_llm_config, get_reader_config
 

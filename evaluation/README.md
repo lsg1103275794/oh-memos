@@ -22,7 +22,7 @@ Copy the `.env-example` file to `.env`, and fill in the required environment var
 ### local server
 ```bash
 # modify {project_dir}/.env file and start server
-uvicorn memos.api.server_api:app --host 0.0.0.0 --port 8001 --workers 8
+uvicorn oh_memos.api.server_api:app --host 0.0.0.0 --port 8001 --workers 8
 
 # configure {project_dir}/evaluation/.env file
 MEMOS_URL="http://127.0.0.1:8001"

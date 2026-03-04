@@ -1,8 +1,8 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 
 :: ============================================================
-:: MemOS 数据库备份脚本
+:: MemOS 数据库备份脚�?
 :: 打包 Neo4j + Qdrant + 配置文件，用于迁移到其他电脑
 :: ============================================================
 
@@ -16,18 +16,18 @@ echo.
 
 :: 获取脚本目录和项目根目录
 set "SCRIPT_DIR=%~dp0"
-set "MEMOS_ROOT=%SCRIPT_DIR%..\.."
-cd /d "%MEMOS_ROOT%"
+set "Oh-MEMOS_ROOT=%SCRIPT_DIR%..\.."
+cd /d "%Oh-MEMOS_ROOT%"
 
 :: 配置路径 - 根据你的实际安装位置修改
 set "NEO4J_HOME=D:\User\neo4j-community-5.15.0"
 set "QDRANT_HOME=D:\User\Qdrant"
 
 :: 备份输出目录
-set "BACKUP_DIR=%MEMOS_ROOT%\backups"
+set "BACKUP_DIR=%Oh-MEMOS_ROOT%\backups"
 for /f "tokens=2-4 delims=/ " %%a in ('date /t') do set "DATE=%%c%%a%%b"
 for /f "tokens=1-2 delims=: " %%a in ('time /t') do set "TIME=%%a%%b"
-set "BACKUP_NAME=memos_backup_%DATE%_%TIME%"
+set "BACKUP_NAME=MemOS_backup_%DATE%_%TIME%"
 set "BACKUP_PATH=%BACKUP_DIR%\%BACKUP_NAME%"
 
 echo  [INFO] Backup will be saved to:
@@ -42,11 +42,11 @@ mkdir "%BACKUP_PATH%\qdrant"
 mkdir "%BACKUP_PATH%\config"
 
 :: ============================================================
-:: 1. 停止服务（如果运行中）
+:: 1. 停止服务（如果运行中�?
 :: ============================================================
 echo  [1/5] Checking running services...
 
-:: 检查 Neo4j
+:: 检�?Neo4j
 netstat -ano 2>nul | findstr ":7687 " | findstr "LISTENING" >nul 2>&1
 if !errorlevel! EQU 0 (
     echo        [WARN] Neo4j is running. Please stop it first for a clean backup.
@@ -55,7 +55,7 @@ if !errorlevel! EQU 0 (
     if /i not "!CONTINUE!"=="Y" exit /b 1
 )
 
-:: 检查 Qdrant
+:: 检�?Qdrant
 netstat -ano 2>nul | findstr ":6333 " | findstr "LISTENING" >nul 2>&1
 if !errorlevel! EQU 0 (
     echo        [WARN] Qdrant is running. Backup may be inconsistent.
@@ -103,25 +103,25 @@ if exist "%QDRANT_HOME%\storage" (
 echo  [4/5] Backing up configuration...
 
 :: .env 文件
-if exist "%MEMOS_ROOT%\.env" (
-    copy /Y "%MEMOS_ROOT%\.env" "%BACKUP_PATH%\config\.env" >nul
+if exist "%Oh-MEMOS_ROOT%\.env" (
+    copy /Y "%Oh-MEMOS_ROOT%\.env" "%BACKUP_PATH%\config\.env" >nul
     echo        [OK] .env backed up
 )
 
 :: Cube 配置
-if exist "%MEMOS_ROOT%\data\memos_cubes" (
-    xcopy /E /I /H /Y "%MEMOS_ROOT%\data\memos_cubes" "%BACKUP_PATH%\config\memos_cubes" >nul 2>&1
+if exist "%Oh-MEMOS_ROOT%\data\MemOS_cubes" (
+    xcopy /E /I /H /Y "%Oh-MEMOS_ROOT%\data\MemOS_cubes" "%BACKUP_PATH%\config\MemOS_cubes" >nul 2>&1
     echo        [OK] Cube configs backed up
 )
 
 :: MCP 配置
-if exist "%USERPROFILE%\.memos" (
-    xcopy /E /I /H /Y "%USERPROFILE%\.memos" "%BACKUP_PATH%\config\user_memos" >nul 2>&1
+if exist "%USERPROFILE%\.MemOS" (
+    xcopy /E /I /H /Y "%USERPROFILE%\.MemOS" "%BACKUP_PATH%\config\user_MemOS" >nul 2>&1
     echo        [OK] User MCP configs backed up
 )
 
 :: ============================================================
-:: 5. 创建压缩包
+:: 5. 创建压缩�?
 :: ============================================================
 echo  [5/5] Creating archive...
 

@@ -1,7 +1,7 @@
 """Demo for AssistantParser."""
 
 from examples.mem_reader.samples import ASSISTANT_MESSAGE_CASES
-from memos.mem_reader.read_multi_modal.assistant_parser import AssistantParser
+from oh_memos.mem_reader.read_multi_modal.assistant_parser import AssistantParser
 
 from ._base import BaseParserDemo
 

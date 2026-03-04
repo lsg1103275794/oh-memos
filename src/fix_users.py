@@ -7,10 +7,10 @@ import sys
 # Add src to sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from memos.api.config import APIConfig
-from memos.api.start_api import UserRole
-from memos.mem_os.core import MOSConfig
-from memos.mem_os.main import MOS
+from oh_memos.api.config import APIConfig
+from oh_memos.api.start_api import UserRole
+from oh_memos.mem_os.core import MOSConfig
+from oh_memos.mem_os.main import MOS
 
 
 async def fix_user():

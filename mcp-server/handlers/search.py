@@ -405,7 +405,7 @@ async def handle_memos_suggest(
     suggestions = suggest_search_queries(context)
 
     if suggestions:
-        result = ["## 🔍 Suggested Searches\n"]
+        result = ["## [SEARCH] Suggested Searches\n"]
         result.append("Based on your context, try these searches:\n")
         for i, suggestion in enumerate(suggestions, 1):
             result.append(f"{i}. `{suggestion}`")

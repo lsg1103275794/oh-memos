@@ -38,9 +38,9 @@ async def test_api_connection():
             print("1. Testing API connection...")
             response = await client.get(f"{MEMOS_URL}/users")
             if response.status_code == 200:
-                print("   ✅ API is running")
+                print("   [OK] API is running")
             else:
-                print(f"   ❌ API returned {response.status_code}")
+                print(f"   [ERROR] API returned {response.status_code}")
                 return False
 
             # Test search
@@ -56,14 +56,14 @@ async def test_api_connection():
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 200:
-                    print("   ✅ Search works")
+                    print("   [OK] Search works")
                     formatted = format_memories_for_display(data.get("data", {}))
                     if "No memories" not in formatted:
                         print(f"   Found memories:\n{formatted[:500]}...")
                 else:
-                    print(f"   ⚠️ Search returned: {data.get('message')}")
+                    print(f"   [WARN]️ Search returned: {data.get('message')}")
             else:
-                print(f"   ❌ Search failed: {response.status_code}")
+                print(f"   [ERROR] Search failed: {response.status_code}")
 
             # Test memory type detection
             print("\n3. Testing memory type detection...")
@@ -75,7 +75,7 @@ async def test_api_connection():
             ]
             for content, expected in test_cases:
                 detected, confidence = detect_memory_type(content)
-                status = "✅" if detected == expected else "⚠️"
+                status = "[OK]" if detected == expected else "[WARN]️"
                 print(f"   {status} '{content[:40]}...' → {detected} (conf: {confidence:.0%})")
 
             # Test suggestion
@@ -98,16 +98,16 @@ async def test_api_connection():
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 200:
-                    print("   ✅ List works")
+                    print("   [OK] List works")
                     formatted = format_memories_for_display(data.get("data", {}))
                     if "No memories" not in formatted:
                         print(f"   Found memories:\n{formatted[:500]}...")
                     else:
-                        print(f"   ⚠️ List returned: {formatted}")
+                        print(f"   [WARN]️ List returned: {formatted}")
                 else:
-                    print(f"   ⚠️ List returned: {data.get('message')}")
+                    print(f"   [WARN]️ List returned: {data.get('message')}")
             else:
-                print(f"   ❌ List failed: {response.status_code}")
+                print(f"   [ERROR] List failed: {response.status_code}")
 
             # Test list with type filter
             print("\n6. Testing list with type filter (DECISION)...")
@@ -123,13 +123,13 @@ async def test_api_connection():
             if response.status_code == 200:
                 data = response.json()
                 if data.get("code") == 200:
-                    print("   ✅ List with filter works")
+                    print("   [OK] List with filter works")
                     formatted = format_memories_for_display(data.get("data", {}))
                     print(f"   Filtered results:\n{formatted[:200]}...")
                 else:
-                    print(f"   ⚠️ List with filter returned: {data.get('message')}")
+                    print(f"   [WARN]️ List with filter returned: {data.get('message')}")
             else:
-                print(f"   ❌ List with filter failed: {response.status_code}")
+                print(f"   [ERROR] List with filter failed: {response.status_code}")
 
             # 7. Testing modular structure
             print("\n7. Testing modular structure...")
@@ -142,18 +142,18 @@ async def test_api_connection():
                 from memory_analysis import detect_memory_type
                 from query_processing import extract_keywords
                 from tools_registry import get_tools
-                print("   ✅ All modules imported successfully")
+                print("   [OK] All modules imported successfully")
             except ImportError as e:
-                print(f"   ❌ Module import failed: {e}")
+                print(f"   [ERROR] Module import failed: {e}")
                 return False
 
             print("\n" + "=" * 60)
-            print("✅ All API tests passed!")
+            print("[OK] All API tests passed!")
             print("=" * 60)
             return True
 
         except httpx.ConnectError:
-            print(f"❌ Cannot connect to MemOS API at {MEMOS_URL}")
+            print(f"[ERROR] Cannot connect to MemOS API at {MEMOS_URL}")
             print("   Make sure the API is running: python -m uvicorn memos.api.start_api:app")
             return False
 

@@ -1,4 +1,4 @@
-# MemOS Windows PowerShell Launcher
+﻿# oh_memos Windows PowerShell Launcher
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -10,7 +10,7 @@ $PipExe = Join-Path $ScriptDir "conda_venv\Scripts\pip.exe"
 $env:PATH = "$ScriptDir\conda_venv;$ScriptDir\conda_venv\Scripts;$ScriptDir\conda_venv\Library\bin;$env:PATH"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   MemOS Windows Install and Run" -ForegroundColor Cyan
+Write-Host "   oh_memos Windows Install and Run" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -29,7 +29,7 @@ Write-Host "       Python OK" -ForegroundColor Gray
 # Create directories
 Write-Host ""
 Write-Host "[2/5] Creating directories..." -ForegroundColor Green
-New-Item -ItemType Directory -Force -Path "data\memos_cubes" | Out-Null
+New-Item -ItemType Directory -Force -Path "data\oh_memos_cubes" | Out-Null
 New-Item -ItemType Directory -Force -Path "logs" | Out-Null
 Write-Host "       Directories OK" -ForegroundColor Gray
 
@@ -52,7 +52,7 @@ if (-not (Test-Path ".env")) {
 
 # Start service
 Write-Host ""
-Write-Host "[5/5] Starting MemOS service..." -ForegroundColor Green
+Write-Host "[5/5] Starting oh_memos service..." -ForegroundColor Green
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "   Server: http://localhost:18000" -ForegroundColor Cyan
@@ -63,7 +63,7 @@ Write-Host ""
 
 try {
     $env:PYTHONPATH = Join-Path $ScriptDir "src"
-    & $PythonExe -m uvicorn memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
+    & $PythonExe -m uvicorn oh_memos.api.start_api:app --host 0.0.0.0 --port 18000 --reload
 } catch {
     Write-Host "[ERROR] Failed to start: $_" -ForegroundColor Red
 } finally {

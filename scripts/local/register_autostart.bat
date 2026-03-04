@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 :: ============================================================
 :: Register MemOS auto-start task
 :: Self-elevates to Administrator automatically
@@ -42,7 +42,7 @@ if %errorlevel% EQU 0 (
     echo  - Starts automatically ~30s after Windows logon
     echo  - Balloon notification shows startup result
     echo  - Logs: G:\test\MemOS\logs\
-    echo  - Status check: double-click memos_status.bat
+    echo  - Status check: double-click MemOS_status.bat
     echo.
     echo  To manage: Task Scheduler ^> MemOS_Autostart
 ) else (
