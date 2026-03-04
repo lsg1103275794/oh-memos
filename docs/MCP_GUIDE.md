@@ -1,7 +1,7 @@
 # MCP Server 配置指南 | MCP Server Configuration Guide
 
 > ⚠️ **重要提示 | IMPORTANT**:
-> 本文档中的所有路径（如 `G:/test/MemOS`）均为**示例路径**。在实际配置时，请务必将其替换为您电脑上 MemOSLocal-SM 项目的**具体部署路径**。
+> 本文档中的所有路径（如 `G:/test/MemOS`）均为**示例路径**。在实际配置时，请务必将其替换为您电脑上 oh-memos 项目的**具体部署路径**。
 > All paths in this document (e.g., `G:/test/MemOS`) are **example paths**. Please replace them with the **actual deployment path** of MemOS on your machine.
 
 ---

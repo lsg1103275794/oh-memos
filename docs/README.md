@@ -1,6 +1,6 @@
-# MemOSLocal-SM Documentation
+# oh-memos Documentation
 
-本目录包含 MemOSLocal-SM 项目的文档。
+本目录包含 oh-memos 项目的文档。
 
 ## 文档索引
 
@@ -20,5 +20,5 @@
 
 ## 相关链接
 
-- **主仓库**: [MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
+- **主仓库**: [oh-memos](https://github.com/lsg1103275794/oh-memos)
 - **上游项目**: [MemTensor/MemOS](https://github.com/MemTensor/MemOS)

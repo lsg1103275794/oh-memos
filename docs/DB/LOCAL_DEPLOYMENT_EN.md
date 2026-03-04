@@ -376,7 +376,7 @@ curl http://localhost:18000/health
 
 - [Qdrant Documentation](https://qdrant.tech/documentation/)
 - [Neo4j Documentation](https://neo4j.com/docs/)
-- [MemOS GitHub](https://github.com/lsg1103275794/MemOSLocal-SM)
+- [MemOS GitHub](https://github.com/lsg1103275794/oh-memos)
 
 ---
 

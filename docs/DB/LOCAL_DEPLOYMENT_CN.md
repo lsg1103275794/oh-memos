@@ -397,7 +397,7 @@ neo4j-admin database dump neo4j --to-path=D:\backup\neo4j
 
 - [Qdrant 文档](https://qdrant.tech/documentation/)
 - [Neo4j 文档](https://neo4j.com/docs/)
-- [MemOS GitHub](https://github.com/lsg1103275794/MemOSLocal-SM)
+- [MemOS GitHub](https://github.com/lsg1103275794/oh-memos)
 
 ---
 

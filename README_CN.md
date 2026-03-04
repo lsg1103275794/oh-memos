@@ -1,6 +1,6 @@
 # MemOS Windows 便携版部署指南
 
-基于 MemOSLocal-SM 的 Windows 便携式部署方案，使用本地 Python 环境 + Ollama 嵌入 + Qdrant 云服务。
+基于 oh-memos 的 Windows 便携式部署方案，使用本地 Python 环境 + Ollama 嵌入 + Qdrant 云服务。
 
 ## 特点
 
@@ -271,14 +271,14 @@ neo4j-community\bin\neo4j console
 
 ## 🔗 项目仓库
 
-- **主仓库**: [https://github.com/lsg1103275794/MemOSLocal-SM](https://github.com/lsg1103275794/MemOSLocal-SM)
+- **主仓库**: [https://github.com/lsg1103275794/oh-memos](https://github.com/lsg1103275794/oh-memos)
 - **上游项目**: [MemTensor/MemOS](https://github.com/MemTensor/MemOS)
 
 ---
 
 <div align="center">
 
-**MemOSLocal-SM** • 为 AI 打造的隐私优先持久记忆系统
+**oh-memos** • 为 AI 打造的隐私优先持久记忆系统
 
 Copyright © 2026 lsg1103275794. 采用 [MIT License](LICENSE) 开源协议。
 
