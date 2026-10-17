@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.10] - 2026-10-18
+
+配套 API / Docker 镜像版本为 3.1.10。MCP server 代码无改动。
+
+- 仓库迁回 `lsg1103275794/oh-memos`：`package.json` 的 repository / bugs / homepage 与 README 链接同步更新。
+- 配套 API 导入时不再加载 torch / transformers / sklearn，内存降低约 2/3；Docker 镜像不再安装 torch。MCP 调用方式不变。
+
 ## [3.1.9] - 2026-09-16
 
 配套 API / Docker 镜像版本为 3.1.9。保存先确认原文与向量已持久化，再返回记忆 ID；

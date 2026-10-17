@@ -135,15 +135,16 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      # Contract tests import the oh_memos package (torch/transformers chain),
-      # so the runtime deps must be present. The CPU-only torch index keeps the
-      # install roughly 6x smaller than the default CUDA wheels.
+      # Importing oh_memos no longer needs torch, and the API image ships without
+      # it. CI still installs CPU torch so the KV-cache activation tests exercise a
+      # real DynamicCache. The CPU-only index keeps the install roughly 6x smaller
+      # than the default CUDA wheels.
       - name: Install package with CPU torch
         run: |
           python -m pip install --upgrade pip
           pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
-          # Match the runtime image's CPU torch and install the optional client
-          # exercised by the confirmed-vector storage contracts.
+          # Install the optional client exercised by the confirmed-vector storage
+          # contracts.
           pip install -e . "pytest>=8.3.5,<9" "qdrant-client>=1.16.0,<2.0.0"
 
       - name: Run offline tests

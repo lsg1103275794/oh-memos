@@ -9,7 +9,7 @@ bug fixes, configurations, evidence, and in-flight task state. It combines seman
 search, a knowledge graph, and lightweight task canvases without mixing one project's
 memory into another.
 
-[![Docker](https://github.com/1466109846/oh-memos/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/1466109846/oh-memos/actions/workflows/docker-publish.yml)
+[![Docker](https://github.com/lsg1103275794/oh-memos/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/lsg1103275794/oh-memos/actions/workflows/docker-publish.yml)
 [![npm](https://img.shields.io/npm/v/oh-memos-mcp.svg?label=oh-memos-mcp)](https://www.npmjs.com/package/oh-memos-mcp)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](mcp-server-node/package.json)
@@ -17,7 +17,7 @@ memory into another.
 
 English | [简体中文](README_CN.md) ·
 [Architecture](ARCHITECTURE.md) ·
-[Interactive map](https://1466109846.github.io/oh-memos/architecture/) ·
+[Interactive map](https://lsg1103275794.github.io/oh-memos/architecture/) ·
 [MCP guide](docs/MCP_GUIDE.md)
 
 <img src="docs/images/cover.jpg" width="72%" alt="oh-memos project memory overview">
@@ -135,7 +135,7 @@ can also build the API image from this repository.
 ### 1. Start the backend
 
 ```bash
-git clone https://github.com/1466109846/oh-memos.git
+git clone https://github.com/lsg1103275794/oh-memos.git
 cd oh-memos
 
 # Linux / macOS
@@ -281,10 +281,10 @@ flowchart LR
 
 For module boundaries, write/search sequences, deployment topology, and an
 "edit here for X" guide, read [ARCHITECTURE.md](ARCHITECTURE.md). The
-[interactive architecture map](https://1466109846.github.io/oh-memos/architecture/)
+[interactive architecture map](https://lsg1103275794.github.io/oh-memos/architecture/)
 supports zoom, themes, tracing, and export.
 
-<a href="https://1466109846.github.io/oh-memos/architecture/">
+<a href="https://lsg1103275794.github.io/oh-memos/architecture/">
   <img src="docs/architecture/oh-memos.architecture.preview.png" width="100%" alt="oh-memos architecture map: AI clients, Node MCP server, FastAPI, MOS core, code graph, and memory stores">
 </a>
 
@@ -359,7 +359,7 @@ Important boundaries:
 | Document | Use it for |
 |---|---|
 | [Architecture](ARCHITECTURE.md) | Runtime boundaries, data flows, modules, and change navigation |
-| [Interactive architecture](https://1466109846.github.io/oh-memos/architecture/) · [source JSON](docs/architecture/oh-memos.architecture.json) | Explore and export the system diagram |
+| [Interactive architecture](https://lsg1103275794.github.io/oh-memos/architecture/) · [source JSON](docs/architecture/oh-memos.architecture.json) | Explore and export the system diagram |
 | [MCP guide](docs/MCP_GUIDE.md) | Client-specific stdio configuration for Lite and Full |
 | [Deployment modes](docs/DEPLOYMENT_MODES.md) | Choose Lite vs. Full, compare capabilities, and understand the migration boundary |
 | [Deployment (EN)](docs/DEPLOY_EN.md) · [部署（中文）](docs/DEPLOY_CN.md) | Full setup, operations, and alternate modes |
@@ -387,7 +387,7 @@ cd .. && node scripts/generate-readme-changelog.mjs --write
 ```
 
 The Docker publishing workflow also imports the API, checks dependencies, verifies
-the CPU-only Torch build, and confirms that the image runs as a non-root user.
+that the image ships without torch, and confirms that the image runs as a non-root user.
 
 ## Recent changes
 
@@ -396,12 +396,12 @@ The six most recent entries from the [changelog](docs/CHANGELOG.md), generated b
 from the `<!-- en: ... -->` comment under each changelog heading.
 
 <!-- changelog-recent:start -->
-- 🔧 Fix: cross-platform CI and architecture Pages for the current repository
+- `3.1.10 · 2026-10-18` — 🏠 Changed: the repository is back at lsg1103275794/oh-memos
+- `3.1.10 · 2026-10-18` — ⚡ Perf: API import memory cut by about two thirds; the Docker image no longer installs torch
+- `3.1.10 · 2026-10-18` — 🔧 Fix: cross-platform CI and architecture Pages publishing
 - `3.1.9 · 2026-09-16` — 🧠 Fix: acknowledge vector storage before background LLM parsing
 - `3.1.9 · 2026-09-16` — ⚙️ Changed: unified on glm-5.3-flash with DeepSeek-V4-Pro-0813 as fallback
 - `3.1.9 · 2026-09-16` — 🧱 Fix: the missing-model check sat on an import path and broke the image build
-- `3.1.9 · 2026-09-16` — 🐳 Fix: container kept calling a retired model — env vars freeze at container creation
-- `3.1.9 · 2026-09-16` — 🏷️ Fix: hardcoded model / endpoint / key defaults consolidated into .env
 <!-- changelog-recent:end -->
 
 See the [changelog](docs/CHANGELOG.md) for the full history and the
@@ -426,7 +426,7 @@ This repository is licensed under the
 
 **Give every project a memory that outlives the chat.**
 
-[Report an issue](https://github.com/1466109846/oh-memos/issues) ·
+[Report an issue](https://github.com/lsg1103275794/oh-memos/issues) ·
 [View on npm](https://www.npmjs.com/package/oh-memos-mcp)
 
 </div>

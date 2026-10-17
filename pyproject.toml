@@ -4,7 +4,7 @@
 ##############################################################################
 
 name = "MemoryOS"
-version = "3.1.9"
+version = "3.1.10"
 description = "Intelligence Begins with Memory"
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -51,11 +51,11 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/1466109846/oh-memos"
-repository = "https://github.com/1466109846/oh-memos"
-changelog = "https://github.com/1466109846/oh-memos/blob/main/docs/CHANGELOG.md"
-documentation = "https://1466109846.github.io/oh-memos/"
-issues = "https://github.com/1466109846/oh-memos/issues"
+homepage = "https://github.com/lsg1103275794/oh-memos"
+repository = "https://github.com/lsg1103275794/oh-memos"
+changelog = "https://github.com/lsg1103275794/oh-memos/blob/main/docs/CHANGELOG.md"
+documentation = "https://lsg1103275794.github.io/oh-memos/"
+issues = "https://github.com/lsg1103275794/oh-memos/issues"
 
 [project.scripts]
 oh_memos = "oh_memos.cli:main"

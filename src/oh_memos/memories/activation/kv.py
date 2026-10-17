@@ -2,8 +2,7 @@ import os
 import pickle
 
 from datetime import datetime
-
-from transformers import DynamicCache
+from typing import TYPE_CHECKING
 
 from oh_memos.configs.memory import KVCacheMemoryConfig
 from oh_memos.dependency import require_python_package
@@ -11,6 +10,11 @@ from oh_memos.llms.factory import LLMFactory
 from oh_memos.memories.activation.base import BaseActMemory
 from oh_memos.memories.activation.item import KVCacheItem
 from oh_memos.memories.textual.item import TextualMemoryItem
+
+
+if TYPE_CHECKING:
+    # transformers imports torch; it loads where a cache is actually built or merged.
+    from transformers import DynamicCache
 
 
 class KVCacheMemory(BaseActMemory):
@@ -60,7 +64,7 @@ class KVCacheMemory(BaseActMemory):
         for memory in memories:
             self.kv_cache_memories[memory.id] = memory
 
-    def get_cache(self, cache_ids: list[str]) -> DynamicCache | None:
+    def get_cache(self, cache_ids: list[str]) -> "DynamicCache | None":
         """Merge multiple KV caches into a single cache.
 
         Args:
@@ -144,6 +148,8 @@ class KVCacheMemory(BaseActMemory):
         """
         import torch
 
+        from transformers import DynamicCache
+
         file_path = os.path.join(dir, self.config.memory_filename)
 
         if not os.path.exists(file_path):
@@ -197,12 +203,14 @@ class KVCacheMemory(BaseActMemory):
         with open(file_path, "wb") as f:
             pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def _concat_caches(self, caches: list[DynamicCache]) -> DynamicCache:
+    def _concat_caches(self, caches: list["DynamicCache"]) -> "DynamicCache":
         """
         Faster concat merge: for each layer, gather all caches' tensors
         and do a single torch.cat per layer.
         """
         import torch
+
+        from transformers import DynamicCache
 
         assert caches, "Need at least one cache"
         if len(caches) == 1:
@@ -255,7 +263,7 @@ class KVCacheMemory(BaseActMemory):
         return merged
 
 
-def move_dynamic_cache_htod(dynamic_cache: DynamicCache, device: str) -> DynamicCache:
+def move_dynamic_cache_htod(dynamic_cache: "DynamicCache", device: str) -> "DynamicCache":
     """
     Move DynamicCache from CPU to GPU device.
     Compatible with both old and new transformers versions.

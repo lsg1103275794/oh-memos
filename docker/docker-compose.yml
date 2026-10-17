@@ -15,7 +15,7 @@ name: oh-memos
 
 services:
   memos:
-    image: ${MEMOS_IMAGE:-ghcr.io/1466109846/oh-memos}:${MEMOS_TAG:-latest}
+    image: ${MEMOS_IMAGE:-ghcr.io/lsg1103275794/oh-memos}:${MEMOS_TAG:-latest}
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -89,8 +89,8 @@ services:
               sys.exit(0 if json.load(r)["data"]["status"] == "ok" else 1)
       interval: 30s
       timeout: 10s
-      # Cold start imports torch, builds the MOS instance and registers cubes;
-      # a few seconds is not enough.
+      # Cold start builds the MOS instance and registers cubes; a few seconds is
+      # not enough.
       start_period: 120s
       retries: 5
     networks:

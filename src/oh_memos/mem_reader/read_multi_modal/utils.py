@@ -5,6 +5,7 @@ import os
 import re
 
 from datetime import datetime
+from functools import cache
 from typing import Any, TypeAlias
 from urllib.parse import urlparse
 
@@ -259,27 +260,32 @@ except Exception as e:
     logger.error(f"[FileContentParser] Failed to create parser: {e}")
     file_parser = None
 
-markdown_text_splitter = None
 
-try:
-    from oh_memos.chunkers.charactertext_chunker import CharacterTextChunker
-    from oh_memos.chunkers.markdown_chunker import MarkdownChunker
+@cache
+def _load_text_splitters() -> tuple[Any, Any]:
+    """Build the (markdown, character) splitters on first use, or (None, None).
 
-    markdown_text_splitter = MarkdownChunker(
-        chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP, recursive=True
-    )
-    text_splitter = CharacterTextChunker(
-        chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP
-    )
-    logger.info("[FileContentParser] Initialized text splitter instances by lancga")
-except Exception as e:
-    logger.warning(
-        f"[FileContentParser] Failed to create text splitter: {e} will use simple splitter fallback"
-    )
-    from oh_memos.chunkers.simple_chunker import SimpleTextSplitter
+    langchain_text_splitters imports transformers, which imports torch. This module
+    is on the import path of every process (via the reorganizer), so constructing
+    the splitters at import time loaded torch even where nothing splits text.
+    """
+    try:
+        from oh_memos.chunkers.charactertext_chunker import CharacterTextChunker
+        from oh_memos.chunkers.markdown_chunker import MarkdownChunker
 
-    markdown_text_splitter = None
-    text_splitter = None
+        markdown_splitter = MarkdownChunker(
+            chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP, recursive=True
+        )
+        character_splitter = CharacterTextChunker(
+            chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP
+        )
+        logger.info("[FileContentParser] Initialized text splitter instances by langchain")
+        return markdown_splitter, character_splitter
+    except Exception as e:
+        logger.warning(
+            f"[FileContentParser] Failed to create text splitter: {e} will use simple splitter fallback"
+        )
+        return None, None
 
 
 def get_parser() -> Any:
@@ -305,11 +311,14 @@ def get_text_splitter(
     Returns:
         Text splitter instance (RecursiveCharacterTextSplitter) or a callable wrapper for simple splitter
     """
+    markdown_text_splitter, text_splitter = _load_text_splitters()
     if is_markdown and markdown_text_splitter is not None:
         return markdown_text_splitter
     elif text_splitter is not None:
         return text_splitter
     else:
+        from oh_memos.chunkers.simple_chunker import SimpleTextSplitter
+
         actual_chunk_size = chunk_size or DEFAULT_CHUNK_SIZE
         actual_chunk_overlap = chunk_overlap or DEFAULT_CHUNK_OVERLAP
         return SimpleTextSplitter(actual_chunk_size, actual_chunk_overlap)

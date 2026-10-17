@@ -8,7 +8,7 @@ oh-memos 为兼容 MCP 的 AI 助手提供一个长期、可检索、按项目�
 用于保存架构决策、Bug 修复、配置、证据和进行中的任务状态。它把语义搜索、
 知识图谱和轻量任务画布组合在一起，让项目知识跨会话延续，又不会混入其他仓库。
 
-[![Docker](https://github.com/1466109846/oh-memos/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/1466109846/oh-memos/actions/workflows/docker-publish.yml)
+[![Docker](https://github.com/lsg1103275794/oh-memos/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/lsg1103275794/oh-memos/actions/workflows/docker-publish.yml)
 [![npm](https://img.shields.io/npm/v/oh-memos-mcp.svg?label=oh-memos-mcp)](https://www.npmjs.com/package/oh-memos-mcp)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](mcp-server-node/package.json)
@@ -16,7 +16,7 @@ oh-memos 为兼容 MCP 的 AI 助手提供一个长期、可检索、按项目�
 
 [English](README.md) | 简体中文 ·
 [架构说明](ARCHITECTURE.md) ·
-[交互式架构图](https://1466109846.github.io/oh-memos/architecture/) ·
+[交互式架构图](https://lsg1103275794.github.io/oh-memos/architecture/) ·
 [MCP 配置指南](docs/MCP_GUIDE.md)
 
 <img src="docs/images/cover.jpg" width="72%" alt="oh-memos 项目记忆概览">
@@ -101,7 +101,7 @@ Compose 配置直接从本仓库构建 API 镜像。
 ### 1. 启动后端
 
 ```bash
-git clone https://github.com/1466109846/oh-memos.git
+git clone https://github.com/lsg1103275794/oh-memos.git
 cd oh-memos
 
 # Linux / macOS
@@ -279,9 +279,9 @@ flowchart LR
 
 模块边界、写入/检索时序、部署拓扑和“修改某能力该看哪里”详见
 [ARCHITECTURE.md](ARCHITECTURE.md)。也可以打开支持缩放、主题、链路追踪和导出的
-[交互式架构图](https://1466109846.github.io/oh-memos/architecture/)。
+[交互式架构图](https://lsg1103275794.github.io/oh-memos/architecture/)。
 
-<a href="https://1466109846.github.io/oh-memos/architecture/">
+<a href="https://lsg1103275794.github.io/oh-memos/architecture/">
   <img src="docs/architecture/oh-memos.architecture.preview.png" width="100%" alt="oh-memos 架构图：AI 客户端、Node MCP 服务、FastAPI、MOS 核心、代码图与记忆存储">
 </a>
 
@@ -357,7 +357,7 @@ flowchart LR
 | 文档 | 用途 |
 |---|---|
 | [架构说明](ARCHITECTURE.md) | 运行边界、数据流、模块与修改导航 |
-| [交互式架构图](https://1466109846.github.io/oh-memos/architecture/) · [源 JSON](docs/architecture/oh-memos.architecture.json) | 浏览并导出完整系统图 |
+| [交互式架构图](https://lsg1103275794.github.io/oh-memos/architecture/) · [源 JSON](docs/architecture/oh-memos.architecture.json) | 浏览并导出完整系统图 |
 | [MCP 配置指南](docs/MCP_GUIDE.md) | Lite 与 Full 的客户端 stdio 配置 |
 | [部署架构对比](docs/DEPLOYMENT_MODES.md) | 选择 Lite/Full、查看能力边界和迁移说明 |
 | [部署（中文）](docs/DEPLOY_CN.md) · [Deployment (EN)](docs/DEPLOY_EN.md) | Full 部署、运维和其他运行模式 |
@@ -384,7 +384,7 @@ npm test
 cd .. && node scripts/generate-readme-changelog.mjs --write
 ```
 
-Docker 发布工作流还会导入 API、检查依赖、确认 CPU-only Torch 构建，并验证
+Docker 发布工作流还会导入 API、检查依赖、确认镜像不含 torch，并验证
 镜像以非 root 用户运行。
 
 ## 近期变化
@@ -394,12 +394,12 @@ Docker 发布工作流还会导入 API、检查依赖、确认 CPU-only Torch �
 更新日志每条标题下的 `<!-- en: ... -->` 注释。
 
 <!-- changelog-recent:start -->
-- 🔧 修复：跨平台 CI 与当前仓库的架构页发布
+- `3.1.10 · 2026-10-18` — 🏠 变更：仓库迁回 `lsg1103275794/oh-memos`
+- `3.1.10 · 2026-10-18` — ⚡ 优化：API 导入内存降低约 2/3，Docker 镜像不再安装 torch
+- `3.1.10 · 2026-10-18` — 🔧 修复：跨平台 CI 与架构页发布
 - `3.1.9 · 2026-09-16` — 🧠 修复：保存先确认向量，LLM 解析在后台完成
 - `3.1.9 · 2026-09-16` — ⚙️ 变更：全量统一到 `glm-5.3-flash`，降级模型 `deepseek-ai/DeepSeek-V4-Pro-0813`
 - `3.1.9 · 2026-09-16` — 🧱 修复：缺模型名的校验放在了 import 链上，镜像构建随即失败
-- `3.1.9 · 2026-09-16` — 🐳 修复：容器仍调用已下线模型 —— 环境变量在容器**创建**时固定
-- `3.1.9 · 2026-09-16` — 🏷️ 修复：模型名/端点/密钥的硬编码默认值，统一收敛到 `.env`
 <!-- changelog-recent:end -->
 
 完整历史见[更新日志](docs/CHANGELOG.md)，计划中的能力见
@@ -421,7 +421,7 @@ oh-memos 基于 [MemTensor/MemOS](https://github.com/MemTensor/MemOS)，
 
 **让每个项目都拥有一份比对话更长久的记忆。**
 
-[提交问题](https://github.com/1466109846/oh-memos/issues) ·
+[提交问题](https://github.com/lsg1103275794/oh-memos/issues) ·
 [npm 包](https://www.npmjs.com/package/oh-memos-mcp)
 
 </div>

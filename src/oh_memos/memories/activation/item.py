@@ -1,10 +1,9 @@
 import uuid
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
-from transformers import DynamicCache
+from pydantic import AfterValidator, BaseModel, Field
 
 from oh_memos.mem_scheduler.utils.db_utils import get_utc_now
 
@@ -29,17 +28,32 @@ class KVCacheRecords(BaseModel):
     )
 
 
+# transformers imports torch, and this module sits on the import path of every process
+# (oh_memos.types). DynamicCache is therefore resolved only when a KV cache is built.
+def _new_dynamic_cache() -> Any:
+    from transformers import DynamicCache
+
+    return DynamicCache()
+
+
+def _require_dynamic_cache(value: Any) -> Any:
+    from transformers import DynamicCache
+
+    if not isinstance(value, DynamicCache):
+        raise ValueError(f"memory must be a transformers DynamicCache, got {type(value).__name__}")
+    return value
+
+
 class KVCacheItem(ActivationMemoryItem):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    memory: DynamicCache = Field(
-        default_factory=DynamicCache,
+    memory: Annotated[Any, AfterValidator(_require_dynamic_cache)] = Field(
+        default_factory=_new_dynamic_cache,
         description="Dynamic cache for storing key-value pairs in the memory.",
     )
     metadata: dict = Field(
         default_factory=dict, description="Metadata associated with the KV cache item."
     )
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)  # To allow DynamicCache as a field type
     records: KVCacheRecords = KVCacheRecords()
 
 

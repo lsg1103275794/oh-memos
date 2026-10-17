@@ -2,8 +2,6 @@ import threading
 
 import numpy as np
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-
 from oh_memos.dependency import require_python_package
 from oh_memos.log import get_logger
 from oh_memos.memories.textual.tree_text_memory.retrieve.retrieve_utils import FastTokenizer
@@ -111,6 +109,9 @@ class EnhancedBM25:
             combined_scores = bm25_scores[candidate_indices]
 
             if use_tfidf:
+                # sklearn (+ scipy) costs ~85 MB; load it only for this opt-in rerank
+                from sklearn.feature_extraction.text import TfidfVectorizer
+
                 # Create TF-IDF for this search
                 tfidf = TfidfVectorizer(
                     tokenizer=self._tokenize_doc, lowercase=False, token_pattern=None

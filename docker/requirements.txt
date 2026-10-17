@@ -5,14 +5,17 @@
 # image matches a resolution the project already tests against.
 #
 # Deliberately NOT here:
-#   torch          — installed separately from the PyTorch CPU index in the
-#                    Dockerfile; plain PyPI resolves the CUDA build (~2.5GB of
-#                    nvidia-* wheels) on linux/amd64.
+#   torch          — every model backend this image serves is a remote API. Only
+#                    the HF LLM, KV-cache activation memory and sentence-transformers
+#                    embedder need it, and none of them is used here. With torch
+#                    (and sympy/networkx, which only torch requires) gone,
+#                    site-packages drops from 1524 MiB to 720 MiB (du -sm). The Dockerfile
+#                    build check fails if anything pulls torch back in.
 #   markitdown     — only used by the document-parser path (magika +
 #                    onnxruntime); read_multi_modal/utils.py degrades gracefully
 #                    when it is absent.
 #   sentence-transformers — pulled in only by an optional langchain splitter
-#                    guarded with try/except ImportError.
+#                    guarded with try/except ImportError; it would also require torch.
 #   pymilvus, redis, pika, pytest — preference memory, scheduler queues and
 #                    tests are not part of this image.
 

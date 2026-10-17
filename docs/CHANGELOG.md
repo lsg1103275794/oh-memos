@@ -5,17 +5,48 @@ All notable changes to the MemOS project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.10] - 2026-10-18
 
-### 🔧 修复：跨平台 CI 与当前仓库的架构页发布
-<!-- en: 🔧 Fix: cross-platform CI and architecture Pages for the current repository -->
+### 🏠 变更：仓库迁回 `lsg1103275794/oh-memos`
+<!-- en: 🏠 Changed: the repository is back at lsg1103275794/oh-memos -->
+
+主账号受限期间，3.1.5 之后的提交（3.1.6 – 3.1.9）只推送到了备用账号 `1466109846/oh-memos`，
+3.1.9 镜像也发布在 `ghcr.io/1466109846/oh-memos`。现统一迁回 `lsg1103275794/oh-memos`，
+本次推送一并补齐这段历史。README 徽章与链接、`pyproject.toml` 与 npm 包的仓库元数据、
+compose 默认镜像、`.env.*.example` 中的 `MEMOS_IMAGE`、架构页的源码链接均已指向新地址，
+架构页位于 `https://lsg1103275794.github.io/oh-memos/architecture/`。
+
+自 3.1.10 起镜像发布到 `ghcr.io/lsg1103275794/oh-memos`。env 文件中显式写了
+`MEMOS_IMAGE=ghcr.io/1466109846/oh-memos` 的部署需改为新地址；未设置时使用的 compose 默认值已更新。
+
+### ⚡ 优化：API 导入内存降低约 2/3，Docker 镜像不再安装 torch
+<!-- en: ⚡ Perf: API import memory cut by about two thirds; the Docker image no longer installs torch -->
+
+模型后端全是远程 API，`import oh_memos` 却会加载 torch、transformers 与 sklearn/scipy：
+`activation/item.py`、`activation/kv.py`、`llms/hf.py` 顶层导入 `DynamicCache`；
+`read_multi_modal/utils.py` 导入时就构造 langchain 切分器（langchain → transformers → torch）；
+`bm25_util.py` 无条件导入仅可选 TF-IDF 重排使用的 sklearn。现改为真正构建 KV cache、
+切分文本或启用 TF-IDF 时才导入，`KVCacheItem.memory` 仍校验必须是 `DynamicCache`。
+
+numpy、scipy 各自捆绑的 OpenBLAS 加载时按 CPU 线程数提交工作缓冲（12 线程的 Windows
+主机上每份约 350 MB）。包初始化时默认 `OPENBLAS_NUM_THREADS=1`；启动环境中已设置的值优先，写在 `.env` 中因加载过晚不会生效。
+
+Docker 镜像服务的模型后端全是远程 API，不再安装 torch（及只被它依赖的 sympy/networkx/mpmath），
+镜像 2.21 → 1.17 GB，site-packages 1524 → 720 MiB（`du -sm`）；HF LLM、KV cache、
+sentence-transformers 嵌入后端在镜像中不可用。
+镜像构建检查与发布冒烟测试都会断言镜像中没有 torch。
+
+Windows 12 线程实测导入 `oh_memos.api.start_api`：工作集 536 → 181 MB，私有提交
+1236 → 191 MB；Docker 镜像（Linux）内导入 RSS 392 → 145 MiB。新增独立子进程回归测试，覆盖不加载上述运行时、默认限制与保留显式设置。
+
+### 🔧 修复：跨平台 CI 与架构页发布
+<!-- en: 🔧 Fix: cross-platform CI and architecture Pages publishing -->
 
 README 生成器测试显式覆盖 LF、CRLF 两种换行，避免 Linux checkout 被本机换行假设误判。
-Python CI 安装确认向量写入测试所需的 `qdrant-client`，CPU torch 与发布镜像对齐。
+Python CI 安装确认向量写入测试所需的 `qdrant-client`，并保留 CPU torch 以运行 KV cache 测试。
 协议信号测试保持 stdin 打开并等待处理器就绪，提前监听关闭事件，修复 Node 22
 中进程已退出却误报超时的竞态；POSIX 验证正常退出，Windows 验证对应终止信号。
-当前仓库、徽章、问题反馈及架构页链接统一为 `1466109846/oh-memos`；README 修改也会
-触发架构页部署，页面位于 `https://1466109846.github.io/oh-memos/architecture/`。
+README 修改也会触发架构页部署。
 忽略意外生成的根目录 `NUL` 文件，避免 Windows runner 检出失败。
 
 ## [3.1.9] - 2026-09-16

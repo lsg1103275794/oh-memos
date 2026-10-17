@@ -20,8 +20,8 @@ RUN groupadd --gid 10001 memos \
     && useradd --uid 10001 --gid memos --create-home --shell /usr/sbin/nologin memos
 
 COPY docker/requirements.txt /tmp/requirements.txt
-RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 \
-    && pip install -r /tmp/requirements.txt
+# No torch: every model backend this image serves is a remote API (see requirements.txt).
+RUN pip install -r /tmp/requirements.txt
 
 COPY pyproject.toml README.md ./
 # Only the package itself. A bare `COPY src ./src` would also drag in the
@@ -33,8 +33,8 @@ RUN mkdir -p /data/cubes /data/runtime \
     && chown -R memos:memos /data \
     && pip install --no-deps . \
     && python -m pip check \
-    && python -c "import torch; assert torch.version.cuda is None, torch.version.cuda; from oh_memos.api.start_api import app; from oh_memos.configs import llm_defaults; assert llm_defaults.chat_model() == '', 'build image must not carry a baked-in model name'" \
-    && ! python -m pip list --format=freeze | grep -E '^(nvidia-|triton==)' \
+    && python -c "import importlib.util; assert importlib.util.find_spec('torch') is None, 'torch must not be installed'; from oh_memos.api.start_api import app; from oh_memos.configs import llm_defaults; assert llm_defaults.chat_model() == '', 'build image must not carry a baked-in model name'" \
+    && ! python -m pip list --format=freeze | grep -E '^(nvidia-|triton==|torch[a-z]*==)' \
     && rm -rf /data/runtime/* /data/runtime/.[!.]*
 
 COPY docker/dev_cube.config.template /opt/oh-memos/dev_cube.config.template

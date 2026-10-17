@@ -1,15 +1,16 @@
 from collections.abc import Generator
-from typing import Any
-
-from transformers import (
-    DynamicCache,
-)
+from typing import TYPE_CHECKING, Any
 
 from oh_memos.configs.llm import HFLLMConfig
 from oh_memos.llms.base import BaseLLM
 from oh_memos.llms.utils import remove_thinking_tags
 from oh_memos.log import get_logger
 from oh_memos.types import MessageList
+
+
+if TYPE_CHECKING:
+    # The LLM factory imports this module for every backend; keep torch out of it.
+    from transformers import DynamicCache
 
 
 logger = get_logger(__name__)
@@ -65,7 +66,7 @@ class HFLLM(BaseLLM):
         self.logits_processors = LogitsProcessorList(processors)
 
     def generate(
-        self, messages: MessageList, past_key_values: DynamicCache | None = None, **kwargs
+        self, messages: MessageList, past_key_values: "DynamicCache | None" = None, **kwargs
     ):
         """
         Generate a response from the model. If past_key_values is provided, use cache-augmented generation.
@@ -85,7 +86,7 @@ class HFLLM(BaseLLM):
             return self._generate_with_cache(prompt, past_key_values, **kwargs)
 
     def generate_stream(
-        self, messages: MessageList, past_key_values: DynamicCache | None = None, **kwargs
+        self, messages: MessageList, past_key_values: "DynamicCache | None" = None, **kwargs
     ) -> Generator[str, None, None]:
         """
         Generate a streaming response from the model.
@@ -204,7 +205,7 @@ class HFLLM(BaseLLM):
                 else:
                     yield new_token_text
 
-    def _generate_with_cache(self, query: str, kv: DynamicCache, **kwargs) -> str:
+    def _generate_with_cache(self, query: str, kv: "DynamicCache", **kwargs) -> str:
         """
         Generate output incrementally using an existing KV cache.
         Args:
@@ -240,7 +241,7 @@ class HFLLM(BaseLLM):
         )
 
     def _generate_with_cache_stream(
-        self, query: str, kv: DynamicCache, **kwargs
+        self, query: str, kv: "DynamicCache", **kwargs
     ) -> Generator[str, None, None]:
         """
         Generate output incrementally using an existing KV cache with streaming.
@@ -302,7 +303,7 @@ class HFLLM(BaseLLM):
 
             generated.append(next_token)
 
-    def _prefill(self, input_ids: Any, kv: DynamicCache) -> tuple[Any, DynamicCache]:
+    def _prefill(self, input_ids: Any, kv: "DynamicCache") -> tuple[Any, "DynamicCache"]:
         """
         Forward the model once, returning last-step logits and updated KV cache.
         Args:
@@ -351,7 +352,7 @@ class HFLLM(BaseLLM):
         eos_id = self.tokenizer.eos_token_id
         return eos_id is not None and token.item() == eos_id
 
-    def build_kv_cache(self, messages) -> DynamicCache:
+    def build_kv_cache(self, messages) -> "DynamicCache":
         """
         Build a KV cache from chat messages via one forward pass.
         Supports the following input types:

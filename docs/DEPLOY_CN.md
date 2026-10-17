@@ -30,7 +30,7 @@
 | 组件 | 最低要求 | 说明 |
 |------|---------|------|
 | 操作系统 | Windows 10 | Windows 10/11 |
-| 内存 | 8GB | tree_text 模式需加载 torch |
+| 内存 | 8GB | tree_text 模式需同时运行 Neo4j 与 Qdrant |
 | 磁盘空间 | 5GB+ | 依赖约 1.5GB，其余为记忆数据 |
 | Python | 3.10+ | 推荐 3.11 |
 | Neo4j | 5.x | `tree_text` 模式必需 |
