@@ -396,12 +396,12 @@ The six most recent entries from the [changelog](docs/CHANGELOG.md), generated b
 from the `<!-- en: ... -->` comment under each changelog heading.
 
 <!-- changelog-recent:start -->
+- `3.1.11 · 2026-11-05` — ⚙️ Added: MEMRADER_TOP_P lets memory extraction omit top_p
+- `3.1.11 · 2026-11-05` — 🔧 Fix: get_by_metadata no longer prints every query
+- `3.1.11 · 2026-11-05` — ⚡ Perf: Qdrant container memory cap and container log rotation
 - `3.1.10 · 2026-10-18` — 🏠 Changed: the repository is back at lsg1103275794/oh-memos
 - `3.1.10 · 2026-10-18` — ⚡ Perf: API import memory cut by about two thirds; the Docker image no longer installs torch
 - `3.1.10 · 2026-10-18` — 🔧 Fix: cross-platform CI and architecture Pages publishing
-- `3.1.9 · 2026-09-16` — 🧠 Fix: acknowledge vector storage before background LLM parsing
-- `3.1.9 · 2026-09-16` — ⚙️ Changed: unified on glm-5.3-flash with DeepSeek-V4-Pro-0813 as fallback
-- `3.1.9 · 2026-09-16` — 🧱 Fix: the missing-model check sat on an import path and broke the image build
 <!-- changelog-recent:end -->
 
 See the [changelog](docs/CHANGELOG.md) for the full history and the

@@ -1,6 +1,6 @@
 {
   "name": "oh-memos-mcp",
-  "version": "3.1.10",
+  "version": "3.1.11",
   "description": "MCP Server for oh-memos — Intelligent Memory Management (Node.js, no Python required)",
   "type": "module",
   "main": "dist/index.js",

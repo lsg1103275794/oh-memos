@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.11] - 2026-11-05
+
+配套 API / Docker 镜像版本为 3.1.11。MCP server 代码无改动。
+
+- 配套 API 新增 `MEMRADER_TOP_P`：上游拒收 `top_p` 时设为 `none`，记忆提取请求不再带 `top_p`。
+- 配套 API 不再在每次查询时打印完整 Cypher，容器日志按 10 MB × 3 轮转，Qdrant 容器有内存上限。MCP 调用方式不变。
+
 ## [3.1.10] - 2026-10-18
 
 配套 API / Docker 镜像版本为 3.1.10。MCP server 代码无改动。

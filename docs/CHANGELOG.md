@@ -5,6 +5,34 @@ All notable changes to the MemOS project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.11] - 2026-11-05
+
+### ⚙️ 新增：`MEMRADER_TOP_P`，记忆提取可以不发 `top_p`
+<!-- en: ⚙️ Added: MEMRADER_TOP_P lets memory extraction omit top_p -->
+
+有的 OpenAI 兼容上游不接受 `top_p`，直接返回 HTTP 400。记忆提取原来固定发
+`top_p=0.95`，走这种上游时每次提取都失败，全部切到降级模型。设 `MEMRADER_TOP_P=none`
+后，提取请求不再带 `top_p`；不设时仍为 0.95，其他部署不受影响。`OpenAILLMConfig.top_p`
+允许为 `None`，为 `None` 时 `OpenAILLM` 不在请求里发这个字段。
+
+### 🔧 修复：`get_by_metadata` 不再打印每次查询
+<!-- en: 🔧 Fix: get_by_metadata no longer prints every query -->
+
+`get_by_metadata` 每次调用都用 `print` 输出过滤条件和完整 Cypher，同时还有一份相同的
+`logger.info`。后台解析的重试轮询每秒调用它好几次，约 13 行/秒，容器日志每天涨约 200 MB。
+neo4j 与 neo4j-community 两个后端都去掉了 `print`，日志降为 DEBUG。
+
+### ⚡ 优化：Qdrant 容器内存上限与容器日志轮转
+<!-- en: ⚡ Perf: Qdrant container memory cap and container log rotation -->
+
+Qdrant 用 mmap 读段文件，每个 cube 一个 collection（本机 102 个），7.3 GB 冷页缓存都记在
+它的容器名下。WSL 默认的缓存回收会跳过被映射的页，这些内存一直不还给 Windows。compose 给
+qdrant 加了 `mem_limit`（`QDRANT_MEM_LIMIT`，默认 2g），超过上限时内核回收冷页。本机 102 个
+collection、11777 个点设为 512m 足够，qdrant 稳定在约 330 MiB。
+
+Docker 默认的 json-file 日志不轮转，memos-api 的日志 18 天涨到 3.8 GB。compose 里所有服务
+改为 10 MB × 3 个文件轮转。
+
 ## [3.1.10] - 2026-10-18
 
 ### 🏠 变更：仓库迁回 `lsg1103275794/oh-memos`
