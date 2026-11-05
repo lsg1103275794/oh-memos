@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Measures whether rule learning is working, using two numbers:
  *   1. Always-on size: instruction text loaded into every session.
