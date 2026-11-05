@@ -239,6 +239,55 @@ function validateTools(label, tools, expectedNames) {
   }
 }
 
+const ALWAYS_LOAD_TOOLS = ["memos_save", "memos_search"];
+
+// MEMOS_ALWAYS_LOAD (default on): server instructions plus memos_save and
+// memos_search marked to load up front instead of behind tool search.
+function validateAlwaysLoad(label, initialized, tools, enabled) {
+  const instructions = initialized.result?.instructions;
+  check(
+    label + (enabled ? " sends server instructions" : " sends no server instructions"),
+    enabled ? typeof instructions === "string" && instructions.includes("memos_search") : instructions === undefined,
+    String(instructions).slice(0, 120)
+  );
+  const marked = tools.filter((tool) => tool._meta?.["anthropic/alwaysLoad"] === true).map((tool) => tool.name);
+  check(
+    label + (enabled ? " keeps memos_save and memos_search loaded" : " defers every tool"),
+    JSON.stringify(marked.sort()) === JSON.stringify(enabled ? ALWAYS_LOAD_TOOLS : []),
+    marked.join(",")
+  );
+}
+
+async function runAlwaysLoadOffContract() {
+  console.log("\nAlways-load off contract");
+  const root = scratchDir("oh-memos-protocol-always-load-off-");
+  const cube = "protocol_always_load_cube";
+  const client = new LegacyStdioClient(
+    "always-load-off",
+    baseEnv(root, cube, {
+      MEMOS_MODE: "lite",
+      MEMOS_PROVIDER: "local",
+      MEMOS_URL: "",
+      MEMOS_ALWAYS_LOAD: "false",
+    })
+  );
+
+  try {
+    const initialized = await client.initialize();
+    const listed = await client.rpc("tools/list", {});
+    validateAlwaysLoad("Always-load off", initialized, listed.result?.tools ?? [], false);
+  } catch (error) {
+    check(
+      "always-load-off harness completes",
+      false,
+      String(error) + "\nstderr:\n" + client.stderr.slice(0, 1600)
+    );
+  } finally {
+    await client.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 async function runLiteContracts() {
   console.log("\nLite legacy contract");
   const root = scratchDir("oh-memos-protocol-lite-");
@@ -259,6 +308,7 @@ async function runLiteContracts() {
     const listed = await client.rpc("tools/list", {});
     const tools = listed.result?.tools ?? [];
     validateTools("Lite default", tools, EXPECTED_TOOL_ORDER.slice(0, -1));
+    validateAlwaysLoad("Lite default", initialized, tools, true);
 
     const objectContent = "Phase 0 object arguments remain compatible";
     const objectSave = textContent(
@@ -479,6 +529,7 @@ if (!existsSync(DIST_ENTRY)) {
 }
 
 await runLiteContracts();
+await runAlwaysLoadOffContract();
 await runConditionalDeleteContract();
 await runFullContracts();
 

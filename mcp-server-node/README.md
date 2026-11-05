@@ -227,6 +227,7 @@ be deleted without a prompt; add it only if you have decided you want that.
 | `MEMOS_TIMEOUT_HEALTH` | No | `5` | Health check timeout (seconds) |
 | `MEMOS_API_WAIT_MAX` | No | `60` | Max time to wait for API on startup (seconds) |
 | `MEMOS_ENABLE_DELETE` | No | `false` | Enable `memos_delete` tool |
+| `MEMOS_ALWAYS_LOAD` | No | `true` | Send server instructions and keep `memos_save` / `memos_search` loaded up front instead of behind tool search. `false` defers every tool |
 | `NEO4J_HTTP_URL` | No | — | Neo4j HTTP endpoint (for direct graph queries) |
 | `NEO4J_USER` | No | — | Neo4j username |
 | `NEO4J_PASSWORD` | No | — | Neo4j password |

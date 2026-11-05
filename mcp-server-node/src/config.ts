@@ -218,6 +218,12 @@ const _enableDeleteRaw =
   _args["memos-enable-delete"] ?? getEnv("MEMOS_ENABLE_DELETE") ?? "false";
 export const MEMOS_ENABLE_DELETE: boolean = _enableDeleteRaw.toLowerCase() === "true";
 
+// Server instructions plus memos_save/memos_search loaded up front (see
+// server-instructions.ts). On by default; "false" restores deferred loading.
+const _alwaysLoadRaw =
+  _args["memos-always-load"] ?? getEnv("MEMOS_ALWAYS_LOAD") ?? "true";
+export const MEMOS_ALWAYS_LOAD: boolean = _alwaysLoadRaw.toLowerCase() !== "false";
+
 // -- Neo4j (for fallback direct graph queries) --
 export const NEO4J_HTTP_URL: string | undefined = getEnv("NEO4J_HTTP_URL");
 export const NEO4J_USER: string | undefined = getEnv("NEO4J_USER");

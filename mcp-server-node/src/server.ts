@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { MEMOS_DEFAULT_CUBE, MEMOS_ENABLE_DELETE, MEMOS_PROVIDER, logger } from "./config.js";
+import { MEMOS_ALWAYS_LOAD, MEMOS_DEFAULT_CUBE, MEMOS_ENABLE_DELETE, MEMOS_PROVIDER, logger } from "./config.js";
 import {
   apiHealthUrl,
   apiUrlForDisplay,
@@ -18,6 +18,7 @@ import {
 } from "./api-client.js";
 import { ensureCubeRegistered } from "./cube-manager.js";
 import { toolSchemas, toolAnnotations } from "./tools-registry.js";
+import { serverOptions, toolMeta } from "./server-instructions.js";
 import { dispatchTool, handleApiTimeout, handleApiUnreachable } from "./handlers/index.js";
 import { UnconfirmedMemoryWriteError } from "./memory-write-response.js";
 import type { TextContent } from "./types.js";
@@ -47,6 +48,7 @@ function registerTools(server: McpServer): void {
         // search before coding — so the friction was quietly training the
         // rule away.
         annotations: toolAnnotations[name],
+        _meta: toolMeta(name, MEMOS_ALWAYS_LOAD),
       },
       async (args: Record<string, unknown>) => {
         startBackgroundInitOnce();
@@ -148,10 +150,13 @@ const pkg: { name: string; version: string } = JSON.parse(
 );
 
 export function buildServer(): McpServer {
-  const server = new McpServer({
-    name: pkg.name,
-    version: pkg.version,
-  });
+  const server = new McpServer(
+    {
+      name: pkg.name,
+      version: pkg.version,
+    },
+    serverOptions(MEMOS_ALWAYS_LOAD),
+  );
   registerTools(server);
   return server;
 }

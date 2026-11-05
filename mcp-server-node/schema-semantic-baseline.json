@@ -43,7 +43,7 @@
   ],
   "tools": {
     "memos_context_resume": {
-      "description": "Recover project context after context compaction or at session start: returns recent memories (24h) + project state.\nAfterwards use memos tools for ALL memory operations — never mkdir/Write memory files.",
+      "description": "Recover project context after context compaction or at session start: returns recent memories (24h) + project state.",
       "annotations": {
         "openWorldHint": false,
         "readOnlyHint": true
@@ -51,12 +51,12 @@
       "schemaSha256": "1b045846428afb958807d15244c6875e8badd5a9da0b64e802fa586b42ef0618"
     },
     "memos_search": {
-      "description": "Search project memories with semantic, lexical, graph, freshness, and source-quality ranking. Lite mode caps results and excludes auto-capture by default. Use PROACTIVELY: on errors (ERROR_PATTERN), before modifying tricky code (GOTCHA), for past decisions (DECISION), when user says \"之前/上次/previously\", and after context compaction.\nQuery may carry a type prefix (\"DECISION auth\"). Pass context (recent turns) when the query is ambiguous or refers to earlier conversation — enables LLM intent analysis + query expansion.\nLarge results are compacted; use memos_get(memory_id) for full details. NEVER create memory files via mkdir/Write — all memories live here.",
+      "description": "Search this project's saved memories by meaning and keywords, ranked by relevance, freshness and source quality. Useful for past decisions, earlier fixes, known gotchas, and when the user refers to earlier work.\nA query can start with a type (\"DECISION auth\"). Pass context (recent turns) when the query depends on the conversation; it enables intent analysis and query expansion.\nLarge results are compacted; memos_get(memory_id) returns full details. Lite mode caps results and leaves out auto-captured memories by default.",
       "annotations": {
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "schemaSha256": "9090ee896f43e5a27ff2345c8adfb7c9594b7f856c0533d45e54dbf36af09c4e"
+      "schemaSha256": "3f1885c8736be6c90f78695663473a74874ae5fe598f54e8700dd4e4ef305693"
     },
     "memos_think": {
       "description": "Evidence pack for a question: retrieves memories, flags contradiction/staleness candidates and coverage gaps.\nYOU synthesize the answer from it, citing [n]; persist valuable syntheses via memos_save(memory_type=\"SYNTHESIS\") keeping the [n]→id map.",
@@ -83,12 +83,12 @@
       "schemaSha256": "44a530cb35590e7422c367ecca94cd6fbed66067d1e40c549e2795bda31205b0"
     },
     "memos_save": {
-      "description": "Save important information to project memory — after fixing a bug, making a decision, finishing a milestone, hitting a gotcha, or changing config.\n🚨 MUST pass memory_type explicitly (decision tree: memos_suggest). In Lite mode this remains the primary durable write path.\nThis is the ONLY way to persist memories — never mkdir/Write memory files.",
+      "description": "Save something worth keeping across sessions: a decision, bug fix, gotcha, config change or milestone. memory_type sets the category; memos_suggest explains each one. Works in Lite mode too.\nLater sessions only find what is saved here, not memory files written by hand.",
       "annotations": {
         "openWorldHint": true,
         "readOnlyHint": false
       },
-      "schemaSha256": "6d55694e7440cbc1f81d1acb95c034534cc3c02c7f2487e10be4127cde8883f5"
+      "schemaSha256": "4ef273a00f2f5d3551c39dfd890c3991b39249016e842f7a57a4a69f2d4b7181"
     },
     "memos_list_v2": {
       "description": "List memories from a cube (compacted when large; memos_get for details).",

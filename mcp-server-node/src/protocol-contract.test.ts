@@ -60,7 +60,7 @@ const EXPECTED_SCHEMA_HASHES: Record<
   memos_context_resume:
     "1b045846428afb958807d15244c6875e8badd5a9da0b64e802fa586b42ef0618",
   memos_search:
-    "9090ee896f43e5a27ff2345c8adfb7c9594b7f856c0533d45e54dbf36af09c4e",
+    "3f1885c8736be6c90f78695663473a74874ae5fe598f54e8700dd4e4ef305693",
   memos_think:
     "6ae80d34b1353ff9d6c252ef51ae0a2a421ffe1293d12419ebfafd11399c5c40",
   memos_export_wiki:
@@ -68,7 +68,7 @@ const EXPECTED_SCHEMA_HASHES: Record<
   memos_import_wiki:
     "44a530cb35590e7422c367ecca94cd6fbed66067d1e40c549e2795bda31205b0",
   memos_save:
-    "6d55694e7440cbc1f81d1acb95c034534cc3c02c7f2487e10be4127cde8883f5",
+    "4ef273a00f2f5d3551c39dfd890c3991b39249016e842f7a57a4a69f2d4b7181",
   memos_list_v2:
     "6ee747b16e3dbf03636482dc0388ae236b8b26d7eecd256dd46f9e579229b9ea",
   memos_get: "33d79ce41fea8684466f0cbe5ee72defc8900f1d8d998206f2b56272d741f9b4",

@@ -17,8 +17,8 @@ const projectPathParam = z
   .string()
   .optional()
   .describe(
-    "Your current working directory (project root). The cube_id will be auto-derived from this path. " +
-      "PREFERRED over manually specifying cube_id. Example: '/mnt/g/Cyber/AudioCraft Studio' → 'audiocraft_studio_cube'",
+    "Project root; the cube_id is derived from it, so this is usually all you need. " +
+      "Example: '/mnt/g/Cyber/AudioCraft Studio' → 'audiocraft_studio_cube'",
   );
 
 const cubeIdParam = z
@@ -26,9 +26,8 @@ const cubeIdParam = z
   .optional()
   .default(MEMOS_DEFAULT_CUBE)
   .describe(
-    "Memory cube ID. Only use if you know the exact cube_id. PREFER passing project_path instead — " +
-      "if both project_path and cube_id are omitted, the server falls back to the default cube, " +
-      "which may NOT be your project's cube.",
+    "Exact cube id, for when you know it. With neither project_path nor cube_id, " +
+      "the server uses the default cube, which may belong to another project.",
   );
 
 // Brief variants for every tool except the hot paths (save/search): the full
@@ -63,8 +62,7 @@ const memoryTypeEnum = z.enum([
 
 export const toolSchemas = {
   memos_context_resume: {
-    description: `Recover project context after context compaction or at session start: returns recent memories (24h) + project state.
-Afterwards use memos tools for ALL memory operations — never mkdir/Write memory files.`,
+    description: `Recover project context after context compaction or at session start: returns recent memories (24h) + project state.`,
     inputSchema: z.object({
       project_path: projectPathBrief,
       cube_id: cubeIdBriefDefault,
@@ -72,9 +70,9 @@ Afterwards use memos tools for ALL memory operations — never mkdir/Write memor
   },
 
   memos_search: {
-    description: `Search project memories with semantic, lexical, graph, freshness, and source-quality ranking. Lite mode caps results and excludes auto-capture by default. Use PROACTIVELY: on errors (ERROR_PATTERN), before modifying tricky code (GOTCHA), for past decisions (DECISION), when user says "之前/上次/previously", and after context compaction.
-Query may carry a type prefix ("DECISION auth"). Pass context (recent turns) when the query is ambiguous or refers to earlier conversation — enables LLM intent analysis + query expansion.
-Large results are compacted; use memos_get(memory_id) for full details. NEVER create memory files via mkdir/Write — all memories live here.`,
+    description: `Search this project's saved memories by meaning and keywords, ranked by relevance, freshness and source quality. Useful for past decisions, earlier fixes, known gotchas, and when the user refers to earlier work.
+A query can start with a type ("DECISION auth"). Pass context (recent turns) when the query depends on the conversation; it enables intent analysis and query expansion.
+Large results are compacted; memos_get(memory_id) returns full details. Lite mode caps results and leaves out auto-captured memories by default.`,
     inputSchema: z.object({
       query: z
         .string()
@@ -176,9 +174,8 @@ Use after editing exported pages (fixes, cleanup, migration to a fresh cube). Re
   },
 
   memos_save: {
-    description: `Save important information to project memory — after fixing a bug, making a decision, finishing a milestone, hitting a gotcha, or changing config.
-🚨 MUST pass memory_type explicitly (decision tree: memos_suggest). In Lite mode this remains the primary durable write path.
-This is the ONLY way to persist memories — never mkdir/Write memory files.`,
+    description: `Save something worth keeping across sessions: a decision, bug fix, gotcha, config change or milestone. memory_type sets the category; memos_suggest explains each one. Works in Lite mode too.
+Later sessions only find what is saved here, not memory files written by hand.`,
     inputSchema: z.object({
       content: z
         .string()

@@ -1,18 +1,18 @@
 {
   "bytesPerTokenAssumed": 3.2,
   "toolCount": 17,
-  "totalBytes": 17981,
-  "alwaysOnBytes": 16581,
+  "totalBytes": 17594,
+  "alwaysOnBytes": 16194,
   "tools": {
     "memos_context_resume": {
-      "descriptionBytes": 205,
+      "descriptionBytes": 116,
       "schemaBytes": 305,
-      "totalBytes": 632
+      "totalBytes": 542
     },
     "memos_search": {
-      "descriptionBytes": 673,
-      "schemaBytes": 1307,
-      "totalBytes": 2098
+      "descriptionBytes": 525,
+      "schemaBytes": 1170,
+      "totalBytes": 1849
     },
     "memos_think": {
       "descriptionBytes": 249,
@@ -30,9 +30,9 @@
       "totalBytes": 1170
     },
     "memos_save": {
-      "descriptionBytes": 353,
-      "schemaBytes": 1260,
-      "totalBytes": 1726
+      "descriptionBytes": 269,
+      "schemaBytes": 1123,
+      "totalBytes": 1542
     },
     "memos_list_v2": {
       "descriptionBytes": 72,
@@ -80,9 +80,9 @@
       "totalBytes": 1780
     },
     "memos_canvas": {
-      "descriptionBytes": 250,
-      "schemaBytes": 802,
-      "totalBytes": 1168
+      "descriptionBytes": 260,
+      "schemaBytes": 928,
+      "totalBytes": 1304
     },
     "memos_delete": {
       "descriptionBytes": 570,
