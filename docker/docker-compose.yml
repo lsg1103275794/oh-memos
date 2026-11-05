@@ -13,6 +13,15 @@ name: oh-memos
 #     authentication layer, so it must not listen on a routable address without
 #     an authenticating TLS proxy in front of it.
 
+# Docker's default json-file driver never rotates, so a chatty service grows
+# its log without bound (memos-api once reached 3.8 GB). Every service uses
+# this.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   memos:
     image: ${MEMOS_IMAGE:-ghcr.io/lsg1103275794/oh-memos}:${MEMOS_TAG:-latest}
@@ -21,6 +30,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: oh-memos-api
     restart: unless-stopped
+    logging: *default-logging
     init: true
     env_file:
       # --env-file only feeds compose's own interpolation. This is the channel
@@ -100,6 +110,7 @@ services:
     image: neo4j:5.26.4
     container_name: oh-memos-neo4j
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in your env file}
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
@@ -139,6 +150,14 @@ services:
     image: qdrant/qdrant:v1.16.3
     container_name: oh-memos-qdrant
     restart: unless-stopped
+    logging: *default-logging
+    # Qdrant maps its segment files and pages them in on load. With one
+    # collection per cube that is gigabytes of mostly cold page cache charged to
+    # this container. WSL's automatic reclaim skips mapped pages, so without a
+    # cap the WSL VM keeps that memory until the VM itself runs short. Under the
+    # cap the kernel evicts the cold pages. Raise QDRANT_MEM_LIMIT if the
+    # collections outgrow it.
+    mem_limit: ${QDRANT_MEM_LIMIT:-2g}
     environment:
       QDRANT__SERVICE__HTTP_PORT: 6333
       QDRANT__SERVICE__GRPC_PORT: 6334
@@ -173,6 +192,7 @@ services:
     image: ollama/ollama:${OLLAMA_TAG:-0.12.12}
     container_name: oh-memos-ollama
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${MEMOS_BIND_ADDRESS:-127.0.0.1}:${OLLAMA_HOST_PORT:-11434}:11434"
     volumes:
