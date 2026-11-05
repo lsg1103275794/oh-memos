@@ -1,17 +1,11 @@
 // End-to-end smoke test for memos_canvas over real MCP stdio.
 // Exercises the four actions plus the traversal guard, against a temp cubes dir.
 import { spawn } from "node:child_process";
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  existsSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { scratchDir } from "./_scratch.mjs";
 
-const root = mkdtempSync(join(tmpdir(), "canvas-e2e-"));
+const root = scratchDir("canvas-e2e-");
 const cube = "e2e_probe_cube";
 mkdirSync(join(root, cube), { recursive: true });
 writeFileSync(join(root, cube, "config.json"), "{}", "utf8");
@@ -461,6 +455,11 @@ try {
   failures++;
 } finally {
   child.kill();
+  // The killed server may still hold a file for a moment; the scratch sweep
+  // removes anything left behind after a day.
+  try {
+    rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  } catch {}
 }
 
 console.log(

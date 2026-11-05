@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { classifyPrompt, estimateTokens, loadPrompts, summarize } from "../../scripts/rule-metrics.mjs";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 describe("classifyPrompt", () => {
   it.each([
@@ -39,7 +39,7 @@ describe("classifyPrompt", () => {
 
 describe("loadPrompts", () => {
   it("reads both history formats, drops slash commands, bad lines and duplicates", () => {
-    const dir = mkdtempSync(join(tmpdir(), "rule-metrics-"));
+    const dir = scratchDir("rule-metrics-");
     try {
       const claude = join(dir, "claude.jsonl");
       const codex = join(dir, "codex.jsonl");
@@ -70,7 +70,7 @@ describe("loadPrompts", () => {
 
 describe("loadPrompts repeats", () => {
   it("keeps the same reminder on different days, since repeats are what we measure", () => {
-    const dir = mkdtempSync(join(tmpdir(), "rule-metrics-"));
+    const dir = scratchDir("rule-metrics-");
     try {
       const file = join(dir, "history.jsonl");
       const day = 864e5;

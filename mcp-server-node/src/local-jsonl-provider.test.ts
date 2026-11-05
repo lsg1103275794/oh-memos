@@ -1,12 +1,12 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "fs";
-import { tmpdir } from "os";
+import { rmSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { LocalJsonlProvider } from "./providers/local-jsonl-provider.js";
 import type { LiteEmbedder } from "./providers/lite-embedding.js";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 let root = "";
-beforeEach(() => { root = mkdtempSync(join(tmpdir(), "lite-store-")); });
+beforeEach(() => { root = scratchDir("lite-store-"); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 function provider(): LocalJsonlProvider {

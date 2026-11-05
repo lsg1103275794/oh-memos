@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
-const fixtureRoot = mkdtempSync(join(tmpdir(), "oh-memos-factory-"));
+const fixtureRoot = scratchDir("oh-memos-factory-");
 vi.stubEnv("MEMOS_MODE", "full");
 vi.stubEnv("MEMOS_PROVIDER", "api");
 vi.stubEnv("MEMOS_URL", "http://127.0.0.1:1");

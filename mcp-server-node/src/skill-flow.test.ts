@@ -1,11 +1,11 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
-import { tmpdir } from "os";
+import { rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import {
   handleMemosReviewSkillCandidate,
   handleMemosInstallSkillCandidate,
 } from "./handlers/skill.js";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 let root = "";
 const CANDIDATE = `---
@@ -28,7 +28,7 @@ function writeCandidate(content = CANDIDATE): string {
   return file;
 }
 
-beforeEach(() => { root = mkdtempSync(join(tmpdir(), "skill-flow-")); });
+beforeEach(() => { root = scratchDir("skill-flow-"); });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("skill candidate review and install", () => {

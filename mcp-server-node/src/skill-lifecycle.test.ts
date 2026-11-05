@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync } from "fs";
-import { tmpdir } from "os";
+import { rmSync } from "fs";
 import { join, sep } from "path";
 import { parseCandidateFrontMatter, transitionCandidate, installTargetPath } from "./skill-lifecycle.js";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 describe("skill candidate lifecycle", () => {
   const candidate = `---\ngenerator: oh-memos-skill-distill\nstatus: candidate\nslug: migration-locking\nsource_memory_ids: ["m1", "m2"]\n---\n\n# Migration locking\n\nUse advisory locks.`;
@@ -32,10 +32,14 @@ describe("skill candidate lifecycle", () => {
   it("confines installation to project .claude/skills", () => {
     // A real absolute root (not a Windows-style literal) so the assertion
     // holds on posix runners too, where "G:/project" is a relative path.
-    const root = mkdtempSync(join(tmpdir(), "skill-target-"));
-    const target = installTargetPath(root, "migration-locking");
-    expect(target.startsWith(root + sep)).toBe(true);
-    expect(target.endsWith(join(".claude", "skills", "migration-locking", "SKILL.md"))).toBe(true);
-    expect(() => installTargetPath(root, "../escape")).toThrow();
+    const root = scratchDir("skill-target-");
+    try {
+      const target = installTargetPath(root, "migration-locking");
+      expect(target.startsWith(root + sep)).toBe(true);
+      expect(target.endsWith(join(".claude", "skills", "migration-locking", "SKILL.md"))).toBe(true);
+      expect(() => installTargetPath(root, "../escape")).toThrow();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -1,11 +1,11 @@
 // Standalone Lite-mode smoke test over real MCP stdio.
 // No FastAPI, Neo4j, Qdrant, or Ollama is required.
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { scratchDir } from "./_scratch.mjs";
 
-const root = mkdtempSync(join(tmpdir(), "lite-mcp-smoke-"));
+const root = scratchDir("lite-mcp-smoke-");
 const cube = "lite_smoke_cube";
 const child = spawn(process.execPath, ["dist/index.js"], {
   stdio: ["pipe", "pipe", "pipe"],

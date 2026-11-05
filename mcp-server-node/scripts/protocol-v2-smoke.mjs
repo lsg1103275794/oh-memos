@@ -5,17 +5,13 @@
 // negotiation paths against the same executable package.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import {
-  existsSync,
-  mkdtempSync,
-  rmSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { scratchDir } from "./_scratch.mjs";
 
 const DIST_ENTRY = fileURLToPath(new URL("../dist/index.js", import.meta.url));
 const PACKAGE_ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -166,7 +162,7 @@ async function runClientContract(
 
 async function runProbeSideEffectContract() {
   console.log("\nProbe/factory side-effect contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-probe-"));
+  const root = scratchDir("oh-memos-protocol-v2-probe-");
   const cube = "protocol_probe_cube";
   const env = baseEnv(root, cube, {
     MEMOS_MODE: "full",
@@ -221,7 +217,7 @@ async function runProbeSideEffectContract() {
 
 async function runLargeMessageContract() {
   console.log("\nStdio buffer boundary contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-large-"));
+  const root = scratchDir("oh-memos-protocol-v2-large-");
   const cube = "protocol_large_cube";
   const query = "x".repeat(4_800_000);
   const envelope = JSON.stringify({
@@ -270,7 +266,7 @@ async function runLargeMessageContract() {
 async function runSignalContract() {
   console.log("\nSignal close contract");
   for (const signalName of ["SIGINT", "SIGTERM"]) {
-    const root = mkdtempSync(join(tmpdir(), `oh-memos-protocol-v2-${signalName.toLowerCase()}-`));
+    const root = scratchDir(`oh-memos-protocol-v2-${signalName.toLowerCase()}-`);
     const child = spawn(process.execPath, [DIST_ENTRY], {
       cwd: PACKAGE_ROOT,
       env: baseEnv(root, `protocol_${signalName.toLowerCase()}_cube`, { MEMOS_LOG_LEVEL: "DEBUG" }),
@@ -332,7 +328,7 @@ async function withTimeout(promise, timeoutMs, message) {
 
 async function runClientPipeCloseContract() {
   console.log("\nClient pipe close contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-pipe-close-"));
+  const root = scratchDir("oh-memos-protocol-v2-pipe-close-");
   const child = spawn(process.execPath, [DIST_ENTRY], {
     cwd: PACKAGE_ROOT,
     env: baseEnv(root, "protocol_pipe_close_cube"),
@@ -373,7 +369,7 @@ async function runClientPipeCloseContract() {
 async function runConditionalToolMatrix() {
   console.log("\nConditional tool matrix");
   for (const mode of ["legacy", "auto", "pin"]) {
-    const root = mkdtempSync(join(tmpdir(), `oh-memos-protocol-v2-delete-${mode}-`));
+    const root = scratchDir(`oh-memos-protocol-v2-delete-${mode}-`);
     const result = await runClientContract(mode, {
       root,
       cube: `protocol_v2_delete_${mode}_cube`,
@@ -393,7 +389,7 @@ async function runConditionalToolMatrix() {
 async function runProviderMatrix() {
   console.log("\nProvider matrix");
   for (const mode of ["legacy", "auto", "pin"]) {
-    const root = mkdtempSync(join(tmpdir(), `oh-memos-protocol-v2-full-${mode}-`));
+    const root = scratchDir(`oh-memos-protocol-v2-full-${mode}-`);
     const result = await runClientContract(mode, {
       root,
       cube: `protocol_v2_full_${mode}_cube`,
@@ -418,21 +414,21 @@ if (!existsSync(DIST_ENTRY)) {
 }
 
 console.log("\nv2 client legacy contract");
-const legacyRoot = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-legacy-"));
+const legacyRoot = scratchDir("oh-memos-protocol-v2-legacy-");
 const legacyCube = "protocol_v2_legacy_cube";
 const legacy = await runClientContract("legacy", { root: legacyRoot, cube: legacyCube });
 await closeQuietly(legacy.client, legacy.transport);
 rmSync(legacyRoot, { recursive: true, force: true });
 
 console.log("\nv2 client auto contract");
-const autoRoot = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-auto-"));
+const autoRoot = scratchDir("oh-memos-protocol-v2-auto-");
 const autoCube = "protocol_v2_auto_cube";
 const auto = await runClientContract("auto", { root: autoRoot, cube: autoCube });
 await closeQuietly(auto.client, auto.transport);
 rmSync(autoRoot, { recursive: true, force: true });
 
 console.log("\nv2 client modern pin contract");
-const pinRoot = mkdtempSync(join(tmpdir(), "oh-memos-protocol-v2-pin-"));
+const pinRoot = scratchDir("oh-memos-protocol-v2-pin-");
 const pinCube = "protocol_v2_pin_cube";
 const pin = await runClientContract("pin", { root: pinRoot, cube: pinCube });
 await closeQuietly(pin.client, pin.transport);
@@ -440,7 +436,7 @@ rmSync(pinRoot, { recursive: true, force: true });
 
 console.log("\nv2 client stringified argument contracts");
 for (const mode of ["legacy", "auto", "pin"]) {
-  const root = mkdtempSync(join(tmpdir(), `oh-memos-protocol-v2-string-${mode}-`));
+  const root = scratchDir(`oh-memos-protocol-v2-string-${mode}-`);
   const result = await runClientContract(mode, {
     root,
     cube: `protocol_v2_string_${mode}_cube`,

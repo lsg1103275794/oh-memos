@@ -8,14 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-  mkdirSync,
-  readFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
 
 import {
@@ -28,13 +21,14 @@ import {
   CanvasPathError,
 } from "./canvas-store.js";
 import { renderCanvas, type Canvas } from "./canvas-format.js";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 const CUBE = "oh_memos_cube";
 
 let root: string;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "canvas-test-"));
+  root = scratchDir("canvas-test-");
 });
 
 afterEach(() => {

@@ -6,11 +6,11 @@
 // part of the compatibility contract.
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { once } from "node:events";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { scratchDir } from "./_scratch.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -89,7 +89,7 @@ function envFor(root, cube, enableDelete) {
 }
 
 async function captureTools(enableDelete) {
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-schema-semantic-"));
+  const root = scratchDir("oh-memos-schema-semantic-");
   const child = spawn(process.execPath, [DIST_ENTRY], {
     cwd: ROOT,
     env: envFor(root, "ci_cube", enableDelete),

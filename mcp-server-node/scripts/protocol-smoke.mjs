@@ -4,15 +4,10 @@
 // the initialize-era wire behavior independently of client package changes.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { scratchDir } from "./_scratch.mjs";
 
 const LEGACY_PROTOCOL_VERSION = "2025-11-25";
 const DIST_ENTRY = fileURLToPath(new URL("../dist/index.js", import.meta.url));
@@ -246,7 +241,7 @@ function validateTools(label, tools, expectedNames) {
 
 async function runLiteContracts() {
   console.log("\nLite legacy contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-lite-"));
+  const root = scratchDir("oh-memos-protocol-lite-");
   const cube = "protocol_lite_cube";
   const client = new LegacyStdioClient(
     "lite",
@@ -380,7 +375,7 @@ async function runLiteContracts() {
 
 async function runConditionalDeleteContract() {
   console.log("\nConditional tool contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-delete-"));
+  const root = scratchDir("oh-memos-protocol-delete-");
   const cube = "protocol_delete_cube";
   const client = new LegacyStdioClient(
     "delete-enabled",
@@ -422,7 +417,7 @@ async function runConditionalDeleteContract() {
 
 async function runFullContracts() {
   console.log("\nFull legacy contract");
-  const root = mkdtempSync(join(tmpdir(), "oh-memos-protocol-full-"));
+  const root = scratchDir("oh-memos-protocol-full-");
   const cube = "protocol_full_cube";
   const client = new LegacyStdioClient(
     "full",

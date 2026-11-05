@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import {
   readAccessStats,
@@ -9,6 +8,7 @@ import {
 } from "./access-tracker.js";
 import { applyMemoryQualityPolicy } from "./memory-quality.js";
 import type { MemoryNode } from "./types.js";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 let root: string;
 const CUBE = "test_cube";
@@ -21,7 +21,7 @@ const lines = (): string[] =>
     .filter((l) => l.trim());
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "access-tracker-"));
+  root = scratchDir("access-tracker-");
   resetAccessCache();
 });
 

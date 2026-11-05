@@ -23,10 +23,10 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { scratchDir } from "./_scratch.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -47,7 +47,7 @@ const tokens = (b) => Math.round(b / BYTES_PER_TOKEN);
 const pct = (n) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
 
 function listTools(enableDelete) {
-  const tempRoot = mkdtempSync(join(tmpdir(), "oh-memos-schema-budget-"));
+  const tempRoot = scratchDir("oh-memos-schema-budget-");
   const env = {
     ...process.env,
     MEMOS_MODE: "lite",

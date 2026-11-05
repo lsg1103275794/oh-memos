@@ -1,8 +1,8 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { scratchDir } from "../scripts/_scratch.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const scriptPath = resolve(
@@ -38,7 +38,7 @@ async function importWithoutShebang(
 ): Promise<Record<string, unknown>> {
   const source = readFileSync(path, "utf8");
   const stripped = source.replace(/^#![^\n]*/, "");
-  const dir = mkdtempSync(join(tmpdir(), "ohm-readme-"));
+  const dir = scratchDir("ohm-readme-");
   const copy = join(dir, "generate-readme-changelog.mjs");
   try {
     writeFileSync(copy, stripped, "utf8");
