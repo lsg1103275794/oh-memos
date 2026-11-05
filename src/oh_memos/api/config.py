@@ -332,7 +332,7 @@ class APIConfig:
                 "model_name_or_path": llm_defaults.memreader_model(),
                 "temperature": 0.6,
                 "max_tokens": int(os.getenv("MEMRADER_MAX_TOKENS", "8000")),
-                "top_p": 0.95,
+                "top_p": llm_defaults.memreader_top_p(),
                 "top_k": 20,
                 "api_key": llm_defaults.memreader_api_key("EMPTY"),
                 # Falls back to OPENAI_API_BASE, then to the public OpenAI URL, so
@@ -489,7 +489,7 @@ class APIConfig:
                                 "model_name_or_path": llm_defaults.memreader_model(),
                                 "temperature": 0.6,
                                 "max_tokens": 5000,
-                                "top_p": 0.95,
+                                "top_p": llm_defaults.memreader_top_p(),
                                 "top_k": 20,
                                 "api_key": llm_defaults.memreader_api_key("EMPTY"),
                                 "api_base": llm_defaults.memreader_api_base(),

@@ -52,6 +52,8 @@ class OpenAILLMConfig(BaseLLMConfig):
         description="Base URL for OpenAI-compatible API (env: OPENAI_API_BASE)",
     )
     extra_body: Any = Field(default=None, description="extra body")
+    # None leaves top_p out of the request, for upstreams that reject it (HTTP 400).
+    top_p: float | None = Field(default=0.95, description="Top-p sampling parameter")
 
 
 class OpenAIResponsesLLMConfig(BaseLLMConfig):

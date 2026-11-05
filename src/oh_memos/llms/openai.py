@@ -38,6 +38,11 @@ def _build_resilient_http_client() -> httpx.Client:
     )
 
 
+def _omit_if_none(value):
+    """Map None to NOT_GIVEN so the SDK leaves the field out of the request."""
+    return NOT_GIVEN if value is None else value
+
+
 class OpenAILLM(BaseLLM):
     """OpenAI LLM class via openai.chat.completions.create."""
 
@@ -66,7 +71,7 @@ class OpenAILLM(BaseLLM):
             "messages": messages,
             "temperature": kwargs.get("temperature", self.config.temperature),
             "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
-            "top_p": kwargs.get("top_p", self.config.top_p),
+            "top_p": _omit_if_none(kwargs.get("top_p", self.config.top_p)),
             "extra_body": kwargs.get("extra_body", self.config.extra_body),
             "tools": kwargs.get("tools", NOT_GIVEN),
         }
@@ -115,7 +120,7 @@ class OpenAILLM(BaseLLM):
             "stream": True,
             "temperature": kwargs.get("temperature", self.config.temperature),
             "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
-            "top_p": kwargs.get("top_p", self.config.top_p),
+            "top_p": _omit_if_none(kwargs.get("top_p", self.config.top_p)),
             "extra_body": kwargs.get("extra_body", self.config.extra_body),
             "tools": kwargs.get("tools", NOT_GIVEN),
         }

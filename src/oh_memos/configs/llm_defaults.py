@@ -116,6 +116,20 @@ def memreader_api_base(default: str = DEFAULT_OPENAI_API_BASE) -> str:
     return _env("MEMRADER_API_BASE", chat_api_base(default))
 
 
+def memreader_top_p(default: float = 0.95) -> float | None:
+    """MemReader top_p (``MEMRADER_TOP_P``). ``none`` leaves top_p out of the request.
+
+    Some OpenAI-compatible upstreams reject top_p with HTTP 400. Unset or blank
+    keeps ``default``.
+    """
+    value = _env("MEMRADER_TOP_P")
+    if not value:
+        return default
+    if value.lower() in ("none", "null"):
+        return None
+    return float(value)
+
+
 # ---------------------------------------------------------------------------
 # Fallback LLM (degradation target when the primary times out / is exhausted)
 # ---------------------------------------------------------------------------
