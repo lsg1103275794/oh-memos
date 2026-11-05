@@ -874,10 +874,7 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
             - Supports structured querying such as tag/category/importance/time filtering.
             - Can be used for faceted recall or prefiltering before embedding rerank.
         """
-        logger.info(
-            f"[get_by_metadata] filters: {filters},user_name: {user_name},filter: {filter},knowledgebase_ids: {knowledgebase_ids},status: {status}"
-        )
-        print(
+        logger.debug(
             f"[get_by_metadata] filters: {filters},user_name: {user_name},filter: {filter},knowledgebase_ids: {knowledgebase_ids},status: {status}"
         )
         user_name = user_name if user_name else self.config.user_name
@@ -1038,8 +1035,7 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
         # Merge filter parameters
         if filter_params:
             params.update(filter_params)
-        logger.info(f"[get_by_metadata] query: {query},params: {params}")
-        print(f"[get_by_metadata] query: {query},params: {params}")
+        logger.debug(f"[get_by_metadata] query: {query},params: {params}")
 
         with self.driver.session(database=self.db_name) as session:
             result = session.run(query, params)
