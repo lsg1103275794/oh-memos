@@ -29,7 +29,7 @@ The hooks are Node.js scripts and run unchanged on Windows, WSL, Linux and macOS
 |------|------|------|
 | `oh_memos_session_start.js` | SessionStart | 输出 CWD → cube_id 映射 |
 | `oh_memos_user_prompt.js` | UserPromptSubmit | 意图检测（历史 / 报错 / 决策）→ 建议 `memos_search` |
-| `oh_memos_context_inject.js` | PreToolUse `Grep\|Glob\|Read\|Edit\|Write` | 自动检索记忆并注入为 `additionalContext` |
+| `oh_memos_context_inject.js` | PreToolUse `Grep\|Glob\|Read\|Edit\|Write` | 按工具参数检索记忆，命中时写进 `hookSpecificOutput.additionalContext` 送给模型；没命中或出错时什么都不输出。读 `MEMOS_URL`、`MEMOS_USER`（默认 `http://localhost:18000`、`dev_user`） |
 | `oh_memos_block_sensitive.js` | PreToolUse `Edit\|Write` | 编辑 `.env` / credentials 等敏感文件前告警 |
 | `oh_memos_block_mkdir_memory.js` | PreToolUse `Bash` | 拦截 `mkdir.*memory`，强制走 MCP 工具 |
 | `oh_memos_block_memory_write.js` | PreToolUse `Write\|Edit\|MultiEdit\|NotebookEdit` | 拦截 Claude Code **内置 file-based memory** 写入，并在 stderr 指明改用 `oh_memos_save` |

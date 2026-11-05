@@ -12,64 +12,55 @@
  * Input (stdin JSON):
  *   { tool_name, tool_input, cwd }
  *
- * Output (stdout JSON):
- *   { continue: true, suppressOutput: false, additionalContext: "..." }  -- if memories found
- *   { continue: true, suppressOutput: true }                             -- if no memories or error
+ * Env: MEMOS_URL (default http://localhost:18000), MEMOS_USER (default dev_user).
+ *
+ * Output (stdout JSON), only when memories are found:
+ *   { hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: "..." } }
+ * Nothing is printed when there is no match or on any error.
  */
 
 const http = require('http');
+const https = require('https');
 const path = require('path');
 
-const oh_memos_API_HOST = 'localhost';
-const oh_memos_API_PORT = 18000;
-const oh_memos_USER = 'dev_user';
+const DEFAULT_API_URL = 'http://localhost:18000';
+const DEFAULT_USER = 'dev_user';
 const TOP_K = 3;
 const TIMEOUT_MS = 4000;
 const MAX_CONTEXT_CHARS = 800;
 const MIN_KEYWORD_LENGTH = 3;
 
-let input = '';
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', async () => {
-  try {
-    const data = JSON.parse(input);
-    const toolName = data.tool_name || '';
-    const toolInput = data.tool_input || {};
-    const cwd = data.cwd || '';
+async function main(input) {
+  const data = JSON.parse(input);
+  const toolName = data.tool_name || '';
+  const toolInput = data.tool_input || {};
+  const cwd = data.cwd || '';
 
-    // Extract keyword based on tool type
-    const keyword = extractKeyword(toolName, toolInput);
-    if (!keyword || keyword.length < MIN_KEYWORD_LENGTH) {
-      return suppress();
-    }
+  const keyword = extractKeyword(toolName, toolInput);
+  if (!keyword || keyword.length < MIN_KEYWORD_LENGTH || !cwd) return;
 
-    // Derive cube_id from cwd
-    const cubeId = deriveCubeId(cwd);
-    if (!cubeId) {
-      return suppress();
-    }
+  const api = new URL(process.env.MEMOS_URL || DEFAULT_API_URL);
+  const user = process.env.MEMOS_USER || DEFAULT_USER;
+  const memories = await searchMemOS(api, user, keyword, deriveCubeId(cwd));
+  const context = memories && memories.length ? formatContext(memories, keyword) : '';
+  if (!context) return;
 
-    // Search MemOS API
-    const memories = await searchMemOS(keyword, cubeId);
-    if (!memories || memories.length === 0) {
-      return suppress();
-    }
+  // Only hookSpecificOutput.additionalContext reaches the model. Claude Code
+  // does not read a top-level additionalContext field.
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: data.hook_event_name || 'PreToolUse',
+      additionalContext: context,
+    },
+  }));
+}
 
-    // Format results as concise additionalContext
-    const context = formatContext(memories, keyword);
-    if (!context) {
-      return suppress();
-    }
-
-    console.log(JSON.stringify({
-      continue: true,
-      suppressOutput: false,
-      additionalContext: context
-    }));
-  } catch (e) {
-    suppress();
-  }
-});
+if (require.main === module) {
+  let input = '';
+  process.stdin.on('data', chunk => input += chunk);
+  // Fail open: any error means no injected context, never a blocked tool call.
+  process.stdin.on('end', () => { main(input).catch(() => {}); });
+}
 
 /**
  * Extract a meaningful search keyword from tool_input based on tool type.
@@ -150,33 +141,39 @@ function extractFilenameKeyword(filePath) {
 }
 
 /**
- * Derive cube_id from the current working directory.
- * Rule: basename(cwd) -> lowercase -> replace [-.\s]+ with _ -> append _cube
+ * Cube id for a project directory. Same rule as detectCubeFromPath in
+ * mcp-server-node/src/keyword-enhancer.ts; hook-context.test.ts keeps the
+ * copies in the hooks equal to it.
  */
 function deriveCubeId(cwd) {
-  if (!cwd) return '';
-  const base = path.basename(cwd);
-  if (!base) return '';
-  return base.toLowerCase().replace(/[-.\s]+/g, '_') + '_cube';
+  const segments = String(cwd).replace(/\\/g, '/').replace(/\/$/, '').split('/');
+  let folder = segments[segments.length - 1] || '';
+  if (/^[A-Za-z]:$/.test(folder)) folder = segments[segments.length - 2] || 'default';
+  if (!folder) return 'default_cube';
+  let id = folder.toLowerCase().replace(/[-.\s]+/g, '_').replace(/[^a-z0-9_]/g, '');
+  if (/^\d/.test(id)) id = '_' + id;
+  if (!id.endsWith('_cube')) id += '_cube';
+  return id || 'default_cube';
 }
 
 /**
  * Search MemOS API for memories matching the keyword.
  * Returns a promise that resolves to an array of memory objects, or null on error.
  */
-function searchMemOS(keyword, cubeId) {
+function searchMemOS(api, user, keyword, cubeId) {
   return new Promise((resolve) => {
     const payload = JSON.stringify({
-      user_id: oh_memos_USER,
+      user_id: user,
       query: keyword,
       install_cube_ids: [cubeId],
       top_k: TOP_K
     });
 
+    const client = api.protocol === 'https:' ? https : http;
     const options = {
-      hostname: oh_memos_API_HOST,
-      port: oh_memos_API_PORT,
-      path: '/search',
+      hostname: api.hostname,
+      port: api.port || (api.protocol === 'https:' ? 443 : 80),
+      path: `${api.pathname.replace(/\/$/, '')}/search`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -185,7 +182,7 @@ function searchMemOS(keyword, cubeId) {
       timeout: TIMEOUT_MS
     };
 
-    const req = http.request(options, (res) => {
+    const req = client.request(options, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
@@ -267,9 +264,4 @@ function formatContext(memories, keyword) {
   return lines.join('\n');
 }
 
-/**
- * Output suppressed (no context) and exit cleanly.
- */
-function suppress() {
-  console.log(JSON.stringify({ continue: true, suppressOutput: true }));
-}
+module.exports = { deriveCubeId, extractKeyword, formatContext };

@@ -21,9 +21,20 @@ const timeoutMs = Math.max(500, Math.min(Number(env.MEMOS_AUTO_CAPTURE_TIMEOUT_M
 function output(message) {
   process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true, ...(message ? { message } : {}) }));
 }
-function cubeFromCwd(cwd) {
-  const base = path.basename(cwd || process.cwd()).toLowerCase().replace(/[-.\s]+/g, "_").replace(/[^a-z0-9_]/g, "");
-  return `${base || "default"}_cube`;
+/**
+ * Cube id for a project directory. Same rule as detectCubeFromPath in
+ * mcp-server-node/src/keyword-enhancer.ts; hook-context.test.ts keeps the
+ * copies in the hooks equal to it.
+ */
+function deriveCubeId(cwd) {
+  const segments = String(cwd).replace(/\\/g, "/").replace(/\/$/, "").split("/");
+  let folder = segments[segments.length - 1] || "";
+  if (/^[A-Za-z]:$/.test(folder)) folder = segments[segments.length - 2] || "default";
+  if (!folder) return "default_cube";
+  let id = folder.toLowerCase().replace(/[-.\s]+/g, "_").replace(/[^a-z0-9_]/g, "");
+  if (/^\d/.test(id)) id = "_" + id;
+  if (!id.endsWith("_cube")) id += "_cube";
+  return id || "default_cube";
 }
 function bounded(value) {
   return String(value || "").replace(/\r/g, "").replace(/\0/g, "").trim().slice(-maxChars);
@@ -58,7 +69,7 @@ function request(url, body) {
     } catch { resolve(false); }
   });
 }
-(async () => {
+async function main() {
   if (!enabled) { output(); return; }
   const event = await readInput();
   const eventName = String(event.hook_event_name || event.event || "pre-compact").toLowerCase();
@@ -75,7 +86,7 @@ function request(url, body) {
   if (fs.existsSync(marker)) { output(); return; }
   const baseUrl = String(env.MEMOS_URL || "http://127.0.0.1:18000").replace(/\/$/, "");
   const user = env.MEMOS_USER || "dev_user";
-  const cube = env.MEMOS_DEFAULT_CUBE || cubeFromCwd(cwd);
+  const cube = env.MEMOS_DEFAULT_CUBE || deriveCubeId(cwd);
   const body = {
     user_id: user,
     mem_cube_id: cube,
@@ -90,4 +101,8 @@ function request(url, body) {
   const ok = await request(`${baseUrl}/memories`, body);
   if (ok) { try { fs.writeFileSync(marker, new Date().toISOString(), { flag: "wx" }); } catch {} }
   output(ok ? "Session checkpoint captured." : "");
-})().catch(() => output());
+}
+
+if (require.main === module) main().catch(() => output());
+
+module.exports = { deriveCubeId };
