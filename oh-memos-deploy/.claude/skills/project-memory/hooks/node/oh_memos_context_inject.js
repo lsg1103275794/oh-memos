@@ -4,7 +4,7 @@
  *
  * Intercepts Grep/Glob/Read/Edit/Write tool calls, extracts a keyword,
  * searches MemOS for related memories, and injects them as additionalContext.
- * This enables zero-explicit-oh_memos_search context awareness.
+ * This enables zero-explicit-memos_search context awareness.
  *
  * Hook type: PreToolUse
  * Matcher: Grep|Glob|Read|Edit|Write

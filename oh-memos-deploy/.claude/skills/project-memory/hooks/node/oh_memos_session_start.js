@@ -32,7 +32,7 @@ function main() {
   const folderName = path.basename(cwd);
   const fullCubeId = deriveCubeId(cwd);
   console.error(`[MemOS] Project: ${folderName} â†?cube_id: "${fullCubeId}"`);
-  console.error(`[MemOS] Use project_path="${cwd}" in oh_memos_save/oh_memos_search for correct cube routing.`);
+  console.error(`[MemOS] Use project_path="${cwd}" in memos_save/memos_search for correct cube routing.`);
   console.error('[MemOS] NEVER use mkdir or Write to create memory files. Use MCP memos tools only.');
   process.exit(0);
 }

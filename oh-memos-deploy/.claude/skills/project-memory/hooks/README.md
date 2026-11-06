@@ -31,8 +31,8 @@ The hooks are Node.js scripts and run unchanged on Windows, WSL, Linux and macOS
 | `oh_memos_user_prompt.js` | UserPromptSubmit | 意图检测（历史 / 报错 / 决策）→ 建议 `memos_search` |
 | `oh_memos_context_inject.js` | PreToolUse `Grep\|Glob\|Read\|Edit\|Write` | 按工具参数检索记忆，命中时写进 `hookSpecificOutput.additionalContext` 送给模型；没命中或出错时什么都不输出。读 `MEMOS_URL`、`MEMOS_USER`（默认 `http://localhost:18000`、`dev_user`） |
 | `oh_memos_block_sensitive.js` | PreToolUse `Edit\|Write` | 编辑 `.env` / credentials 等敏感文件前告警 |
-| `oh_memos_block_mkdir_memory.js` | PreToolUse `Bash` | 拦截 `mkdir.*memory`，强制走 MCP 工具 |
-| `oh_memos_block_memory_write.js` | PreToolUse `Write\|Edit\|MultiEdit\|NotebookEdit` | 拦截 Claude Code **内置 file-based memory** 写入，并在 stderr 指明改用 `oh_memos_save` |
+| `oh_memos_block_mkdir_memory.js` | PreToolUse `Bash\|PowerShell` | 拦截以 `mkdir` / `New-Item` 开头、参数里有 `memory` 路径段的命令，强制走 MCP 工具；只提到这两个词的命令（提交信息、脚本路径）放行 |
+| `oh_memos_block_memory_write.js` | PreToolUse `Write\|Edit\|MultiEdit\|NotebookEdit` | 拦截 Claude Code **内置 file-based memory** 写入，并在 stderr 指明改用 `memos_save` |
 | `oh_memos_log_commands.js` | PostToolUse `Bash` | 记录命令历史备查 |
 | `oh_memos_auto_save.js` | PostToolUse `Bash\|Edit\|Write` | 建议 `memory_type` 与 `project_path` |
 | `oh_memos_notify_milestone.js` | PostToolUse `Edit\|Write` | 改动重要文件时提示存 MILESTONE |
@@ -108,7 +108,7 @@ Claude Code 2.x 自带一套 **file-based memory**。它的 system prompt 直接
 所以光在 CLAUDE.md 里写禁令是拦不住的 —— agent 不是无视项目规则，是在服从更高优先级的指令。
 
 `oh_memos_block_memory_write.js` 补的就是这个缺口。它刻意不做纯阻断：exit 2 的同时在 stderr
-里点名 `oh_memos_save(project_path=<cwd>)` 和可选的 `memory_type`，让 agent 收到反馈后**换工具**，
+里点名 `memos_save(project_path=<cwd>)` 和可选的 `memory_type`，让 agent 收到反馈后**换工具**，
 而不是按 system prompt 反复重试同一个 Write、白烧 turn。
 
 作用域刻意收窄，只认内置 memory 目录：

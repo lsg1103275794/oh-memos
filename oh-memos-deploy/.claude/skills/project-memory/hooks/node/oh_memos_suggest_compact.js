@@ -36,7 +36,7 @@ if (count === WARN) {
   log('');
   log(`[Memory] → ${count} tool calls → context window filling up`);
   log('[Memory] Consider saving important findings:');
-  log('[Memory]   oh_memos_save(content=..., memory_type="PROGRESS", project_path="<cwd>")');
+  log('[Memory]   memos_save(content=..., memory_type="PROGRESS", project_path="<cwd>")');
   log('');
 }
 
@@ -45,20 +45,20 @@ if (count === CRITICAL) {
   log('====================================================');
   log('  🚨 CONTEXT NEARLY FULL — SAVE MEMORIES NOW');
   log('====================================================');
-  log('  Call oh_memos_save for any unsaved key context:');
+  log('  Call memos_save for any unsaved key context:');
   log('  - Current task progress (PROGRESS)');
   log('  - Bugs found/fixed (BUGFIX)');
   log('  - Decisions made (DECISION)');
   log('  - Gotchas discovered (GOTCHA)');
   log('');
   log('  After compaction, call:');
-  log('  oh_memos_context_resume(project_path="<cwd>")');
+  log('  memos_context_resume(project_path="<cwd>")');
   log('====================================================');
   log('');
 }
 
 if (count > CRITICAL && count % 10 === 0) {
-  log(`[Memory] ⚠️ ${count} tool calls → compaction likely soon. Save key memories via oh_memos_save.`);
+  log(`[Memory] ⚠️ ${count} tool calls → compaction likely soon. Save key memories via memos_save.`);
 }
 
 process.exit(0);

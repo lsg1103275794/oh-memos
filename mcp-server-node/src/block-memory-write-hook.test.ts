@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "child_process";
 import { join } from "path";
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync, statSync } from "fs";
+import { toolSchemas } from "./tools-registry.js";
 
 const hooksDir = join(process.cwd(), "../project-memory/hooks");
 const blockMemoryWrite = join(hooksDir, "node/oh_memos_block_memory_write.js");
@@ -57,11 +58,12 @@ describe("block-memory-write hook", () => {
     expect(r.status).toBe(BLOCK);
   });
 
-  it("names oh_memos_save and carries cwd through for project_path routing", () => {
+  it("names memos_save and carries cwd through for project_path routing", () => {
     const cwd = winPath("G:", "work", "novel-writer");
     const r = runHook(blockMemoryWrite, { tool_input: { file_path: builtinWin }, cwd });
     expect(r.status).toBe(BLOCK);
-    expect(r.stderr).toContain("oh_memos_save");
+    expect(r.stderr).toMatch(/(?<!oh_)memos_save\(/);
+    expect(r.stderr).not.toContain("oh_memos_save");
     expect(r.stderr).toContain("novel-writer");
     // Must steer the agent away from retrying, or it burns turns on the same call.
     expect(r.stderr).toMatch(/Do not retry/i);
@@ -121,7 +123,33 @@ describe("block-mkdir-memory hook", () => {
       tool_input: { command: "mkdir -p /home/u/.claude/projects/p/memory" },
     });
     expect(r.status).toBe(BLOCK);
-    expect(r.stderr).toContain("oh_memos_save");
+    expect(r.stderr).toMatch(/(?<!oh_)memos_save\b/);
+    expect(r.stderr).not.toContain("oh_memos_");
+  });
+
+  // On Windows, Claude Code runs shell commands through the PowerShell tool,
+  // whose input carries the same `command` field.
+  it.each([
+    ["New-Item", `New-Item -ItemType Directory -Force -Path "${winPath("C:", "Users", "u", ".claude", "projects", "p", "memory")}"`],
+    ["New-Item for a file", `New-Item -ItemType File "${winPath("C:", "Users", "u", ".claude", "projects", "p", "memory", "note.md")}"`],
+    ["mkdir alias", `mkdir ${winPath("C:", "Users", "u", ".claude", "projects", "p", "memory")} | Out-Null`],
+    ["a chained command", "cd /tmp && mkdir -p memory"],
+  ])("blocks PowerShell-style creation: %s", (_label, command) => {
+    const r = runHook(blockMkdir, { tool_name: "PowerShell", tool_input: { command } });
+    expect(r.status).toBe(BLOCK);
+  });
+
+  // With PowerShell matched too, every shell command passes through this hook,
+  // including ones that only mention the words.
+  it.each([
+    ["a commit message", 'git commit -m "fix: stop mkdir of memory dirs"'],
+    ["running this hook", "node project-memory/hooks/node/oh_memos_block_mkdir_memory.js"],
+    ["reading this hook", "Get-Content project-memory/hooks/node/oh_memos_block_mkdir_memory.js"],
+    ["a dir that only starts with memory", "mkdir -p runtime/scratch/memory-test"],
+    ["a project-memory dir", "mkdir project-memory/new"],
+  ])("allows a command that only mentions it: %s", (_label, command) => {
+    const r = runHook(blockMkdir, { tool_name: "PowerShell", tool_input: { command } });
+    expect(r.status).toBe(0);
   });
 
   it("allows unrelated commands", () => {
@@ -179,6 +207,15 @@ describe("settings-template.json matcher syntax", () => {
     }
   });
 
+  it("registers the mkdir guard for both Bash and PowerShell", () => {
+    const entries = parsed.hooks.PreToolUse ?? [];
+    const guard = entries.find(e =>
+      JSON.stringify(e.hooks).includes("oh_memos_block_mkdir_memory"),
+    );
+    expect(guard, "oh_memos_block_mkdir_memory must be wired into PreToolUse").toBeDefined();
+    expect(guard!.matcher!.split("|").sort()).toEqual(["Bash", "PowerShell"]);
+  });
+
   it("references only hook scripts that exist on disk", () => {
     const missing: string[] = [];
     for (const entries of Object.values(parsed.hooks)) {
@@ -195,5 +232,31 @@ describe("settings-template.json matcher syntax", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The MCP tools are named memos_save, memos_search and so on. Hook messages
+ * once called them oh_memos_save, which sends the agent looking for a tool that
+ * does not exist.
+ */
+describe("hook text names real MCP tools", () => {
+  // toolSchemas keys are the full names (memos_save, ...), so this matches oh_memos_save.
+  const stale = new RegExp(`oh_(${Object.keys(toolSchemas).join("|")})\\b`, "g");
+
+  function files(dir: string): string[] {
+    return readdirSync(dir).flatMap(name => {
+      const p = join(dir, name);
+      return statSync(p).isDirectory() ? files(p) : [p];
+    });
+  }
+
+  it("uses no oh_memos_<tool> names in project-memory/hooks", () => {
+    const hits: string[] = [];
+    for (const f of files(hooksDir)) {
+      const found = readFileSync(f, "latin1").match(stale);
+      if (found) hits.push(`${f.slice(hooksDir.length + 1)}: ${[...new Set(found)].join(", ")}`);
+    }
+    expect(hits).toEqual([]);
   });
 });

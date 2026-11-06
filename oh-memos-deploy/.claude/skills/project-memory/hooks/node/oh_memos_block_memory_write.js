@@ -14,7 +14,7 @@
  * priority instruction.
  *
  * This hook closes that gap. It does not merely block: it names the replacement
- * tool on stderr so the agent switches to oh_memos_save instead of retrying the
+ * tool on stderr so the agent switches to memos_save instead of retrying the
  * same Write and burning turns.
  *
  * Scope is deliberately narrow — ONLY the built-in memory directory. A project's
@@ -53,7 +53,7 @@ process.stdin.on('end', () => {
     console.error('[oh-memos] BLOCKED: this is Claude Code built-in file-based memory.');
     console.error('[oh-memos] Project rule: all memory operations go through MCP oh-memos.');
     console.error('[oh-memos]');
-    console.error(`[oh-memos] Use instead:  oh_memos_save(content="...", memory_type="...", project_path="${cwd}")`);
+    console.error(`[oh-memos] Use instead:  memos_save(content="...", memory_type="...", project_path="${cwd}")`);
     console.error('[oh-memos] memory_type: BUGFIX | ERROR_PATTERN | DECISION | GOTCHA | CODE_PATTERN |');
     console.error('[oh-memos]              CONFIG | MILESTONE | FEATURE | PROGRESS | SYNTHESIS');
     console.error('[oh-memos]');

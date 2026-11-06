@@ -36,7 +36,7 @@
       },
       {
         "_comment": "matcher must be the bare tool name. A value containing characters outside [A-Za-z0-9_-, |*] is treated as an unanchored regex against the TOOL NAME, so an expression like 'tool == \"Bash\" && ...' never matches and the hook silently never fires. Argument-level conditions belong in the script, or in the per-handler 'if' field.",
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -46,7 +46,7 @@
         ]
       },
       {
-        "_comment": "Blocks Claude Code's built-in file-based memory (~/.claude/projects/<proj>/memory/*.md) and points the agent at oh_memos_save instead. Must cover Edit as well as Write, or the agent just switches tool.",
+        "_comment": "Blocks Claude Code's built-in file-based memory (~/.claude/projects/<proj>/memory/*.md) and points the agent at memos_save instead. Must cover Edit as well as Write, or the agent just switches tool.",
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {

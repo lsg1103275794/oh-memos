@@ -24,7 +24,7 @@ process.stdin.on('end', () => {
       console.log(JSON.stringify({
         continue: true,
         suppressOutput: false,
-        message: 'Significant file changed â†?oh_memos_save(..., memory_type="MILESTONE", project_path="<CWD>")'
+        message: 'Significant file changed â†?memos_save(..., memory_type="MILESTONE", project_path="<CWD>")'
       }));
     } else {
       console.log(JSON.stringify({
