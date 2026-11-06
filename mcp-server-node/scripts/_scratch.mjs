@@ -20,15 +20,15 @@ export function scratchDir(prefix) {
 }
 
 /** Removes entries older than a day; a concurrent run's fresh directory is kept. */
-export function sweepStale(now = Date.now()) {
+export function sweepStale(now = Date.now(), root = SCRATCH) {
   let names;
   try {
-    names = readdirSync(SCRATCH);
+    names = readdirSync(root);
   } catch {
     return;
   }
   for (const name of names) {
-    const path = join(SCRATCH, name);
+    const path = join(root, name);
     try {
       if (now - statSync(path).mtimeMs > STALE_MS) rmSync(path, { recursive: true, force: true });
     } catch {

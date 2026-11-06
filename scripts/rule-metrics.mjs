@@ -8,16 +8,27 @@
  * false positives; compare windows by reading the hits, not by the rate alone.
  * Prompt excerpts stay on this machine: write --out under an ignored directory.
  *
+ * Always-on also covers the oh-memos MCP server (server instructions plus the
+ * tools marked to load up front, read from a built dist/index.js) and the
+ * skill listing (each skill's name and description). Skill descriptions are
+ * counted in full, so that number is an upper bound: clients may shorten them.
+ *
  * Usage:
  *   node scripts/rule-metrics.mjs [--days 28] [--project .] [--out file.json]
  *                                 [--history file]... [--instructions file]...
+ *                                 [--skills-dir dir]... [--no-skills]
+ *                                 [--mcp dist/index.js] [--no-mcp]
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { scratchDir } from "../mcp-server-node/scripts/_scratch.mjs";
+
+const DEFAULT_MCP_ENTRY = fileURLToPath(new URL("../mcp-server-node/dist/index.js", import.meta.url));
 
 const TOOL_WORDS = "memos?|记忆|mcp|skill|技能|子代理|subagent|agent|jcm|jcodemunch|context7|hook|工具|浏览器|playwright";
 const CORRECTION = /我说过|说过了|又(去|在|用|忘|没|开始)|怎么又|每次都要|为什么(不用|没用|没有用|没调用|没查)|不应该|以后注意|别再|不要再|别用|不要用/;
@@ -77,6 +88,118 @@ export function estimateTokens(text) {
   return Math.round(cjk + (text.length - cjk) / 4);
 }
 
+/** Reads `description:` from SKILL.md frontmatter: plain, quoted, or a folded/literal block. */
+function parseSkillDescription(text) {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? "";
+  const lines = frontmatter.split(/\r?\n/);
+  const at = lines.findIndex((line) => /^description:/.test(line));
+  if (at < 0) return "";
+  const value = lines[at].slice("description:".length).trim();
+  if (value === ">" || value === "|" || value === ">-" || value === "|-") {
+    const block = [];
+    for (const line of lines.slice(at + 1)) {
+      if (line.trim() && !/^\s/.test(line)) break;
+      block.push(line.trim());
+    }
+    return block.filter(Boolean).join(value.startsWith(">") ? " " : "\n");
+  }
+  const quoted = /^(["'])(.*)\1$/.exec(value);
+  return quoted ? quoted[2] : value;
+}
+
+/** Name plus description of every skill a client lists; the first directory wins on a duplicate name. */
+export function skillListing(dirs) {
+  const descriptions = {};
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      const file = join(dir, name, "SKILL.md");
+      if (name in descriptions || !existsSync(file)) continue;
+      descriptions[name] = parseSkillDescription(readFileSync(file, "utf8"));
+    }
+  }
+  const text = Object.entries(descriptions).map(([name, description]) => name + description).join("");
+  return { skills: Object.keys(descriptions).length, chars: text.length, tokens: estimateTokens(text), descriptions };
+}
+
+/** Server instructions plus the description and schema of each tool marked to load up front. */
+export function mcpAlwaysOn(initResult, tools) {
+  const instructions = typeof initResult?.instructions === "string" ? initResult.instructions : "";
+  const upfront = tools.filter((tool) => tool._meta?.["anthropic/alwaysLoad"] === true);
+  const text = instructions + upfront.map((tool) => (tool.description ?? "") + JSON.stringify(tool.inputSchema ?? {})).join("");
+  return {
+    instructionChars: instructions.length,
+    tools: upfront.map((tool) => tool.name),
+    chars: text.length,
+    tokens: estimateTokens(text),
+  };
+}
+
+/** Starts a built oh-memos server in Lite mode and measures what it sends at session start. */
+export function measureMcp(entry, env = {}) {
+  const root = scratchDir("rule-metrics-mcp-");
+  const envFile = join(root, "empty.env");
+  writeFileSync(envFile, "");
+  const child = spawn(process.execPath, [entry], {
+    env: {
+      ...process.env,
+      MEMOS_MODE: "lite",
+      MEMOS_PROVIDER: "local",
+      MEMOS_URL: "",
+      MEMOS_USER: "rule_metrics",
+      MEMOS_DEFAULT_CUBE: "rule_metrics_cube",
+      MEMOS_CUBES_DIR: root,
+      MEMOS_ENV_FILE: envFile,
+      ...env,
+    },
+    stdio: ["pipe", "pipe", "ignore"],
+  });
+  return new Promise((resolvePromise, reject) => {
+    let buffer = "";
+    let init;
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.kill();
+      try {
+        rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      } catch {}
+      error ? reject(error) : resolvePromise(value);
+    };
+    const timer = setTimeout(() => finish(new Error(`no initialize/tools/list reply from ${entry}`)), 15000);
+    const send = (message) => child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
+    child.on("error", (error) => finish(error));
+    child.stdout.on("data", (chunk) => {
+      buffer += chunk;
+      let newline;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        let message;
+        try {
+          message = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (message.id === 1) {
+          init = message.result ?? {};
+          send({ method: "notifications/initialized" });
+          send({ id: 2, method: "tools/list" });
+        } else if (message.id === 2) {
+          finish(null, mcpAlwaysOn(init, message.result?.tools ?? []));
+        }
+      }
+    });
+    send({
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "rule-metrics", version: "1" } },
+    });
+  });
+}
+
 function measureInstructions(paths) {
   const files = paths.filter(existsSync).map((path) => {
     const text = readFileSync(path, "utf8");
@@ -95,7 +218,7 @@ function defaultInstructionFiles(project) {
   return [join(claudeHome, "CLAUDE.md"), join(claudeHome, "RTK.md"), ...rules, join(project, "AGENTS.md"), join(project, "CLAUDE.md")];
 }
 
-function main() {
+async function main() {
   const { values } = parseArgs({
     options: {
       days: { type: "string", default: "28" },
@@ -103,6 +226,10 @@ function main() {
       out: { type: "string" },
       history: { type: "string", multiple: true },
       instructions: { type: "string", multiple: true },
+      "skills-dir": { type: "string", multiple: true },
+      "no-skills": { type: "boolean", default: false },
+      mcp: { type: "string" },
+      "no-mcp": { type: "boolean", default: false },
     },
   });
   const days = Number(values.days);
@@ -119,18 +246,34 @@ function main() {
     alwaysOn: measureInstructions(values.instructions ?? defaultInstructionFiles(resolve(values.project))),
   };
 
+  if (!values["no-skills"]) {
+    const { descriptions: _omitted, ...listing } = skillListing(values["skills-dir"] ?? [join(homedir(), ".claude", "skills")]);
+    report.skills = listing;
+  }
+  const mcpEntry = values.mcp ?? DEFAULT_MCP_ENTRY;
+  if (!values["no-mcp"]) {
+    if (existsSync(mcpEntry)) report.mcp = { entry: mcpEntry, ...(await measureMcp(mcpEntry)) };
+    else console.log(`MCP server not measured: ${mcpEntry} not found (run npm run build in mcp-server-node)`);
+  }
+
   if (values.out) {
     mkdirSync(dirname(resolve(values.out)), { recursive: true });
     writeFileSync(values.out, `${JSON.stringify(report, null, 2)}\n`);
   }
 
-  const { reminders, alwaysOn, sources } = report;
+  const { reminders, alwaysOn, sources, mcp, skills } = report;
   console.log(`Always-on: ${alwaysOn.files.length} files, ${alwaysOn.chars} chars, ~${alwaysOn.tokens} tokens, ${alwaysOn.emphasis} emphasis words`);
   for (const file of alwaysOn.files) console.log(`  ${String(file.tokens).padStart(5)}  ${file.path}`);
+  if (mcp) console.log(`MCP server: ${mcp.instructionChars} instruction chars + ${mcp.tools.length} always-loaded tool(s) [${mcp.tools.join(", ")}], ~${mcp.tokens} tokens`);
+  if (skills) console.log(`Skill listing: ${skills.skills} skills, ${skills.chars} chars, ~${skills.tokens} tokens (upper bound)`);
+  console.log(`Total always-on: ~${alwaysOn.tokens + (mcp?.tokens ?? 0) + (skills?.tokens ?? 0)} tokens`);
   console.log(`\nLast ${days} days from ${sources.length} history file(s): ${reminders.messages} messages, ${reminders.corrections} corrections, ${reminders.reminders} reminders, ${reminders.per100} per 100`);
   for (const hit of reminders.hits) console.log(`  ${hit.at} ${hit.kind.padEnd(10)} ${hit.text}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main();
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
 }

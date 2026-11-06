@@ -35,9 +35,22 @@ describe("scratch directories", () => {
     }
   });
 
-  it("sweep tolerates a missing scratch root", () => {
-    mkdirSync(SCRATCH, { recursive: true });
-    expect(() => sweepStale(Date.now())).not.toThrow();
+  it("sweep works on the root it is given", () => {
+    const root = scratchDir("scratch-root-");
+    try {
+      const stale = join(root, "stale");
+      mkdirSync(stale);
+      const twoDaysAgo = new Date(Date.now() - 2 * 864e5);
+      utimesSync(stale, twoDaysAgo, twoDaysAgo);
+      sweepStale(Date.now(), root);
+      expect(existsSync(stale)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("sweep tolerates a missing root", () => {
+    expect(() => sweepStale(Date.now(), join(SCRATCH, "does-not-exist"))).not.toThrow();
   });
 });
 

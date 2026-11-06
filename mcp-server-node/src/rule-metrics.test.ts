@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { classifyPrompt, estimateTokens, loadPrompts, summarize } from "../../scripts/rule-metrics.mjs";
+import {
+  classifyPrompt,
+  estimateTokens,
+  loadPrompts,
+  mcpAlwaysOn,
+  measureMcp,
+  skillListing,
+  summarize,
+} from "../../scripts/rule-metrics.mjs";
+import { SERVER_INSTRUCTIONS } from "./server-instructions.js";
 import { scratchDir } from "../scripts/_scratch.mjs";
 
 describe("classifyPrompt", () => {
@@ -111,6 +120,66 @@ describe("summarize", () => {
 
   it("reports zero per100 for an empty window", () => {
     expect(summarize([], { since: 0, until: 1 }).per100).toBe(0);
+  });
+});
+
+describe("skillListing", () => {
+  it("reads plain, quoted and folded descriptions and keeps the first of duplicate names", () => {
+    const root = scratchDir("rule-metrics-skills-");
+    try {
+      const write = (dir: string, name: string, frontmatter: string) => {
+        mkdirSync(join(root, dir, name), { recursive: true });
+        writeFileSync(join(root, dir, name, "SKILL.md"), `---\nname: ${name}\n${frontmatter}\n---\n\nbody\n`);
+      };
+      write("a", "plain", "description: Plain one line.");
+      write("a", "quoted", 'description: "Quoted, with a colon: yes"');
+      write("a", "folded", "description: >\n  Folded over\n  two lines.");
+      write("b", "plain", "description: A duplicate that must be ignored.");
+      mkdirSync(join(root, "a", "no-skill-file"));
+
+      const listing = skillListing([join(root, "a"), join(root, "b"), join(root, "missing")]);
+      expect(listing.descriptions).toEqual({
+        plain: "Plain one line.",
+        quoted: "Quoted, with a colon: yes",
+        folded: "Folded over two lines.",
+      });
+      expect(listing.skills).toBe(3);
+      expect(listing.chars).toBe("plain".length + 15 + "quoted".length + 25 + "folded".length + 22);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("mcpAlwaysOn", () => {
+  it("counts server instructions and only the tools marked to load up front", () => {
+    const tools = [
+      { name: "memos_save", description: "Save.", inputSchema: { type: "object" }, _meta: { "anthropic/alwaysLoad": true } },
+      { name: "memos_graph", description: "Deferred.", inputSchema: { type: "object" } },
+    ];
+    const result = mcpAlwaysOn({ instructions: "Use memos." }, tools);
+    expect(result.instructionChars).toBe(10);
+    expect(result.tools).toEqual(["memos_save"]);
+    expect(result.chars).toBe(10 + "Save.".length + JSON.stringify({ type: "object" }).length);
+  });
+
+  it("is zero for a server without instructions or always-loaded tools", () => {
+    expect(mcpAlwaysOn({}, [{ name: "memos_save", description: "Save." }])).toMatchObject({ chars: 0, tools: [] });
+  });
+});
+
+describe("measureMcp", () => {
+  const entry = join(process.cwd(), "dist", "index.js");
+
+  it("reads instructions and always-loaded tools from the built server", async () => {
+    const result = await measureMcp(entry);
+    expect(result.instructionChars).toBe(SERVER_INSTRUCTIONS.length);
+    expect(result.tools.sort()).toEqual(["memos_save", "memos_search"]);
+  });
+
+  it("is zero when MEMOS_ALWAYS_LOAD=false", async () => {
+    const result = await measureMcp(entry, { MEMOS_ALWAYS_LOAD: "false" });
+    expect(result).toMatchObject({ chars: 0, tools: [] });
   });
 });
 

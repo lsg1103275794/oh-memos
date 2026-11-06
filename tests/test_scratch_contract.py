@@ -3,8 +3,10 @@
 Place next to the conftest that carries the scratch hooks. It copies that real conftest into
 child pytest sessions rooted in this test's own tmp_path (a throwaway project), and checks:
 green sessions delete their temp dir, failing ones keep it, leftovers older than a day are
-swept without touching fresh sessions, and an explicit --basetemp is left alone. Nothing is
-written into the real project's runtime/scratch, even if a run is killed halfway.
+swept without touching fresh sessions, and an explicit --basetemp is left alone. The child
+projects live under this test's own tmp_path, which the conftest places in
+runtime/scratch/pytest/<pid>/: a green run removes them, and if the run is killed they stay
+there until a later session sweeps them.
 """
 import os
 import re
