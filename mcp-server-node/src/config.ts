@@ -70,6 +70,7 @@ function parseCliArgs(): Record<string, string | undefined> {
         "memos-default-cube": { type: "string" },
         "memos-cubes-dir": { type: "string" },
         "memos-enable-delete": { type: "string" },
+        "memos-always-load": { type: "string" },
         "memos-timeout-tool": { type: "string" },
         "memos-timeout-startup": { type: "string" },
         "memos-timeout-health": { type: "string" },
@@ -80,7 +81,12 @@ function parseCliArgs(): Record<string, string | undefined> {
       },
       strict: false,
     });
-    return values as Record<string, string | undefined>;
+    // With strict: false a flag given without a value parses as `true`, and
+    // callers call string methods on these values, so "--memos-enable-delete"
+    // on its own becomes "true" instead of crashing at startup.
+    return Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [key, typeof value === "boolean" ? String(value) : value]),
+    ) as Record<string, string | undefined>;
   } catch {
     return {};
   }

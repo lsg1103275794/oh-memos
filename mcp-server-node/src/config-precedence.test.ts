@@ -23,6 +23,49 @@ function loadConfig(cwd: string, env: Record<string, string>, args: string[] = [
   }
 }
 
+describe("boolean CLI flags", () => {
+  // `node -e` drops the first extra argument from process.argv, hence "_".
+  function flags(args: string[], extraEnv: Record<string, string> = {}): string {
+    const cwd = scratchDir("config-flags-");
+    try {
+      const envFile = join(cwd, "empty.env");
+      writeFileSync(envFile, "");
+      const env: Record<string, string | undefined> = {
+        ...process.env,
+        MEMOS_MODE: "lite",
+        MEMOS_PROVIDER: "local",
+        MEMOS_URL: "",
+        MEMOS_USER: "ci",
+        MEMOS_DEFAULT_CUBE: "ci_cube",
+        MEMOS_CUBES_DIR: cwd,
+        MEMOS_ENV_FILE: envFile,
+        ...extraEnv,
+      };
+      if (!("MEMOS_ALWAYS_LOAD" in extraEnv)) delete env.MEMOS_ALWAYS_LOAD;
+      if (!("MEMOS_ENABLE_DELETE" in extraEnv)) delete env.MEMOS_ENABLE_DELETE;
+      const script = `import(${JSON.stringify(entryUrl)}).then(c=>console.log(JSON.stringify({alwaysLoad:c.MEMOS_ALWAYS_LOAD,enableDelete:c.MEMOS_ENABLE_DELETE})),e=>console.log(JSON.stringify({error:String(e)})))`;
+      return execFileSync(process.execPath, ["-e", script, "_", ...args], { cwd, env, encoding: "utf8" });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  it.each([
+    [[], { alwaysLoad: true, enableDelete: false }],
+    [["--memos-always-load", "false"], { alwaysLoad: false }],
+    [["--memos-always-load=false"], { alwaysLoad: false }],
+    [["--memos-always-load"], { alwaysLoad: true }],
+    [["--memos-enable-delete"], { enableDelete: true }],
+    [["--memos-enable-delete", "false"], { enableDelete: false }],
+  ])("%j", (args, expected) => {
+    expect(JSON.parse(flags(args as string[]))).toMatchObject(expected);
+  });
+
+  it("reads MEMOS_ALWAYS_LOAD from the environment", () => {
+    expect(JSON.parse(flags([], { MEMOS_ALWAYS_LOAD: "false" }))).toMatchObject({ alwaysLoad: false });
+  });
+});
+
 describe("dotenv precedence", () => {
   it("keeps inherited process values over a guessed cwd .env", () => {
     const cwd = scratchDir("config-cwd-");
