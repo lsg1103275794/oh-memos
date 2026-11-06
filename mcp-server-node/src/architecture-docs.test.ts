@@ -34,9 +34,12 @@ function embeddedMermaid(markdown: string): string | null {
 
 describe("architecture-aware memory documentation", () => {
   it("keeps the README and changelog diagrams equal to the canonical topology", () => {
-    const canonical = readFileSync(canonicalPath, "utf8").trim();
+    // Compare content, not line endings: on Windows one file can be checked out
+    // with CRLF while another was rewritten with LF by an editor or script.
+    const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+    const canonical = read(canonicalPath).trim();
     for (const relative of targetDocs) {
-      const markdown = readFileSync(resolve(repoRoot, relative), "utf8");
+      const markdown = read(resolve(repoRoot, relative));
       expect(embeddedMermaid(markdown), relative).toBe(canonical);
     }
   });

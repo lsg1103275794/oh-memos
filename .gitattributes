@@ -4,7 +4,10 @@
 # `bash install.sh` 直接报 $'\r': command not found，heredoc 的 EOF\r
 # 也永远匹配不上 —— 整条 Unix bundle 安装路径不可用。
 
-* text=auto
+# 工作区一律 LF（下面列出的 Windows 脚本除外）。只写 `* text=auto` 时，Windows 上
+# core.autocrlf=true 会把文件检出成 CRLF，而编辑器、Edit/Write 工具和脚本写回的是 LF，
+# 同一个工作区里两种行尾混着，按字节比较的测试就会失败。
+* text=auto eol=lf
 
 # Unix 脚本必须 LF，否则解释器读到 \r 就崩
 *.sh   text eol=lf
@@ -14,6 +17,7 @@
 *.bat  text eol=crlf
 *.cmd  text eol=crlf
 *.ps1  text eol=crlf
+*.vbs  text eol=crlf
 
 # 二进制资产不做任何转换
 *.png  binary
