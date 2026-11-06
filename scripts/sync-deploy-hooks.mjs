@@ -54,7 +54,17 @@ for (const name of srcScripts) {
   }
 }
 
-// 2. settings-template.json: matchers and handler set must match the canonical file.
+// 2. README.md: the bundle's copy documents the same scripts, so it must match.
+// It was not checked before and fell behind (it lacked oh_memos_block_memory_write.js).
+const readme = "README.md";
+if (readFileSync(join(SRC, readme), "utf8") !== readFileSync(join(DST, readme), "utf8")) {
+  drift.push({
+    what: `stale ${readme}`,
+    fix: () => copyFileSync(join(SRC, readme), join(DST, readme)),
+  });
+}
+
+// 3. settings-template.json: matchers and handler set must match the canonical file.
 const tplName = "settings-template.json";
 const srcTpl = JSON.parse(readFileSync(join(SRC, tplName), "utf8"));
 const dstPath = join(DST, tplName);
@@ -98,7 +108,7 @@ if (JSON.stringify(shape(srcTpl)) !== JSON.stringify(shape(dstTpl))) {
 
 if (drift.length === 0) {
   console.log(
-    `deploy bundle in sync (${srcScripts.length} scripts + ${tplName})`,
+    `deploy bundle in sync (${srcScripts.length} scripts + ${readme} + ${tplName})`,
   );
   process.exit(0);
 }
